@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ArcadeBox</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="login-box">
+    <h1>Arcade<span>Box</span></h1>
+    <p>Einloggen oder Konto erstellen</p>
+    <input id="inp-name" placeholder="Benutzername" maxlength="20">
+    <input id="inp-pass" type="password" placeholder="Passwort" maxlength="30">
+    <button id="btn-login">Los geht's</button>
+    <div id="login-err"></div>
+  </div>
+</div>
+
+<!-- HAUPTSEITE -->
+<div id="app">
+  <header>
+    <div class="logo">Arcade<span>Box</span></div>
+    <div class="user-info">Hallo, <strong id="username"></strong>
+      <button class="btn-sm" id="btn-logout">Abmelden</button>
+    </div>
+  </header>
+  <div class="hero"><h1>Bereit zum <em>Zocken</em>?</h1><p>Zwei Spiele, dein Highscore wird gespeichert.</p></div>
+  <div class="cards">
+    <div class="card" id="card-dodge"><div class="em">⚡</div><h3>Blitz-Dodge</h3><p>Weiche den Blitzen aus! Wird immer schneller.</p></div>
+    <div class="card" id="card-stack"><div class="em">🧱</div><h3>Turm-Stapler</h3><p>Staple perfekt — jeder Fehler kostet Breite!</p></div>
+  </div>
+  <div class="hs-section"><h3>🏆 Deine Highscores</h3><div id="hs-list"></div></div>
+</div>
+
+<!-- POPUP -->
+<div id="popup">
+  <div class="pbox">
+    <div class="ptop"><span id="gtitle">Spiel</span><button id="btn-x">✕</button></div>
+    <canvas id="c" width="380" height="420"></canvas>
+    <div class="pbot"><span>Punkte: <b id="pts">0</b></span><button id="btn-again">Nochmal</button></div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
