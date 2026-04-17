@@ -1,3 +1,9 @@
+var SUPABASE_URL = 'https://tjcumfilaekmexlzteum.supabase.co';
+var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqY3VtZmlsYWVrbWV4bHp0ZXVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNTI0OTQsImV4cCI6MjA5MTgyODQ5NH0.wUuHehNw3KFqVDnSPIU0rKIUyeVzAdY_PHPAkzd4_Is';
+var db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+
+
 var game=null,which='',user=null;
 
 /* ---- SPEICHER: localStorage als Fallback ---- */
@@ -9,26 +15,33 @@ function save(k,v){
 }
 
 /* ---- LOGIN ---- */
-document.getElementById('btn-login').addEventListener('click',function(){
-  var n=document.getElementById('inp-name').value.trim();
-  var p=document.getElementById('inp-pass').value;
-  var e=document.getElementById('login-err');
-  if(!n||!p){e.textContent='Bitte beides ausfüllen.';return;}
-  if(n.length<2){e.textContent='Name zu kurz.';return;}
-  var key='ab_'+n.toLowerCase();
-  var val=load(key);
-  if(val){
-    var d=JSON.parse(val);
-    if(d.pass!==p){e.textContent='Falsches Passwort!';return;}
-    user=d;
-  }else{
-    user={name:n,pass:p,dodge:0,stack:0};
-    save(key,JSON.stringify(user));
+document.getElementById('btn-login').addEventListener('click', async function() {
+  var n = document.getElementById('inp-name').value.trim();
+  var p = document.getElementById('inp-pass').value;
+  var e = document.getElementById('login-err');
+
+  if (!n || !p) { e.textContent = 'Bitte beides ausfüllen.'; return; }
+  if (n.length < 2) { e.textContent = 'Name zu kurz.'; return; }
+
+  // User in Supabase suchen
+  var res = await db.from('users').select('*').eq('name', n.toLowerCase()).single();
+
+  if (res.data) {
+    // User existiert — Passwort prüfen
+    if (res.data.pass !== p) { e.textContent = 'Falsches Passwort!'; return; }
+    user = res.data;
+  } else {
+    // Neuer User — in Datenbank anlegen
+    var ins = await db.from('users').insert({
+      name: n.toLowerCase(), pass: p, dodge: 0, stack: 0
+    }).select().single();
+    user = ins.data;
   }
-  e.textContent='';
+
+  e.textContent = '';
   document.getElementById('login').classList.add('hide');
   document.getElementById('app').classList.add('show');
-  document.getElementById('username').textContent=user.name;
+  document.getElementById('username').textContent = user.name;
   showHS();
 });
 
@@ -40,12 +53,14 @@ document.getElementById('btn-logout').addEventListener('click',function(){
   document.getElementById('login-err').textContent='';
 });
 
-function saveHS(g,s){
-  if(!user||s<=user[g])return;
-  user[g]=s;
-  save('ab_'+user.name.toLowerCase(),JSON.stringify(user));
+async function saveHS(g, s) {
+  if (!user || s <= user[g]) return false;
+  user[g] = s;
+  await db.from('users').update({ [g]: s }).eq('id', user.id);
   showHS();
+  return true;
 }
+
 
 function showHS(){
   document.getElementById('hs-list').innerHTML=
