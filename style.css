@@ -2,6 +2,14 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Bricolage Grotesque',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
 
+
+.auth-tabs { display: flex; gap: 4px; margin-bottom: 1.5rem; background: #0f0f0f; padding: 4px;
+border-radius: 8px; } .tab { flex: 1; padding: 0.6rem; background: none; border: none; color: var(--dim);
+font-family: inherit; font-weight: 700; font-size: 0.85rem; cursor: pointer; border-radius: 6px; transition:
+all 0.2s; } .tab.active { background: var(--s2); color: var(--tx); } .auth-form { display: none; }
+.auth-form.active { display: block; }
+
+
 /* Login halo sariye */
 #login{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem}
 #login.hide{display:none}
