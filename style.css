@@ -1,16 +1,17 @@
 :root{--c1:#ff5733;--c2:#1b9e77;--bg:#111;--s1:#1a1a1a;--s2:#222;--tx:#eee;--dim:#777;--r:12px}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Bricolage Grotesque',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
-
-
+ 
 .auth-tabs { display: flex; gap: 4px; margin-bottom: 1.5rem; background: #0f0f0f; padding: 4px;
-border-radius: 8px; } .tab { flex: 1; padding: 0.6rem; background: none; border: none; color: var(--dim);
+border-radius: 8px; }
+.tab { flex: 1; padding: 0.6rem; background: none; border: none; color: var(--dim);
 font-family: inherit; font-weight: 700; font-size: 0.85rem; cursor: pointer; border-radius: 6px; transition:
-all 0.2s; } .tab.active { background: var(--s2); color: var(--tx); } .auth-form { display: none; }
+all 0.2s; }
+.tab.active { background: var(--c1); color: #fff; }
+.auth-form { display: none; }
 .auth-form.active { display: block; }
-
-
-/* safe Login halo sariye */
+ 
+/* new Login new*/
 #login{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem}
 #login.hide{display:none}
 .login-box{background:var(--s1);border:1px solid #333;border-radius:var(--r);padding:2.5rem;width:320px;text-align:center}
@@ -22,7 +23,7 @@ all 0.2s; } .tab.active { background: var(--s2); color: var(--tx); } .auth-form 
 .login-box button{width:100%;padding:0.7rem;background:var(--c1);color:#fff;border:none;border-radius:8px;font-family:inherit;font-weight:700;font-size:0.95rem;cursor:pointer;margin-top:0.3rem}
 .login-box button:hover{opacity:0.85}
 #login-err{color:#ff4444;font-size:0.8rem;margin-top:0.5rem;min-height:1.2em}
-
+ 
 /* App */
 #app{display:none}
 #app.show{display:block}
@@ -36,7 +37,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0.8
 .hero h1{font-size:1.8rem;font-weight:800}
 .hero h1 em{font-style:normal;color:var(--c1)}
 .hero p{color:var(--dim);margin-top:0.3rem;font-size:0.9rem}
-
+ 
 /* Karten */
 .cards{display:flex;gap:1rem;justify-content:center;padding:0.5rem 1rem 1rem;flex-wrap:wrap}
 .card{background:var(--s1);border:1px solid #282828;border-radius:var(--r);padding:1.5rem;width:240px;text-align:center;cursor:pointer;transition:transform 0.15s,border-color 0.15s}
@@ -44,13 +45,13 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0.8
 .card .em{font-size:2.8rem;margin-bottom:0.6rem}
 .card h3{font-size:1.05rem;font-weight:700;margin-bottom:0.15rem}
 .card p{font-size:0.78rem;color:var(--dim)}
-
+ 
 /* Highscores */
 .hs-section{max-width:500px;margin:1rem auto;padding:0 1rem 2rem}
 .hs-section h3{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--dim);margin-bottom:0.5rem;font-weight:700}
 .hs-row{display:flex;justify-content:space-between;padding:0.4rem 0.8rem;font-size:0.85rem;background:var(--s1);border-radius:8px;margin-bottom:0.3rem}
 .hs-row span:last-child{color:var(--c1);font-weight:700}
-
+ 
 /* Popup */
 #popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;z-index:100}
 #popup.on{display:flex}
