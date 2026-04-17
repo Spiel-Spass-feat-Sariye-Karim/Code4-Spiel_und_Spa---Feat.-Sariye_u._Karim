@@ -2,7 +2,13 @@ var SUPABASE_URL = 'https://tjcumfilaekmexlzteum.supabase.co';
 var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqY3VtZmlsYWVrbWV4bHp0ZXVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNTI0OTQsImV4cCI6MjA5MTgyODQ5NH0.wUuHehNw3KFqVDnSPIU0rKIUyeVzAdY_PHPAkzd4_Is';
 var db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-
+// Tab-Umschaltung zwischen Anmelden / Registrieren document.querySelectorAll('.tab').forEach(function(tab)
+{ tab.addEventListener('click', function() { var target = tab.dataset.tab; // 'login' oder 'register' //
+Alle Tabs und Formulare zuruecksetzen document.querySelectorAll('.tab').forEach(function(t) {
+t.classList.remove('active'); }); document.querySelectorAll('.auth-form').forEach(function(f) {
+f.classList.remove('active'); }); // Aktiven Tab markieren und passendes Formular zeigen
+tab.classList.add('active'); document.getElementById('form-' + target).classList.add('active'); //
+Fehlermeldung zuruecksetzen document.getElementById('login-err').textContent = ''; }); });
 
 var game=null,which='',user=null;
 
