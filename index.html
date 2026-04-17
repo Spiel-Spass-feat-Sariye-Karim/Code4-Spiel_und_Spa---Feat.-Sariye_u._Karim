@@ -8,20 +8,32 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
+ 
+<!-- Supabase NUR EINMAL, ganz oben im body -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="script.js"></script>
-
-<div id="login"> <div class="login-box"> <h1>Arcade<span>Box</span></h1> <div class="auth-tabs"> <button
-class="tab active" data-tab="login">Anmelden</button> <button class="tab"
-data-tab="register">Registrieren</button> </div> <div id="form-login" class="auth-form active"> <input
-id="login-name" placeholder="Benutzername" maxlength="20"> <input id="login-pass" type="password"
-placeholder="Passwort"> <button id="btn-login">Einloggen</button> </div> <div id="form-register"
-class="auth-form"> <input id="reg-name" placeholder="Benutzername" maxlength="20"> <input id="reg-pass"
-type="password" placeholder="Passwort (min. 4 Zeichen)"> <input id="reg-pass2" type="password"
-placeholder="Passwort wiederholen"> <button id="btn-register">Konto erstellen</button> </div> <div
-id="login-err"></div> </div> </div>
-
+ 
+<div id="login">
+  <div class="login-box">
+    <h1>Arcade<span>Box</span></h1>
+    <div class="auth-tabs">
+      <button class="tab active" data-tab="login">Anmelden</button>
+      <button class="tab" data-tab="register">Registrieren</button>
+    </div>
+    <div id="form-login" class="auth-form active">
+      <input id="login-name" placeholder="Benutzername" maxlength="20">
+      <input id="login-pass" type="password" placeholder="Passwort">
+      <button id="btn-login">Einloggen</button>
+    </div>
+    <div id="form-register" class="auth-form">
+      <input id="reg-name" placeholder="Benutzername" maxlength="20">
+      <input id="reg-pass" type="password" placeholder="Passwort (min. 4 Zeichen)">
+      <input id="reg-pass2" type="password" placeholder="Passwort wiederholen">
+      <button id="btn-register">Konto erstellen</button>
+    </div>
+    <div id="login-err"></div>
+  </div>
+</div>
+ 
 <!-- HAUPTSEITE -->
 <div id="app">
   <header>
@@ -37,7 +49,7 @@ id="login-err"></div> </div> </div>
   </div>
   <div class="hs-section"><h3>🏆 Deine Highscores</h3><div id="hs-list"></div></div>
 </div>
-
+ 
 <!-- POPUP -->
 <div id="popup">
   <div class="pbox">
@@ -46,7 +58,8 @@ id="login-err"></div> </div> </div>
     <div class="pbot"><span>Punkte: <b id="pts">0</b></span><button id="btn-again">Nochmal</button></div>
   </div>
 </div>
-
+ 
+<!-- script.js NUR EINMAL, ganz unten -->
 <script src="script.js"></script>
 </body>
 </html>
