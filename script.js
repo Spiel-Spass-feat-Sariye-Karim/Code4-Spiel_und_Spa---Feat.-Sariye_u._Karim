@@ -4,7 +4,7 @@ var db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
  
 var game = null, which = '', user = null;
  
-/* ---- TAB-UMSCHALTUNG ---- */
+/* safe ---- TAB-UMSCHALTUNG ---- */
 document.querySelectorAll('.tab').forEach(function(tab) {
   tab.addEventListener('click', function() {
     var target = tab.dataset.tab;
