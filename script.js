@@ -10,18 +10,19 @@ f.classList.remove('active'); }); // Aktiven Tab markieren und passendes Formula
 tab.classList.add('active'); document.getElementById('form-' + target).classList.add('active'); //
 Fehlermeldung zuruecksetzen document.getElementById('login-err').textContent = ''; }); });
 
-document.getElementById('btn-register').addEventListener('click', async function() { var n =
-document.getElementById('reg-name').value.trim(); var p1 = document.getElementById('reg-pass').value; var
-p2 = document.getElementById('reg-pass2').value; var e = document.getElementById('login-err'); //
-Validierung if (!n || !p1 || !p2) { e.textContent = 'Bitte alle Felder ausfuellen.'; return; } if (n.length
-< 2) { e.textContent = 'Benutzername zu kurz (min. 2 Zeichen).'; return; } if (p1.length < 4) {
-e.textContent = 'Passwort zu kurz (min. 4 Zeichen).'; return; } if (p1 !== p2) { e.textContent =
-'Passwoerter stimmen nicht ueberein.'; return; } // Pruefen ob Name schon vergeben var check = await
-db.from('users').select('name') .eq('name', n.toLowerCase()).maybeSingle(); if (check.data) { e.textContent
-= 'Nutzername bereits vergeben!'; return; } // Neuen User anlegen var ins = await db.from('users').insert({
-name: n.toLowerCase(), pass: p1, dodge: 0, stack: 0, memory: 0, games_played: 0, avatar_seed:
-Math.random().toString(36).substring(2, 10) }).select().single(); if (ins.error) { e.textContent = 'Fehler
-beim Erstellen. Versuche es nochmal.'; return; } user = ins.data; enterApp(); });
+document.getElementById('btn-login').addEventListener('click', async function() { var n =
+document.getElementById('login-name').value.trim(); var p = document.getElementById('login-pass').value;
+var e = document.getElementById('login-err'); if (!n || !p) { e.textContent = 'Bitte Name und Passwort
+eingeben.'; return; } var res = await db.from('users').select('*') .eq('name',
+n.toLowerCase()).maybeSingle(); if (!res.data) { e.textContent = 'Nutzer nicht gefunden. Jetzt
+registrieren?'; return; } if (res.data.pass !== p) { e.textContent = 'Falsches Passwort!'; return; } user =
+res.data; // last_login aktualisieren await db.from('users').update({ last_login: new Date().toISOString()
+}).eq('id', user.id); enterApp(); }); // Hilfsfunktion: In die App einloggen function enterApp() {
+document.getElementById('login-err').textContent = '';
+document.getElementById('login').classList.add('hide');
+document.getElementById('app').classList.add('show'); document.getElementById('username').textContent =
+user.name; showHS(); }
+
 
 
 var game=null,which='',user=null;
