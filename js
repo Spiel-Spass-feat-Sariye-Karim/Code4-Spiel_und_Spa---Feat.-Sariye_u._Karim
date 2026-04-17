@@ -1,11 +1,3 @@
-// Tab-Umschaltung zwischen Anmelden / Registrieren document.querySelectorAll('.tab').forEach(function(tab)
-{ tab.addEventListener('click', function() { var target = tab.dataset.tab; // 'login' oder 'register' //
-Alle Tabs und Formulare zuruecksetzen document.querySelectorAll('.tab').forEach(function(t) {
-t.classList.remove('active'); }); document.querySelectorAll('.auth-form').forEach(function(f) {
-f.classList.remove('active'); }); // Aktiven Tab markieren und passendes Formular zeigen
-tab.classList.add('active'); document.getElementById('form-' + target).classList.add('active'); //
-Fehlermeldung zuruecksetzen document.getElementById('login-err').textContent = ''; }); });
-
 var game=null,which='',user=null;
 
 /* ---- SPEICHER: localStorage als Fallback ---- */
