@@ -10,7 +10,7 @@ all 0.2s; } .tab.active { background: var(--s2); color: var(--tx); } .auth-form 
 .auth-form.active { display: block; }
 
 
-/* Login halo sariye */
+/* safe Login halo sariye */
 #login{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem}
 #login.hide{display:none}
 .login-box{background:var(--s1);border:1px solid #333;border-radius:var(--r);padding:2.5rem;width:320px;text-align:center}
