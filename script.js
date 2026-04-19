@@ -286,3 +286,39 @@ function gg(ctx,W,H,s){
   ctx.font='bold 26px Bricolage Grotesque,sans-serif';ctx.fillText('Game Over!',W/2,H/2-10);
   ctx.font='16px Bricolage Grotesque,sans-serif';ctx.fillText(s+' Punkte',W/2,H/2+22);
 }
+
+document.getElementById("avatar").style.cursor = "pointer";
+document.getElementById("avatar").addEventListener("click",
+function() {
+var seed = user.avatar_seed || user.name;
+document.getElementById("profile-avatar").src =
+"https://api.dicebear.com/7.x/adventurer/svg?seed=" + seed;
+document.getElementById("profile-name").textContent = user.name;
+var created = user.created_at
+? new Date(user.created_at).toLocaleDateString("de-AT")
+: "-";
+document.getElementById("profile-info").innerHTML =
+"Mitglied seit: " + created + "<br>" +
+"Spiele gespielt: " + (user.games_played || 0);
+document.getElementById("profile-overlay").classList.add("on");
+}
+);
+document.getElementById("btn-close-profile").addEventListener("click",
+function() {
+document.getElementById("profile-overlay").classList.remove("on");
+}
+);
+document.getElementById("btn-new-avatar").addEventListener("click",
+async function() {
+var newSeed = Math.random().toString(36).substring(2, 10);
+await db.from("users")
+.update({ avatar_seed: newSeed })
+.eq("id", user.id);
+user.avatar_seed = newSeed;
+var url = "https://api.dicebear.com/7.x/adventurer/svg?seed="
++ newSeed;
+document.getElementById("avatar").src = url;
+document.getElementById("profile-avatar").src = url;
+loadGlobalHS();
+}
+);
