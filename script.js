@@ -134,7 +134,7 @@ function showHS() {
 /* ---- GLOBALES SCOREBOARD ---- */
 async function loadGlobalHS() {
 var res = await db.from("users")
-.select("name, memory, stack")
+.select('name, memory, stack, avatar_seed')
 .order("memory", { ascending: false })
 .limit(10);
 if (!res.data) return;
@@ -145,13 +145,18 @@ if (i === 0) rankClass = "top1";
 else if (i === 1) rankClass = "top2";
 else if (i === 2) rankClass = "top3";
 var meClass = (user && u.name === user.name) ? "me" : "";
+var seed = u.avatar_seed || u.name;
+var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
 html +=
-'<div class="global-row ' + meClass + '">' +
-'<div class="rank ' + rankClass + '">#' + (i+1) + '</div>' +
-'<div>' + u.name + '</div>' +
-'<div class="score">' + (u.memory || 0) + '</div>' +
-'<div class="score">' + (u.stack || 0) + '</div>' +
-'</div>';
+  '<div class="global-row ' + meClass + '">' +
+  '<div class="rank ' + rankClass + '">#' + (i+1) + '</div>' +
+  '<div style="display:flex;align-items:center;gap:8px;">' +
+  '<img src="' + av + '" style="width:24px;height:24px;border-radius:50%;">' +
+  '<span>' + u.name + '</span>' +
+  '</div>' +
+  '<div class="score">' + (u.memory || 0) + '</div>' +
+  '<div class="score">' + (u.stack || 0) + '</div>' +
+  '</div>';;
 });
 document.getElementById("global-hs").innerHTML =
 html || "Noch keine Scores";
