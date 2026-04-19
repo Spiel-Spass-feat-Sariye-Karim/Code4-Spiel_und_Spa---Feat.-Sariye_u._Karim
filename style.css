@@ -128,3 +128,31 @@ text-align: center;
 .global-row .rank.top2 { color: #c0c0c0; }
 .global-row .rank.top3 { color: #cd7f32; }
 .global-row .score { color: var(--c1); font-weight: 700; }
+
+.stats-grid {
+display: grid;
+grid-template-columns: repeat(3, 1fr);
+gap: 10px;
+max-width: 500px;
+margin: 1.5rem auto;
+padding: 0 1rem;
+}
+.stat-box {
+background: var(--s1);
+border: 1px solid #282828;
+border-radius: 8px;
+padding: 0.8rem;
+text-align: center;
+}
+.stat-val {
+font-size: 1.4rem;
+font-weight: 800;
+color: var(--c1);
+}
+.stat-lbl {
+font-size: 0.7rem;
+color: var(--dim);
+text-transform: uppercase;
+letter-spacing: 0.05em;
+margin-top: 0.2rem;
+}
