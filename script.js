@@ -106,11 +106,18 @@ document.getElementById('btn-logout').addEventListener('click',function(){
 });
  
 async function saveHS(g, s) {
-  if (!user || s <= (user[g] || 0)) return false;
-  user[g] = s;
-  await db.from('users').update({ [g]: s }).eq('id', user.id);
+  if (!user) return false;
+  user.games_played = (user.games_played || 0) + 1;
+  if (s > (user[g] || 0)) {
+    user[g] = s;
+  }
+  await db.from('users').update({
+    [g]: user[g],
+    games_played: user.games_played
+  }).eq('id', user.id);
   showHS();
   loadGlobalHS();
+  loadStats();
   return true;
 }
  
