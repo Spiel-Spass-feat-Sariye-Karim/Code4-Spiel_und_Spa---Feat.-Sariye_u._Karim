@@ -93,6 +93,7 @@ document.getElementById("avatar").src =
 "https://api.dicebear.com/7.x/adventurer/svg?seed=" + seed;
   showHS();
   loadGlobalHS();
+  loadStats();
 }
  
 document.getElementById('btn-logout').addEventListener('click',function(){
@@ -160,6 +161,23 @@ html +=
 });
 document.getElementById("global-hs").innerHTML =
 html || "Noch keine Scores";
+}
+
+async function loadStats() {
+if (!user) return;
+document.getElementById("stat-games").textContent =
+user.games_played || 0;
+document.getElementById("stat-total").textContent =
+(user.memory || 0) + (user.stack || 0);
+var res = await db.from("users")
+.select("name, memory")
+.order("memory", { ascending: false });
+if (res.data) {
+var rank = res.data.findIndex(function(u) {
+return u.name === user.name;
+}) + 1;
+document.getElementById("stat-rank").textContent = "#" + rank;
+}
 }
 
 /* ---- POPUP ---- */
