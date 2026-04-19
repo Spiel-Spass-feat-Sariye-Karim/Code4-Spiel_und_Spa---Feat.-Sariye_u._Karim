@@ -89,6 +89,7 @@ function enterApp() {
   document.getElementById('app').classList.add('show');
   document.getElementById('username').textContent = user.name;
   showHS();
+  loadGlobalHS();
 }
  
 document.getElementById('btn-logout').addEventListener('click',function(){
@@ -105,6 +106,7 @@ async function saveHS(g, s) {
   user[g] = s;
   await db.from('users').update({ [g]: s }).eq('id', user.id);
   showHS();
+  loadGlobalHS();
   return true;
 }
  
@@ -126,6 +128,32 @@ function showHS() {
     '</div>';
 }
  
+/* ---- GLOBALES SCOREBOARD ---- */
+async function loadGlobalHS() {
+var res = await db.from("users")
+.select("name, memory, stack")
+.order("memory", { ascending: false })
+.limit(10);
+if (!res.data) return;
+var html = "";
+res.data.forEach(function(u, i) {
+var rankClass = "";
+if (i === 0) rankClass = "top1";
+else if (i === 1) rankClass = "top2";
+else if (i === 2) rankClass = "top3";
+var meClass = (user && u.name === user.name) ? "me" : "";
+html +=
+'<div class="global-row ' + meClass + '">' +
+'<div class="rank ' + rankClass + '">#' + (i+1) + '</div>' +
+'<div>' + u.name + '</div>' +
+'<div class="score">' + (u.memory || 0) + '</div>' +
+'<div class="score">' + (u.stack || 0) + '</div>' +
+'</div>';
+});
+document.getElementById("global-hs").innerHTML =
+html || "Noch keine Scores";
+}
+
 /* ---- POPUP ---- */
 document.getElementById('card-memory').addEventListener('click', function() { openG('memory'); });
 document.getElementById('card-stack').addEventListener('click',function(){openG('stack')});
