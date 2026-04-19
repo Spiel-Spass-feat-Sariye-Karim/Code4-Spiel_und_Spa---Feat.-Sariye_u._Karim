@@ -156,3 +156,40 @@ text-transform: uppercase;
 letter-spacing: 0.05em;
 margin-top: 0.2rem;
 }
+
+.overlay {
+display: none;
+position: fixed;
+inset: 0;
+background: rgba(0,0,0,0.6);
+align-items: center;
+justify-content: center;
+z-index: 200;
+}
+.overlay.on { display: flex; }
+.overlay-box {
+background: var(--s1);
+border-radius: 12px;
+padding: 1.5rem;
+width: 340px;
+max-width: 95%;
+text-align: center;
+}
+.avatar-lg {
+width: 100px;
+height: 100px;
+border-radius: 50%;
+border: 3px solid var(--c1);
+margin: 1rem 0;
+}
+.btn-action {
+background: var(--c1);
+color: #fff;
+border: none;
+padding: 0.6rem 1.2rem;
+border-radius: 8px;
+font-weight: 700;
+cursor: pointer;
+margin-top: 1rem;
+font-family: inherit;
+}
