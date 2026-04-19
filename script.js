@@ -149,7 +149,31 @@ function runG() {
     game = stack(c);
   }
 } 
- 
+
+
+/* ---- SPIEL: FARB-GEDAECHTNIS ---- */ 
+function memory() { var colors = ['green', 'red', 'blue', 'yellow']; var
+seq = []; var clickIdx = 0; var on = true; var sc = 0; var canClick = false; var status =
+document.getElementById('memory-status'); 
+
+function addToSeq() { seq.push(colors[Math.floor(Math.random() * 4)]); }
+
+function flashPad(color, dur) { return new Promise(function(resolve) { var pad = document.getElementById('pad-' +
+color); 
+pad.classList.add('flash'); 
+setTimeout(function() { pad.classList.remove('flash'); setTimeout(resolve,
+200); }, dur); }); } async function playSeq() { canClick = false; status.textContent = 'Merke dir die Reihenfolge...'; for (var i = 0; i < seq.length; i++) { if (!on) return; await flashPad(seq[i], 500); } canClick =
+true; clickIdx = 0; status.textContent = 'Jetzt du! Klick die Farben nach.'; } 
+
+function handleClick(color) { if
+(!canClick || !on) return; flashPad(color, 200); if (color === seq[clickIdx]) { clickIdx++; if (clickIdx ===
+seq.length) { sc++; document.getElementById('pts').textContent = sc; status.textContent = 'Super! Naechste Runde...'; setTimeout(function() { addToSeq(); playSeq(); }, 900); } } else { on = false; canClick = false;
+status.textContent = 'Game Over! ' + sc + ' Runden geschafft.'; saveHS('memory', sc); } } var pads =
+
+document.querySelectorAll('.pad'); function padClick(e) { handleClick(e.currentTarget.dataset.color); }
+pads.forEach(function(p) { p.addEventListener('click', padClick); }); addToSeq(); setTimeout(function() {
+playSeq(); }, 600); return { stop: function() { on = false; canClick = false; pads.forEach(function(p) {
+p.removeEventListener('click', padClick); }); } }; }
 
  
 /* ---- SPIEL 2: TURM-STAPLER ---- */
