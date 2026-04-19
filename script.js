@@ -196,14 +196,17 @@ pads.classList.remove('active'); status.classList.remove('active'); }
 document.getElementById('popup').classList.add('on'); runG(); }
 
 
-function closeG() { if (game) { game.stop(); game = null; }
-document.getElementById('popup').classList.remove('on');
-document.getElementById('memory-pads').classList.remove('active');
-document.getElementById('memory-status').classList.remove('active'); 
+function closeG() {
+  if (game) { game.stop(); game = null; }
+  document.getElementById('popup').classList.remove('on');
+  document.getElementById('memory-pads').classList.remove('active');
+  document.getElementById('memory-status').classList.remove('active');
+}
 
-
-function resetG(){if(game){game.stop();game=null}
-document.getElementById('pts').textContent='0';runG()}
+function resetG() {
+  if (game) { game.stop(); game = null; }
+  document.getElementById('pts').textContent = '0';
+  runG();
 }
 
 function runG() {
