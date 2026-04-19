@@ -47,7 +47,7 @@ document.getElementById('btn-register').addEventListener('click', async function
     dodge: 0, stack: 0, memory: 0,
     games_played: 0,
     avatar_seed: Math.random().toString(36).substring(2, 10)
-  }).select().single();
+  }).select('*').single();
   if (ins.error) {
     e.textContent = 'Fehler beim Erstellen. Versuche es nochmal.';
     return;
@@ -300,7 +300,7 @@ document.getElementById("profile-name").textContent = user.name;
 var created = user.created_at
   ? new Date(user.created_at).toLocaleDateString("de-AT")
   : "-";
-console.log("created_at:", user.created_at);
+  
 document.getElementById("profile-info").innerHTML =
 "Mitglied seit: " + created + "<br>" +
 "Spiele gespielt: " + (user.games_played || 0);
