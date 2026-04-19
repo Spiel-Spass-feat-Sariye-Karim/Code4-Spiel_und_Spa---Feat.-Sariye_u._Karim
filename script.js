@@ -88,6 +88,9 @@ function enterApp() {
   document.getElementById('login').classList.add('hide');
   document.getElementById('app').classList.add('show');
   document.getElementById('username').textContent = user.name;
+  var seed = user.avatar_seed || user.name;
+document.getElementById("avatar").src =
+"https://api.dicebear.com/7.x/adventurer/svg?seed=" + seed;
   showHS();
   loadGlobalHS();
 }
