@@ -298,8 +298,9 @@ document.getElementById("profile-avatar").src =
 "https://api.dicebear.com/7.x/adventurer/svg?seed=" + seed;
 document.getElementById("profile-name").textContent = user.name;
 var created = user.created_at
-? new Date(user.created_at).toLocaleDateString("de-AT")
-: "-";
+  ? new Date(user.created_at).toLocaleDateString("de-AT")
+  : "-";
+console.log("created_at:", user.created_at);
 document.getElementById("profile-info").innerHTML =
 "Mitglied seit: " + created + "<br>" +
 "Spiele gespielt: " + (user.games_played || 0);
