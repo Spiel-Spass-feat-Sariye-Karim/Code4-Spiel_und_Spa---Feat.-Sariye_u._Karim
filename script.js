@@ -115,68 +115,42 @@ function showHS(){
 }
  
 /* ---- POPUP ---- */
-document.getElementById('card-dodge').addEventListener('click',function(){openG('dodge')});
+document.getElementById('card-memory').addEventListener('click', function() { openG('memory'); });
 document.getElementById('card-stack').addEventListener('click',function(){openG('stack')});
 document.getElementById('btn-x').addEventListener('click',closeG);
 document.getElementById('btn-again').addEventListener('click',resetG);
 document.getElementById('popup').addEventListener('click',function(e){if(e.target===this)closeG()});
  
-function openG(id){
-  which=id;
-  document.getElementById('gtitle').textContent=id==='dodge'?'⚡ Blitz-Dodge':'🧱 Turm-Stapler';
-  document.getElementById('pts').textContent='0';
-  document.getElementById('popup').classList.add('on');
-  runG();
+function openG(id) { which = id; document.getElementById('gtitle').textContent = id === 'memory' ?
+'Farb-Gedaechtnis' : 'Turm-Stapler'; document.getElementById('pts').textContent = '0'; var canvas =
+document.getElementById('c'); var pads = document.getElementById('memory-pads'); var status =
+document.getElementById('memory-status'); if (id === 'memory') { canvas.style.display = 'none';
+pads.classList.add('active'); status.classList.add('active'); } else { canvas.style.display = 'block';
+pads.classList.remove('active'); status.classList.remove('active'); }
+document.getElementById('popup').classList.add('on'); runG(); }
+
+
+function closeG() { if (game) { game.stop(); game = null; }
+document.getElementById('popup').classList.remove('on');
+document.getElementById('memory-pads').classList.remove('active');
+document.getElementById('memory-status').classList.remove('active'); 
+
+
+function resetG(){if(game){game.stop();game=null}
+document.getElementById('pts').textContent='0';runG()}
 }
-function closeG(){if(game){game.stop();game=null}document.getElementById('popup').classList.remove('on')}
-function resetG(){if(game){game.stop();game=null}document.getElementById('pts').textContent='0';runG()}
-function runG(){var c=document.getElementById('c');c.width=380;c.height=420;game=which==='dodge'?dodge(c):stack(c)}
- 
-/* ---- SPIEL 1: BLITZ-DODGE ---- */
-function dodge(cv){
-  var ctx=cv.getContext('2d'),W=380,H=420,on=true,raf,f=0,sc=0;
-  var px=W/2,pr=14,bolts=[],spd=2.5,rate=30;
- 
-  function loop(){
-    if(!on)return;raf=requestAnimationFrame(loop);f++;
-    // Schwierigkeit steigt alle 2 Sekunden
-    if(f%120===0){spd+=0.3;if(rate>12)rate--}
-    // Neuer Blitz
-    if(f%rate===0)bolts.push({x:Math.random()*W,y:-15,s:spd+Math.random()*1.5,w:8+Math.random()*10});
-    // Blitze bewegen
-    for(var i=bolts.length-1;i>=0;i--){
-      bolts[i].y+=bolts[i].s;
-      if(bolts[i].y>H){bolts.splice(i,1);sc++;document.getElementById('pts').textContent=sc;continue}
-      if(bolts[i].y+15>H-44&&bolts[i].y<H-16&&Math.abs(bolts[i].x-px)<bolts[i].w/2+pr){
-        on=false;saveHS('dodge',sc);gg(ctx,W,H,sc);return;
-      }
-    }
-    // Zeichnen
-    ctx.fillStyle='#0a0a12';ctx.fillRect(0,0,W,H);
-    ctx.fillStyle='#1a1a2a';ctx.fillRect(0,H-18,W,18);
-    for(var i=0;i<bolts.length;i++){
-      var b=bolts[i];
-      ctx.fillStyle='#ffe033';ctx.shadowColor='#ffe033';ctx.shadowBlur=12;
-      ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(b.x-b.w/2,b.y+10);ctx.lineTo(b.x-2,b.y+8);
-      ctx.lineTo(b.x-b.w/2-2,b.y+20);ctx.lineTo(b.x+b.w/2,b.y+6);ctx.lineTo(b.x+2,b.y+8);
-      ctx.closePath();ctx.fill();ctx.shadowBlur=0;
-    }
-    // Spieler
-    ctx.fillStyle='#1b9e77';ctx.shadowColor='#1b9e77';ctx.shadowBlur=15;
-    ctx.beginPath();ctx.arc(px,H-30,pr,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-    ctx.fillStyle='#fff';
-    ctx.beginPath();ctx.arc(px-5,H-33,3.5,0,Math.PI*2);ctx.fill();
-    ctx.beginPath();ctx.arc(px+5,H-33,3.5,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#111';
-    ctx.beginPath();ctx.arc(px-4,H-33,1.8,0,Math.PI*2);ctx.fill();
-    ctx.beginPath();ctx.arc(px+6,H-33,1.8,0,Math.PI*2);ctx.fill();
+
+function runG() {
+  var c = document.getElementById('c');
+  if (which === 'memory') {
+    game = memory();
+  } else {
+    c.width = 380; c.height = 420;
+    game = stack(c);
   }
+} 
  
-  function mv(e){var r=cv.getBoundingClientRect();px=Math.max(pr,Math.min(W-pr,(e.clientX-r.left)*(W/r.width)))}
-  cv.addEventListener('mousemove',mv);
-  loop();
-  return{stop:function(){on=false;cancelAnimationFrame(raf);cv.removeEventListener('mousemove',mv)}};
-}
+
  
 /* ---- SPIEL 2: TURM-STAPLER ---- */
 function stack(cv){
