@@ -108,11 +108,11 @@ async function saveHS(g, s) {
   return true;
 }
  
-function showHS(){
-  document.getElementById('hs-list').innerHTML=
-    '<div class="hs-row"><span>⚡ Blitz-Dodge</span><span>'+(user.dodge||0)+'</span></div>'+
-    '<div class="hs-row"><span>🧱 Turm-Stapler</span><span>'+(user.stack||0)+'</span></div>';
-}
+function showHS() { function rang(score) { if (score >= 50) return '\u{1F451} '; if (score >= 25) return '\u{2B50}'; 
+if (score >= 10) return '\u{1F525} '; return ''; } 
+document.getElementById('hs-list').innerHTML = '<divclass="hs-row">' + '<span>\u{1F9E0} Farb-Gedaechtnis</span>' + '<span>' + rang(user.memory || 0) + (user.memory ||
+0) + '</span></div>' + '<div class="hs-row">' + '<span>\u{1F9F1} Turm-Stapler</span>' + '<span>' + rang(user.stack
+|| 0) + (user.stack || 0) + '</span></div>'; }
  
 /* ---- POPUP ---- */
 document.getElementById('card-memory').addEventListener('click', function() { openG('memory'); });
