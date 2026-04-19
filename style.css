@@ -54,6 +54,13 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0.8
 .logo{font-size:1.3rem;font-weight:800}.logo span{color:var(--c1)}
 .user-info{display:flex;align-items:center;gap:0.8rem;font-size:0.85rem;color:var(--dim)}
 .user-info strong{color:var(--tx)}
+.avatar {
+width: 32px;
+height: 32px;
+border-radius: 50%;
+background: var(--s2);
+border: 2px solid var(--c1);
+}
 .btn-sm{background:none;border:1px solid #333;color:var(--dim);padding:0.3rem 0.7rem;border-radius:6px;cursor:pointer;font-family:inherit;font-size:0.75rem}
 .btn-sm:hover{border-color:var(--c1);color:var(--tx)}
 .hero{text-align:center;padding:2.5rem 1rem 1.5rem}
