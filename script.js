@@ -297,10 +297,10 @@ var seed = user.avatar_seed || user.name;
 document.getElementById("profile-avatar").src =
 "https://api.dicebear.com/7.x/adventurer/svg?seed=" + seed;
 document.getElementById("profile-name").textContent = user.name;
-var created = user.created_at
-  ? new Date(user.created_at).toLocaleDateString("de-AT")
+var created = user.created_at_
+  ? new Date(user.created_at_).toLocaleDateString("de-AT")
   : "-";
-  
+
 document.getElementById("profile-info").innerHTML =
 "Mitglied seit: " + created + "<br>" +
 "Spiele gespielt: " + (user.games_played || 0);
