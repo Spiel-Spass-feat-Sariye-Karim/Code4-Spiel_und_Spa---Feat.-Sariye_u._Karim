@@ -3,6 +3,35 @@ var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI
 var db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
  
 var game=null,which='',user=null;
+
+/* ---- SOUNDS ---- */
+var audioCtx = null;
+function playTone(freq, dur, type) {
+if (!audioCtx) {
+audioCtx = new (window.AudioContext ||
+window.webkitAudioContext)();
+}
+var osc = audioCtx.createOscillator();
+var gain = audioCtx.createGain();
+osc.type = type || "sine";
+osc.frequency.value = freq;
+osc.connect(gain);
+gain.connect(audioCtx.destination);
+gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+gain.gain.exponentialRampToValueAtTime(
+0.001, audioCtx.currentTime + dur);
+osc.start();
+osc.stop(audioCtx.currentTime + dur);
+}
+var sounds = {
+correct: function() { playTone(800, 0.15); },
+wrong: function() { playTone(150, 0.4, "sawtooth"); },
+highscore: function() {
+playTone(500, 0.1);
+setTimeout(function() { playTone(700, 0.1); }, 100);
+setTimeout(function() { playTone(1000, 0.2); }, 200);
+}
+};
  
 // Tab-Umschaltung zwischen Anmelden / Registrieren
 document.querySelectorAll('.tab').forEach(function(tab) {
@@ -118,6 +147,7 @@ async function saveHS(g, s) {
   showHS();
   loadGlobalHS();
   loadStats();
+  sounds.highscore()
   return true;
 }
  
@@ -241,10 +271,29 @@ setTimeout(function() { pad.classList.remove('flash'); setTimeout(resolve,
 200); }, dur); }); } async function playSeq() { canClick = false; status.textContent = 'Merke dir die Reihenfolge...'; for (var i = 0; i < seq.length; i++) { if (!on) return; await flashPad(seq[i], 500); } canClick =
 true; clickIdx = 0; status.textContent = 'Jetzt du! Klick die Farben nach.'; } 
 
-function handleClick(color) { if
-(!canClick || !on) return; flashPad(color, 200); if (color === seq[clickIdx]) { clickIdx++; if (clickIdx ===
-seq.length) { sc++; document.getElementById('pts').textContent = sc; status.textContent = 'Super! Naechste Runde...'; setTimeout(function() { addToSeq(); playSeq(); }, 900); } } else { on = false; canClick = false;
-status.textContent = 'Game Over! ' + sc + ' Runden geschafft.'; saveHS('memory', sc); } } var pads =
+function handleClick(color) {
+    if (!canClick || !on) return;
+    
+    flashPad(color, 200);
+
+    if (color === seq[clickIdx]) { 
+        sounds.correct();          
+        clickIdx++; 
+        
+        if (clickIdx === seq.length) {
+            sc++; 
+            document.getElementById('pts').textContent = sc; 
+            status.textContent = 'Super! Naechste Runde...'; 
+            setTimeout(function() { addToSeq(); playSeq(); }, 900); 
+        } 
+    } else {                      
+        sounds.wrong();            
+        on = false; 
+        canClick = false; 
+        status.textContent = 'Game Over! ' + sc + ' Runden geschafft.'; 
+        saveHS('memory', sc); 
+    }
+}
 
 document.querySelectorAll('.pad'); function padClick(e) { handleClick(e.currentTarget.dataset.color); }
 pads.forEach(function(p) { p.addEventListener('click', padClick); }); addToSeq(); setTimeout(function() {
