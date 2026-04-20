@@ -258,8 +258,14 @@ function runG() {
 
 
 /* ---- SPIEL: FARB-GEDAECHTNIS ---- */ 
-function memory() { var colors = ['green', 'red', 'blue', 'yellow']; var
-seq = []; var clickIdx = 0; var on = true; var sc = 0; var canClick = false; var status =
+function memory() { 
+  var colors = ['green', 'red', 'blue', 'yellow']; 
+  var seq = []; 
+  var clickIdx = 0; 
+  var on = true; 
+  var sc = 0; 
+  var canClick = false; 
+  var status =
 document.getElementById('memory-status'); 
 
 function addToSeq() { seq.push(colors[Math.floor(Math.random() * 4)]); }
@@ -295,7 +301,10 @@ function handleClick(color) {
     }
 }
 
-document.querySelectorAll('.pad'); function padClick(e) { handleClick(e.currentTarget.dataset.color); }
+var pads = document.querySelectorAll('.pad'); 
+function padClick(e) { 
+  handleClick(e.currentTarget.dataset.color); 
+}
 pads.forEach(function(p) { p.addEventListener('click', padClick); }); addToSeq(); setTimeout(function() {
 playSeq(); }, 600); return { stop: function() { on = false; canClick = false; pads.forEach(function(p) {
 p.removeEventListener('click', padClick); }); } }; }
