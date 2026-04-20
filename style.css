@@ -1,6 +1,23 @@
 :root{--c1:#ff5733;--c2:#1b9e77;--bg:#111;--s1:#1a1a1a;--s2:#222;--tx:#eee;--dim:#777;--r:12px}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Bricolage Grotesque',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
+body {font-family: "Bricolage Grotesque", sans-serif;
+color: var(--tx);
+min-height: 100vh;
+background: linear-gradient(
+135deg,
+#0a0a12 0%,
+#1a0a20 25%,
+#0a0a20 50%,
+#200a0a 75%,
+#0a0a12 100%
+);
+background-size: 400% 400%;
+animation: bgShift 20s ease infinite;
+}
+@keyframes bgShift {
+0%, 100% { background-position: 0% 50%; }
+50% { background-position: 100% 50%; }
+}
  
 .auth-tabs {
   display: flex;
