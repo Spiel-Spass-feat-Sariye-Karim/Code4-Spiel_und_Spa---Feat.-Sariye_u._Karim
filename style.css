@@ -249,3 +249,23 @@ cursor: pointer;
 margin-top: 1rem;
 font-family: inherit;
 }
+
+@keyframes fadeInUp {
+from { opacity: 0; transform: translateY(20px); }
+to { opacity: 1; transform: translateY(0); }
+}
+.login-box, .hero, .cards, .stats-grid, .hs-section {
+animation: fadeInUp 0.5s ease-out backwards;
+}
+.hero { animation-delay: 0.1s; }
+.cards { animation-delay: 0.2s; }
+.stats-grid { animation-delay: 0.3s; }
+.hs-section { animation-delay: 0.4s; }
+.global-board { animation-delay: 0.5s; }
+@keyframes popIn {
+from { opacity: 0; transform: scale(0.9); }
+to { opacity: 1; transform: scale(1); }
+}
+.pbox, .overlay-box {
+animation: popIn 0.25s ease-out;
+}
