@@ -4,20 +4,51 @@ body {
   font-family: 'Bricolage Grotesque', sans-serif;
   color: var(--tx);
   min-height: 100vh;
-  background: #0a0a12;
+  background: #080810;
   overflow-x: hidden;
 }
 
-body::before {
+body::before,
+body::after {
   content: '';
   position: fixed;
   inset: 0;
-  background:
-    radial-gradient(ellipse at 20% 50%, rgba(255, 87, 51, 0.15) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.12) 0%, transparent 60%),
-    radial-gradient(ellipse at 60% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 60%);
-  animation: blobMove 12s ease-in-out infinite alternate;
   z-index: -1;
+}
+
+body::before {
+  background-image:
+    radial-gradient(1px 1px at 10% 15%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 25% 40%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 40% 70%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 55% 25%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 55%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 85% 80%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 15% 85%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 10%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 35% 95%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 45%, #fff 0%, transparent 100%),
+    radial-gradient(2px 2px at 45% 10%, rgba(255,87,51,0.8) 0%, transparent 100%),
+    radial-gradient(2px 2px at 75% 90%, rgba(139,92,246,0.8) 0%, transparent 100%),
+    radial-gradient(2px 2px at 20% 60%, rgba(59,130,246,0.8) 0%, transparent 100%);
+  animation: stars 8s linear infinite;
+}
+
+body::after {
+  background:
+    radial-gradient(ellipse at 30% 40%, rgba(255,87,51,0.08) 0%, transparent 55%),
+    radial-gradient(ellipse at 70% 60%, rgba(139,92,246,0.08) 0%, transparent 55%);
+  animation: glow 6s ease-in-out infinite alternate;
+}
+
+@keyframes stars {
+  0%   { transform: translateY(0px) translateX(0px); }
+  100% { transform: translateY(-30px) translateX(10px); }
+}
+
+@keyframes glow {
+  0%   { opacity: 0.5; transform: scale(1); }
+  100% { opacity: 1;   transform: scale(1.1); }
 }
 
 @keyframes blobMove {
