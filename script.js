@@ -32,6 +32,14 @@ setTimeout(function() { playTone(700, 0.1); }, 100);
 setTimeout(function() { playTone(1000, 0.2); }, 200);
 }
 };
+
+function setLoading(btnId, isLoading, normalText) {
+var btn = document.getElementById(btnId);
+btn.disabled = isLoading;
+btn.innerHTML = isLoading
+? '<span class="spinner"></span>'
+: normalText;
+}
  
 // Tab-Umschaltung zwischen Anmelden / Registrieren
 document.querySelectorAll('.tab').forEach(function(tab) {
@@ -63,11 +71,15 @@ document.getElementById('btn-register').addEventListener('click', async function
   if (n.length < 2) { e.textContent = 'Benutzername zu kurz (min. 2 Zeichen).'; return; }
   if (p1.length < 4) { e.textContent = 'Passwort zu kurz (min. 4 Zeichen).'; return; }
   if (p1 !== p2) { e.textContent = 'Passwoerter stimmen nicht ueberein.'; return; }
+
+  setLoading('btn-register', true, 'Registrieren');
+
   // Pruefen ob Name schon vergeben
   var check = await db.from('users').select('name')
     .eq('name', n.toLowerCase()).maybeSingle();
   if (check.data) {
     e.textContent = 'Nutzername bereits vergeben!';
+    setLoading('btn-register', false, 'Registrieren');
     return;
   }
   // Neuen User anlegen
@@ -79,9 +91,11 @@ document.getElementById('btn-register').addEventListener('click', async function
   }).select('*').single();
   if (ins.error) {
     e.textContent = 'Fehler beim Erstellen. Versuche es nochmal.';
+    setLoading('btn-register', false, 'Registrieren');
     return;
   }
   user = ins.data;
+  setLoading('btn-register', false, 'Registrieren')
   enterApp();
 });
  
@@ -93,21 +107,28 @@ document.getElementById('btn-login').addEventListener('click', async function() 
  
   if (!n || !p) { e.textContent = 'Bitte beides ausfüllen.'; return; }
   if (n.length < 2) { e.textContent = 'Name zu kurz.'; return; }
+
+  setLoading('btn-login', true, 'Einloggen');
  
   // User in Supabase suchen
   var res = await db.from('users').select('*').eq('name', n.toLowerCase()).maybeSingle();
  
   if (!res.data) {
     e.textContent = 'Nutzer nicht gefunden. Jetzt registrieren?';
+    setLoading('btn-login', false, 'Einloggen');
     return;
   }
   if (res.data.pass !== p) {
     e.textContent = 'Falsches Passwort!';
+    setLoading('btn-login', false, 'Einloggen');
     return;
   }
  
   user = res.data;
   await db.from('users').update({ last_login: new Date().toISOString() }).eq('id', user.id);
+
+  setLoading('btn-login', false, 'Einloggen');
+
   enterApp();
 });
  
