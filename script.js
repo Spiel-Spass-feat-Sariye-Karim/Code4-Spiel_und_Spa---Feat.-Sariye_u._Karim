@@ -146,14 +146,32 @@ document.getElementById("avatar").src =
   loadStats();
 }
  
-document.getElementById('btn-logout').addEventListener('click',function(){
-  user=null;if(game){game.stop();game=null;}
-  document.getElementById('app').classList.remove('show');
-  document.getElementById('login').classList.remove('hide');
-  document.getElementById('login-pass').value='';
-  document.getElementById('login-name').value='';
-  document.getElementById('login-err').textContent='';
-});
+document.getElementById("btn-logout").addEventListener("click",
+function() {
+if (!confirm("Wirklich abmelden?")) return;
+user = null;
+if (game) { game.stop(); game = null; }
+// Alle Popups schließen
+document.getElementById("popup")
+.classList.remove("on");
+document.getElementById("profile-overlay")
+.classList.remove("on");
+document.getElementById("memory-pads")
+.classList.remove("active");
+// UI zurücksetzen
+document.getElementById("app").classList.remove("show");
+document.getElementById("login").classList.remove("hide");
+document.getElementById("login-pass").value = "";
+document.getElementById("login-name").value = "";
+document.getElementById("reg-name").value = "";
+document.getElementById("reg-pass").value = "";
+document.getElementById("reg-pass2").value = "";
+document.getElementById("login-err").textContent = "";
+// Zurück zum Anmelden-Tab
+document.querySelector('.tab[data-tab="login"]')
+.click();
+}
+);
  
 async function saveHS(g, s) {
   if (!user) return false;
