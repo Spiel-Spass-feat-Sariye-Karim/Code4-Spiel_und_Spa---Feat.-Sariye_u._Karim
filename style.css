@@ -309,3 +309,12 @@ vertical-align: middle;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+#app-footer {
+text-align: center;
+padding: 2rem 1rem;
+color: var(--dim);
+font-size: 0.75rem;
+border-top: 1px solid #222;
+margin-top: 3rem;
+}
