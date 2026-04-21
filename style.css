@@ -269,3 +269,31 @@ to { opacity: 1; transform: scale(1); }
 .pbox, .overlay-box {
 animation: popIn 0.25s ease-out;
 }
+
+/* Tablet */
+@media (max-width: 768px) {
+.hero h1 { font-size: 1.5rem; }
+.cards { gap: 0.8rem; }
+.card { width: 200px; padding: 1.2rem; }
+.stats-grid { max-width: 100%; }
+}
+/* Handy */
+@media (max-width: 500px) {
+header { padding: 0.6rem 1rem; }
+.hero { padding: 2rem 1rem 1rem; }
+.hero h1 { font-size: 1.3rem; }
+.cards { flex-direction: column; align-items: center; }
+.card { width: 90%; max-width: 320px; }
+.login-box { width: 90%; padding: 1.8rem; }
+.memory-pads { max-width: 240px; gap: 8px; }
+.global-row {
+grid-template-columns: 30px 1fr auto;
+font-size: 0.75rem;
+}
+.stats-grid {
+grid-template-columns: 1fr 1fr;
+}
+.stats-grid .stat-box:last-child {
+grid-column: 1 / -1;
+}
+}
