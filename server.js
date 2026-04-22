@@ -2,16 +2,24 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
+console.log('Starting server...');
+
 // Supabase (geheimer Key!)
 const { createClient } = require('@supabase/supabase-js');
+console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'Set' : 'Not set');
+console.log('SUPABASE_KEY:', process.env.SUPABASE_KEY ? 'Set' : 'Not set');
+
 const db = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY
 );
 
+console.log('Supabase client created');
+
 const app = express();
 app.use(express.json());
 app.use(cors());
+console.log('Express app configured');
 // Root route
 app.get('/', (req, res) => {
   res.json({ message: "Willkommen bei ArcadeBox Backend! API ist verfügbar." });
@@ -241,4 +249,5 @@ app.get('/api/global-highscores', async (req, res) => {
 });
 
 // ============= SERVER STARTEN =============
+console.log('About to start server');
 const PORT = process.env.PORT || 3000;
