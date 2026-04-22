@@ -12,6 +12,16 @@ const db = createClient(
 const app = express();
 app.use(express.json());
 app.use(cors());
+// Root route
+app.get('/', (req, res) => {
+  res.json({ message: "Willkommen bei ArcadeBox Backend! API ist verfügbar." });
+});
+
+
+// Root route
+app.get('/', (req, res) => {
+  res.json({ message: 'Willkommen bei ArcadeBox Backend! API ist verfügbar.' });
+});
 
 // ============= AUTH =============
 
