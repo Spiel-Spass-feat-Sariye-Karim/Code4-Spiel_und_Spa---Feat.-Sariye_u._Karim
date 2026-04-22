@@ -1,7 +1,7 @@
 // Backend Server URL (lokal testen oder Render-URL nach Deployment)
 var API_URL = window.location.hostname === 'localhost' 
   ? 'http://localhost:3000'
-  : 'https://arcadebox-backend.onrender.com'; // Wird nach Render-Deploy gesetzt
+  : 'https://arcadebox-backend.onrender.com';
  
 var game=null,which='',user=null;
 
