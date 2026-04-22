@@ -251,3 +251,13 @@ app.get('/api/global-highscores', async (req, res) => {
 // ============= SERVER STARTEN =============
 console.log('About to start server');
 const PORT = process.env.PORT || 3000;
+console.log('PORT value:', PORT, 'type:', typeof PORT);
+
+try {
+  app.listen(PORT, () => {
+    console.log(`🎮 ArcadeBox Server läuft auf http://localhost:${PORT}`);
+  });
+} catch (err) {
+  console.error('Error starting server:', err);
+  process.exit(1);
+}
