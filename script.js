@@ -83,11 +83,6 @@ document.getElementById('btn-register').addEventListener('click', async function
     });
     var data = await res.json();
     
-    if (!res.ok) {
-      e.textContent = data.error || 'Fehler beim Erstellen';
-      setLoading('btn-register', false, 'Registrieren');
-      return;
-    }
     
     user = data.user;
     setLoading('btn-register', false, 'Registrieren');
@@ -117,11 +112,6 @@ document.getElementById('btn-login').addEventListener('click', async function() 
     });
     var data = await res.json();
     
-    if (!res.ok) {
-      e.textContent = data.error || 'Fehler beim Login';
-      setLoading('btn-login', false, 'Einloggen');
-      return;
-    }
     
     user = data.user;
     setLoading('btn-login', false, 'Einloggen');
@@ -183,11 +173,6 @@ async function saveHS(g, s) {
       body: JSON.stringify({ user_id: user.id, game_type: g, score: s })
     });
     
-    if (!res.ok) {
-      console.error('Fehler beim Speichern des Scores');
-      return false;
-    }
-    
     user.games_played = (user.games_played || 0) + 1;
     if (s > (user[g] || 0)) {
       user[g] = s;
@@ -226,6 +211,13 @@ function showHS() {
 async function loadGlobalHS() {
 try {
   var res = await fetch(API_URL + '/api/global-highscores');
+
+  if (!res.ok) {
+    document.getElementById("global-hs").innerHTML = "Fehler beim Laden";
+    return;
+  }
+
+  
   var scores = await res.json();
   
   if (!scores || !Array.isArray(scores)) return;
