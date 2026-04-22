@@ -204,7 +204,7 @@ app.get('/api/global-highscores', async (req, res) => {
   try {
     const { data: scores, error } = await db
       .from('highscores')
-      .select('score, game_type, user_id, users(name, avatar_seed)')
+      .select('score, game_type, user_id, users!user_id(name, avatar_seed)')
       .order('score', { ascending: false })
       .limit(10);
     
