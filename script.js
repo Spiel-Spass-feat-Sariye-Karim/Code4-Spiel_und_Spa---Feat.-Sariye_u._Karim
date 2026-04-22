@@ -229,9 +229,8 @@ try {
     else if (i === 1) rankClass = "top2";
     else if (i === 2) rankClass = "top3";
     
-    var u = item.users || {};
-    var meClass = (user && u.name === user.name) ? "me" : "";
-    var seed = u.avatar_seed || u.name || "unknown";
+    var meClass = (user && item.name === user.name) ? "me" : "";
+    var seed = item.avatar_seed || item.name || "unknown";
     var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
     
     html +=
@@ -239,9 +238,9 @@ try {
       '<div class="rank ' + rankClass + '">#' + (i+1) + '</div>' +
       '<div style="display:flex;align-items:center;gap:8px;">' +
       '<img src="' + av + '" style="width:24px;height:24px;border-radius:50%;">' +
-      '<span>' + (u.name || "Unbekannt") + '</span>' +
+      '<span>' + item.name + '</span>' +
       '</div>' +
-      '<div class="score">' + (item.score || 0) + '</div>' +
+      '<div class="score">' + (item.memory || 0) + ' / ' + (item.stack || 0) + '</div>' +
       '</div>';
   });
   

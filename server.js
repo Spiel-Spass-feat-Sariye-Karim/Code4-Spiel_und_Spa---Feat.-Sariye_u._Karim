@@ -204,15 +204,37 @@ app.get('/api/global-highscores', async (req, res) => {
   try {
     const { data: scores, error } = await db
       .from('highscores')
-      .select('score, game_type, user_id, users!user_id(name, avatar_seed)')
+      .select('users!user_id(name, avatar_seed), score, game_type')
       .order('score', { ascending: false })
-      .limit(10);
+      .limit(50);
     
     if (error) {
       return res.status(400).json({ error: 'Fehler beim Laden' });
     }
     
-    res.json(scores);
+    // Gruppiere pro User
+    const userMap = {};
+    scores.forEach(item => {
+      const u = item.users;
+      if (!u) return;
+      const uid = u.name.toLowerCase(); // Verwende name als key
+      if (!userMap[uid]) {
+        userMap[uid] = { name: u.name, avatar_seed: u.avatar_seed, memory: 0, stack: 0 };
+      }
+      if (item.game_type === 'memory') {
+        userMap[uid].memory = Math.max(userMap[uid].memory, item.score);
+      } else if (item.game_type === 'stack') {
+        userMap[uid].stack = Math.max(userMap[uid].stack, item.score);
+      }
+    });
+    
+    // In Array umwandeln und nach Gesamtscore sortieren
+    const result = Object.values(userMap)
+      .map(user => ({ ...user, total: user.memory + user.stack }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+    
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }
@@ -220,6 +242,3 @@ app.get('/api/global-highscores', async (req, res) => {
 
 // ============= SERVER STARTEN =============
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🎮 ArcadeBox Server läuft auf http://localhost:${PORT}`);
-});
