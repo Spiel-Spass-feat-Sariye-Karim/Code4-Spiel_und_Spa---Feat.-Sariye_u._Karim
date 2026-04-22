@@ -1,6 +1,7 @@
-var SUPABASE_URL = 'https://tjcumfilaekmexlzteum.supabase.co';
-var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqY3VtZmlsYWVrbWV4bHp0ZXVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNTI0OTQsImV4cCI6MjA5MTgyODQ5NH0.wUuHehNw3KFqVDnSPIU0rKIUyeVzAdY_PHPAkzd4_Is';
-var db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Backend Server URL (lokal testen oder Render-URL nach Deployment)
+var API_URL = window.location.hostname === 'localhost' 
+  ? 'http://localhost:3000'
+  : 'https://arcadebox-backend.onrender.com'; // Wird nach Render-Deploy gesetzt
  
 var game=null,which='',user=null;
 
@@ -74,29 +75,27 @@ document.getElementById('btn-register').addEventListener('click', async function
 
   setLoading('btn-register', true, 'Registrieren');
 
-  // Pruefen ob Name schon vergeben
-  var check = await db.from('users').select('name')
-    .eq('name', n.toLowerCase()).maybeSingle();
-  if (check.data) {
-    e.textContent = 'Nutzername bereits vergeben!';
+  try {
+    var res = await fetch(API_URL + '/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: n, pass: p1, pass2: p2 })
+    });
+    var data = await res.json();
+    
+    if (!res.ok) {
+      e.textContent = data.error || 'Fehler beim Erstellen';
+      setLoading('btn-register', false, 'Registrieren');
+      return;
+    }
+    
+    user = data.user;
     setLoading('btn-register', false, 'Registrieren');
-    return;
-  }
-  // Neuen User anlegen
-  var ins = await db.from('users').insert({
-    name: n.toLowerCase(), pass: p1,
-    dodge: 0, stack: 0, memory: 0,
-    games_played: 0,
-    avatar_seed: Math.random().toString(36).substring(2, 10)
-  }).select('*').single();
-  if (ins.error) {
-    e.textContent = 'Fehler beim Erstellen. Versuche es nochmal.';
+    enterApp();
+  } catch (err) {
+    e.textContent = 'Verbindungsfehler zum Server!';
     setLoading('btn-register', false, 'Registrieren');
-    return;
   }
-  user = ins.data;
-  setLoading('btn-register', false, 'Registrieren')
-  enterApp();
 });
  
 /* ---- LOGIN ---- */
@@ -109,27 +108,28 @@ document.getElementById('btn-login').addEventListener('click', async function() 
   if (n.length < 2) { e.textContent = 'Name zu kurz.'; return; }
 
   setLoading('btn-login', true, 'Einloggen');
- 
-  // User in Supabase suchen
-  var res = await db.from('users').select('*').eq('name', n.toLowerCase()).maybeSingle();
- 
-  if (!res.data) {
-    e.textContent = 'Nutzer nicht gefunden. Jetzt registrieren?';
+  
+  try {
+    var res = await fetch(API_URL + '/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: n, pass: p })
+    });
+    var data = await res.json();
+    
+    if (!res.ok) {
+      e.textContent = data.error || 'Fehler beim Login';
+      setLoading('btn-login', false, 'Einloggen');
+      return;
+    }
+    
+    user = data.user;
     setLoading('btn-login', false, 'Einloggen');
-    return;
-  }
-  if (res.data.pass !== p) {
-    e.textContent = 'Falsches Passwort!';
+    enterApp();
+  } catch (err) {
+    e.textContent = 'Verbindungsfehler zum Server!';
     setLoading('btn-login', false, 'Einloggen');
-    return;
   }
- 
-  user = res.data;
-  await db.from('users').update({ last_login: new Date().toISOString() }).eq('id', user.id);
-
-  setLoading('btn-login', false, 'Einloggen');
-
-  enterApp();
 });
  
 /* ---- EINLOGGEN HILFSFUNKTION ---- */
@@ -175,19 +175,33 @@ document.querySelector('.tab[data-tab="login"]')
  
 async function saveHS(g, s) {
   if (!user) return false;
-  user.games_played = (user.games_played || 0) + 1;
-  if (s > (user[g] || 0)) {
-    user[g] = s;
+  
+  try {
+    var res = await fetch(API_URL + '/api/save-score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.id, game_type: g, score: s })
+    });
+    
+    if (!res.ok) {
+      console.error('Fehler beim Speichern des Scores');
+      return false;
+    }
+    
+    user.games_played = (user.games_played || 0) + 1;
+    if (s > (user[g] || 0)) {
+      user[g] = s;
+    }
+    
+    showHS();
+    loadGlobalHS();
+    loadStats();
+    sounds.highscore();
+    return true;
+  } catch (err) {
+    console.error('Verbindungsfehler:', err);
+    return false;
   }
-  await db.from('users').update({
-    [g]: user[g],
-    games_played: user.games_played
-  }).eq('id', user.id);
-  showHS();
-  loadGlobalHS();
-  loadStats();
-  sounds.highscore()
-  return true;
 }
  
 function showHS() {
@@ -210,49 +224,58 @@ function showHS() {
  
 /* ---- GLOBALES SCOREBOARD ---- */
 async function loadGlobalHS() {
-var res = await db.from("users")
-.select('name, memory, stack, avatar_seed')
-.order("memory", { ascending: false })
-.limit(10);
-if (!res.data) return;
-var html = "";
-res.data.forEach(function(u, i) {
-var rankClass = "";
-if (i === 0) rankClass = "top1";
-else if (i === 1) rankClass = "top2";
-else if (i === 2) rankClass = "top3";
-var meClass = (user && u.name === user.name) ? "me" : "";
-var seed = u.avatar_seed || u.name;
-var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
-html +=
-  '<div class="global-row ' + meClass + '">' +
-  '<div class="rank ' + rankClass + '">#' + (i+1) + '</div>' +
-  '<div style="display:flex;align-items:center;gap:8px;">' +
-  '<img src="' + av + '" style="width:24px;height:24px;border-radius:50%;">' +
-  '<span>' + u.name + '</span>' +
-  '</div>' +
-  '<div class="score">' + (u.memory || 0) + '</div>' +
-  '<div class="score">' + (u.stack || 0) + '</div>' +
-  '</div>';;
-});
-document.getElementById("global-hs").innerHTML =
-html || "Noch keine Scores";
+try {
+  var res = await fetch(API_URL + '/api/global-highscores');
+  var scores = await res.json();
+  
+  if (!scores || !Array.isArray(scores)) return;
+  
+  var html = "";
+  scores.forEach(function(item, i) {
+    var rankClass = "";
+    if (i === 0) rankClass = "top1";
+    else if (i === 1) rankClass = "top2";
+    else if (i === 2) rankClass = "top3";
+    
+    var u = item.users || {};
+    var meClass = (user && u.name === user.name) ? "me" : "";
+    var seed = u.avatar_seed || u.name || "unknown";
+    var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
+    
+    html +=
+      '<div class="global-row ' + meClass + '">' +
+      '<div class="rank ' + rankClass + '">#' + (i+1) + '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+      '<img src="' + av + '" style="width:24px;height:24px;border-radius:50%;">' +
+      '<span>' + (u.name || "Unbekannt") + '</span>' +
+      '</div>' +
+      '<div class="score">' + (item.score || 0) + '</div>' +
+      '</div>';
+  });
+  
+  document.getElementById("global-hs").innerHTML = html || "Noch keine Scores";
+} catch (err) {
+  console.error('Fehler beim Laden der Highscores:', err);
+  document.getElementById("global-hs").innerHTML = "Fehler beim Laden";
+}
 }
 
 async function loadStats() {
 if (!user) return;
-document.getElementById("stat-games").textContent =
-user.games_played || 0;
-document.getElementById("stat-total").textContent =
-(user.memory || 0) + (user.stack || 0);
-var res = await db.from("users")
-.select("name, memory")
-.order("memory", { ascending: false });
-if (res.data) {
-var rank = res.data.findIndex(function(u) {
-return u.name === user.name;
-}) + 1;
-document.getElementById("stat-rank").textContent = "#" + rank;
+document.getElementById("stat-games").textContent = user.games_played || 0;
+document.getElementById("stat-total").textContent = (user.memory || 0) + (user.stack || 0);
+
+try {
+  var res = await fetch(API_URL + '/api/user/' + user.id);
+  var userData = await res.json();
+  
+  if (res.ok && userData) {
+    user = userData; // Aktualisiere User-Daten
+    document.getElementById("stat-games").textContent = user.games_played || 0;
+    document.getElementById("stat-total").textContent = (user.memory || 0) + (user.stack || 0);
+  }
+} catch (err) {
+  console.error('Fehler beim Laden der Stats:', err);
 }
 }
 
@@ -419,14 +442,22 @@ document.getElementById("profile-overlay").classList.remove("on");
 document.getElementById("btn-new-avatar").addEventListener("click",
 async function() {
 var newSeed = Math.random().toString(36).substring(2, 10);
-await db.from("users")
-.update({ avatar_seed: newSeed })
-.eq("id", user.id);
-user.avatar_seed = newSeed;
-var url = "https://api.dicebear.com/7.x/adventurer/svg?seed="
-+ newSeed;
-document.getElementById("avatar").src = url;
-document.getElementById("profile-avatar").src = url;
-loadGlobalHS();
+try {
+  var res = await fetch(API_URL + '/api/user/' + user.id, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ avatar_seed: newSeed })
+  });
+  
+  if (res.ok) {
+    user.avatar_seed = newSeed;
+    var url = "https://api.dicebear.com/7.x/adventurer/svg?seed=" + newSeed;
+    document.getElementById("avatar").src = url;
+    document.getElementById("profile-avatar").src = url;
+    loadGlobalHS();
+  }
+} catch (err) {
+  console.error('Fehler beim Aktualisieren des Avatars:', err);
+}
 }
 );
