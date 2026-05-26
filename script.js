@@ -13,6 +13,17 @@ var heartbeatInterval=null,requestsInterval=null;
 
 /* ---- AUTO-LOGIN via Cookie ---- */
 (function() {
+  // Nach einem Logout kein Auto-Login — Login-Maske zeigen
+  if (sessionStorage.getItem('logged_out') === 'true') {
+    var lastUser = localStorage.getItem('lastUser');
+    if (lastUser) {
+      window.addEventListener('DOMContentLoaded', function() {
+        var field = document.getElementById('login-name');
+        if (field) field.value = lastUser;
+      });
+    }
+    return;
+  }
   var match = document.cookie.split('; ').find(function(r) { return r.startsWith('arcadebox_user='); });
   if (match) {
     try {
@@ -385,6 +396,7 @@ document.getElementById('btn-register').addEventListener('click', async function
     
     
     user = data.user;
+    sessionStorage.removeItem('logged_out');
     setLoading('btn-register', false, 'Registrieren');
     enterApp();
   } catch (err) {
@@ -415,6 +427,7 @@ document.getElementById('btn-login').addEventListener('click', async function() 
 
     user = data.user;
     localStorage.setItem('lastUser', n);
+    sessionStorage.removeItem('logged_out');
     setLoading('btn-login', false, 'Einloggen');
     enterApp();
   } catch (err) {
@@ -462,6 +475,7 @@ if (requestsInterval) { clearInterval(requestsInterval); requestsInterval = null
 if (user) {
   try { await fetch(API_URL + '/api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id }) }); } catch(e) {}
 }
+sessionStorage.setItem('logged_out', 'true');
 document.cookie = 'arcadebox_user=; max-age=0';
 user = null;
 if (game) { game.stop(); game = null; }
