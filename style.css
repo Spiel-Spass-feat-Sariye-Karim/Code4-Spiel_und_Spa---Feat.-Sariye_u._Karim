@@ -1083,3 +1083,177 @@ body.light .pc-input-row input { background: #fff; border-color: #ccc; color: #1
   .sidebar-mobile-btn.visible { display: flex; }
   .private-chat-modal { right: 10px; left: 10px; bottom: 10px; width: auto; }
 }
+
+/* ---- MULTIPLAYER LOBBY ---- */
+.lobby-area { display: none; padding: 0.6rem 1rem 0.4rem; }
+.lobby-area.active { display: block; }
+.lobby-online-count {
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--dim);
+  margin-bottom: 0.8rem;
+}
+.lobby-online-count span { font-weight: 700; color: var(--c2); font-size: 1rem; }
+.lobby-difficulty {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.7rem;
+  flex-wrap: wrap;
+}
+.diff-label { font-size: 0.8rem; color: var(--dim); flex-shrink: 0; }
+.diff-btns { display: flex; gap: 4px; }
+.diff-btn {
+  padding: 0.28rem 0.65rem;
+  border: 1.5px solid #333;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dim);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.diff-btn.active { border-color: var(--c1); color: var(--c1); background: rgba(255,87,51,0.1); }
+.btn-vs-ai {
+  width: 100%;
+  padding: 0.65rem;
+  background: var(--c1);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  margin-bottom: 0.8rem;
+}
+.btn-vs-ai:hover { opacity: 0.85; }
+.lobby-divider {
+  text-align: center;
+  color: var(--dim);
+  font-size: 0.75rem;
+  margin-bottom: 0.55rem;
+  letter-spacing: 0.03em;
+}
+.lobby-users-list {
+  max-height: 170px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.lobby-user-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.38rem 0.3rem;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.lobby-user-row:hover { background: rgba(255,255,255,0.05); }
+.lobby-user-av { width: 28px; height: 28px; border-radius: 50%; background: #333; flex-shrink: 0; }
+.lobby-user-name { flex: 1; font-size: 0.84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn-invite {
+  padding: 0.28rem 0.65rem;
+  background: var(--c2);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+.btn-invite:hover { opacity: 0.85; }
+.btn-invite:disabled { opacity: 0.5; cursor: default; }
+.lobby-empty { color: var(--dim); font-size: 0.82rem; text-align: center; padding: 0.7rem 0; }
+
+/* TicTacToe */
+.ttt-screen { display: none; padding: 0.3rem 0.2rem; }
+.ttt-status {
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin-bottom: 0.9rem;
+  min-height: 1.3rem;
+  color: var(--tx);
+}
+.ttt-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  margin: 0 auto;
+  max-width: 255px;
+}
+.ttt-cell {
+  aspect-ratio: 1;
+  background: #1e1e2e;
+  border: 2px solid #333;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 800;
+  cursor: default;
+  transition: background 0.15s, transform 0.1s;
+  user-select: none;
+}
+.ttt-cell.hoverable { cursor: pointer; }
+.ttt-cell.hoverable:hover { background: #2a2a3e; transform: scale(1.05); }
+.ttt-cell.x { color: var(--c1); }
+.ttt-cell.o { color: var(--c2); }
+body.light .ttt-cell { background: #f0f0f8; border-color: #ccc; }
+body.light .ttt-cell.hoverable:hover { background: #e0e0f0; }
+
+/* Invite toast */
+.toast-invite {
+  pointer-events: auto;
+  display: flex !important;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.8rem 1rem !important;
+  min-width: 240px;
+  max-width: 300px;
+}
+.toast-invite-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+}
+.toast-av { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; }
+.toast-btns { display: flex; gap: 0.4rem; }
+.toast-accept {
+  flex: 1;
+  padding: 0.35rem;
+  background: var(--c2);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.toast-accept:hover { opacity: 0.85; }
+.toast-decline {
+  flex: 1;
+  padding: 0.35rem;
+  background: #444;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.toast-decline:hover { opacity: 0.85; }

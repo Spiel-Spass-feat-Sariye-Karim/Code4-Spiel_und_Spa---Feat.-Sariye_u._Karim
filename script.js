@@ -7,6 +7,9 @@ var lastChatCount=0;
 var allUsersCache=[],friendIdsSet=new Set(),sentRequestIds=new Set();
 var activeChatFriend=null,privateChatInterval=null,unreadInterval=null;
 var friendsList=[],unreadCounts={};
+var inviteInterval=null,seenInviteIds=new Set(),lobbyAiDiff='easy';
+var tttBoard=Array(9).fill(''),tttOn=false,tttIsAI=false,tttAiDiff='easy';
+var tttCurrentTurn='X',tttMySymbol='X',tttIsHost=true,tttLobbyId=null,tttPollInterval=null;
 
 /* ---- DARK/LIGHT MODE ---- */
 (function() {
@@ -152,6 +155,293 @@ async function sendChatMessage() {
 
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ---- MULTIPLAYER LOBBY ---- */
+async function loadLobbyScreen() {
+  if (!user) return;
+  document.getElementById('ttt-screen').style.display = 'none';
+  document.getElementById('lobby-screen').style.display = '';
+  document.getElementById('btn-again').style.display = 'none';
+  document.getElementById('pbot-pts-wrap').style.display = 'none';
+  try {
+    var res = await fetch(API_URL + '/api/users/search?me=' + user.id);
+    if (!res.ok) return;
+    var users = await res.json();
+    if (!Array.isArray(users)) return;
+    var online = users.filter(function(u) { return u.is_online; });
+    document.getElementById('lobby-online-num').textContent = online.length;
+    var container = document.getElementById('lobby-users-list');
+    if (!online.length) {
+      container.innerHTML = '<div class="lobby-empty">Keine anderen Spieler online</div>';
+      return;
+    }
+    var html = '';
+    online.forEach(function(u) {
+      var seed = u.avatar_seed || u.name || 'unknown';
+      var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
+      html +=
+        '<div class="lobby-user-row">' +
+        '<img class="lobby-user-av" src="' + av + '" alt="">' +
+        '<span class="lobby-user-name">' + escHtml(u.name) + '</span>' +
+        '<button class="btn-invite" data-id="' + u.id + '">Einladen</button>' +
+        '</div>';
+    });
+    container.innerHTML = html;
+    container.querySelectorAll('.btn-invite').forEach(function(btn) {
+      btn.addEventListener('click', function() { sendGameInvite(parseInt(this.dataset.id), this); });
+    });
+  } catch (e) {}
+}
+
+async function sendGameInvite(toId, btn) {
+  if (!user) return;
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  try {
+    var lobRes = await fetch(API_URL + '/api/lobby/create', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ host_id: user.id, game_type: 'tictactoe' })
+    });
+    var lobby = await lobRes.json();
+    if (!lobRes.ok || !lobby.id) { if (btn) { btn.disabled = false; btn.textContent = 'Einladen'; } return; }
+    await fetch(API_URL + '/api/lobby/invite', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lobby_id: lobby.id, from_id: user.id, to_id: toId })
+    });
+    if (btn) { btn.textContent = '✓ Gesendet'; }
+    showToast('⚔️ Einladung gesendet!');
+    // Warte auf Gegner: wenn Lobby auf 'playing' wechselt, Spiel starten
+    tttLobbyId = lobby.id;
+    tttIsHost = true;
+    tttMySymbol = 'X';
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Einladen'; }
+  }
+}
+
+async function checkGameInvites() {
+  if (!user) return;
+  try {
+    var res = await fetch(API_URL + '/api/lobby/invite/' + user.id);
+    if (!res.ok) return;
+    var invites = await res.json();
+    if (!Array.isArray(invites)) return;
+    invites.forEach(function(inv) {
+      if (seenInviteIds.has(inv.id)) return;
+      seenInviteIds.add(inv.id);
+      showInviteToast(inv);
+    });
+  } catch (e) {}
+}
+
+function showInviteToast(inv) {
+  var t = document.createElement('div');
+  t.className = 'toast toast-invite';
+  var seed = inv.avatar_seed || inv.from_name || 'unknown';
+  var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
+  t.innerHTML =
+    '<div class="toast-invite-top"><img class="toast-av" src="' + av + '" alt=""><span>⚔️ <b>' + escHtml(inv.from_name) + '</b> lädt dich ein!</span></div>' +
+    '<div class="toast-btns"><button class="toast-accept">Annehmen</button><button class="toast-decline">Ablehnen</button></div>';
+  document.body.appendChild(t);
+  t.querySelector('.toast-accept').addEventListener('click', function() {
+    if (t.parentNode) t.parentNode.removeChild(t);
+    acceptGameInvite(inv);
+  });
+  t.querySelector('.toast-decline').addEventListener('click', function() {
+    if (t.parentNode) t.parentNode.removeChild(t);
+  });
+  setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 12000);
+}
+
+async function acceptGameInvite(inv) {
+  try {
+    var res = await fetch(API_URL + '/api/lobby/join', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lobby_id: inv.lobby_id, guest_id: user.id })
+    });
+    if (!res.ok) { showToast('Lobby nicht mehr verfügbar'); return; }
+    openG('multiplayer');
+    setTimeout(function() { tttStartOnline(inv.lobby_id, false); }, 80);
+  } catch (e) {}
+}
+
+/* ---- TICTACTOE ---- */
+function tttStart(diff) {
+  tttBoard = Array(9).fill('');
+  tttOn = true; tttIsAI = true; tttAiDiff = diff || lobbyAiDiff;
+  tttCurrentTurn = 'X'; tttMySymbol = 'X'; tttIsHost = true;
+  document.getElementById('lobby-screen').style.display = 'none';
+  document.getElementById('ttt-screen').style.display = '';
+  document.getElementById('btn-again').style.display = 'inline-block';
+  document.getElementById('pbot-pts-wrap').style.display = 'none';
+  document.getElementById('ttt-status').textContent = 'Du bist ✕ — Du fängst an!';
+  renderTTTBoard();
+}
+
+function tttStartOnline(lobbyId, isHost) {
+  tttBoard = Array(9).fill('');
+  tttOn = true; tttIsAI = false; tttLobbyId = lobbyId;
+  tttIsHost = isHost; tttMySymbol = isHost ? 'X' : 'O';
+  tttCurrentTurn = 'X';
+  document.getElementById('lobby-screen').style.display = 'none';
+  document.getElementById('ttt-screen').style.display = '';
+  document.getElementById('btn-again').style.display = 'inline-block';
+  document.getElementById('pbot-pts-wrap').style.display = 'none';
+  var sym = tttMySymbol === 'X' ? '✕' : '◯';
+  document.getElementById('ttt-status').textContent = 'Du bist ' + sym + (isHost ? ' — Du fängst an!' : ' — Gegner fängt an...');
+  renderTTTBoard();
+  if (tttPollInterval) clearInterval(tttPollInterval);
+  tttPollInterval = setInterval(tttPollOnline, 2500);
+}
+
+async function tttPollOnline() {
+  if (!tttOn || !tttLobbyId || tttIsAI) return;
+  if (tttCurrentTurn === tttMySymbol) return;
+  try {
+    var res = await fetch(API_URL + '/api/lobby/' + tttLobbyId);
+    if (!res.ok) return;
+    var lobby = await res.json();
+    var state = lobby.game_state || {};
+    if (!state.board) return;
+    tttBoard = state.board;
+    tttCurrentTurn = state.currentTurn;
+    renderTTTBoard();
+    var result = tttCheck();
+    if (result) {
+      clearInterval(tttPollInterval); tttPollInterval = null;
+      tttGameOver(result);
+    } else {
+      var sym = tttCurrentTurn === 'X' ? '✕' : '◯';
+      var isMyTurn = tttCurrentTurn === tttMySymbol;
+      document.getElementById('ttt-status').textContent = isMyTurn ? 'Du bist dran (' + sym + ')' : 'Gegner ist dran...';
+    }
+  } catch (e) {}
+}
+
+function renderTTTBoard() {
+  var board = document.getElementById('ttt-board');
+  if (!board) return;
+  var isMyTurn = tttCurrentTurn === tttMySymbol;
+  var html = '';
+  tttBoard.forEach(function(cell, idx) {
+    var sym = cell === 'X' ? '✕' : cell === 'O' ? '◯' : '';
+    var cls = 'ttt-cell' + (cell ? ' taken' : (tttOn && isMyTurn ? ' hoverable' : '')) + (cell === 'X' ? ' x' : cell === 'O' ? ' o' : '');
+    html += '<div class="' + cls + '" data-idx="' + idx + '">' + sym + '</div>';
+  });
+  board.innerHTML = html;
+  if (tttOn && isMyTurn) {
+    board.querySelectorAll('.ttt-cell:not(.taken)').forEach(function(cell) {
+      cell.addEventListener('click', function() { tttClick(parseInt(this.dataset.idx)); });
+    });
+  }
+}
+
+function tttClick(idx) {
+  if (!tttOn || tttBoard[idx] || tttCurrentTurn !== tttMySymbol) return;
+  tttBoard[idx] = tttMySymbol;
+  tttCurrentTurn = tttMySymbol === 'X' ? 'O' : 'X';
+  renderTTTBoard();
+  var result = tttCheck();
+  if (result) { tttGameOver(result); return; }
+  if (tttIsAI) {
+    document.getElementById('ttt-status').textContent = 'KI überlegt...';
+    setTimeout(tttAiMove, 380);
+  } else {
+    // Online: Zug senden
+    document.getElementById('ttt-status').textContent = 'Gegner ist dran...';
+    fetch(API_URL + '/api/lobby/move', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lobby_id: tttLobbyId, user_id: user.id, move: idx })
+    });
+  }
+}
+
+function tttAiMove() {
+  if (!tttOn) return;
+  var idx = tttGetAiMove();
+  if (idx === -1) return;
+  tttBoard[idx] = 'O'; tttCurrentTurn = 'X';
+  renderTTTBoard();
+  var result = tttCheck();
+  if (result) { tttGameOver(result); return; }
+  document.getElementById('ttt-status').textContent = 'Du bist dran (✕)';
+}
+
+function tttGetAiMove() {
+  var empty = tttBoard.reduce(function(acc, v, i) { if (v === '') acc.push(i); return acc; }, []);
+  if (!empty.length) return -1;
+  if (tttAiDiff === 'easy') return empty[Math.floor(Math.random() * empty.length)];
+  if (tttAiDiff === 'medium') {
+    var win = tttFindWin('O'); if (win !== -1) return win;
+    var blk = tttFindWin('X'); if (blk !== -1) return blk;
+    if (tttBoard[4] === '') return 4;
+    return empty[Math.floor(Math.random() * empty.length)];
+  }
+  // hard: minimax
+  var best = -Infinity, bestIdx = empty[0];
+  empty.forEach(function(i) {
+    tttBoard[i] = 'O';
+    var s = tttMinimax(tttBoard, 0, false);
+    tttBoard[i] = '';
+    if (s > best) { best = s; bestIdx = i; }
+  });
+  return bestIdx;
+}
+
+function tttFindWin(sym) {
+  var lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for (var i = 0; i < lines.length; i++) {
+    var l = lines[i], vals = [tttBoard[l[0]], tttBoard[l[1]], tttBoard[l[2]]];
+    if (vals.filter(function(v) { return v === sym; }).length === 2 &&
+        vals.filter(function(v) { return v === ''; }).length === 1)
+      return l[vals.indexOf('')];
+  }
+  return -1;
+}
+
+function tttMinimax(b, depth, isMax) {
+  var r = tttCheckBoard(b);
+  if (r === 'O') return 10 - depth;
+  if (r === 'X') return depth - 10;
+  if (b.every(function(c) { return c !== ''; })) return 0;
+  var sym = isMax ? 'O' : 'X', best = isMax ? -Infinity : Infinity;
+  for (var i = 0; i < 9; i++) {
+    if (b[i] !== '') continue;
+    b[i] = sym;
+    var s = tttMinimax(b, depth + 1, !isMax);
+    b[i] = '';
+    best = isMax ? Math.max(best, s) : Math.min(best, s);
+  }
+  return best;
+}
+
+function tttCheck() { return tttCheckBoard(tttBoard); }
+
+function tttCheckBoard(b) {
+  var lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for (var i = 0; i < lines.length; i++) {
+    var l = lines[i];
+    if (b[l[0]] && b[l[0]] === b[l[1]] && b[l[1]] === b[l[2]]) return b[l[0]];
+  }
+  return b.every(function(c) { return c !== ''; }) ? 'draw' : null;
+}
+
+function tttGameOver(result) {
+  tttOn = false;
+  if (tttPollInterval) { clearInterval(tttPollInterval); tttPollInterval = null; }
+  var msg;
+  if (result === 'draw') msg = '🤝 Unentschieden!';
+  else if (result === tttMySymbol) {
+    msg = '🎉 Du gewinnst!';
+    if (tttIsAI) {
+      var pts = tttAiDiff === 'hard' ? 30 : tttAiDiff === 'medium' ? 20 : 10;
+      saveHS('tictactoe', pts);
+    }
+  } else {
+    msg = tttIsAI ? '🤖 KI gewinnt!' : '😢 Gegner gewinnt!';
+  }
+  document.getElementById('ttt-status').textContent = msg;
+  renderTTTBoard();
 }
 
 /* ---- PRIVATE CHAT ---- */
@@ -668,6 +958,10 @@ document.getElementById("avatar").src =
   // Anfragen periodisch prüfen
   if (requestsInterval) clearInterval(requestsInterval);
   requestsInterval = setInterval(function() { loadFriendRequests(); }, 60000);
+  // Spiel-Einladungen pollen
+  seenInviteIds = new Set();
+  if (inviteInterval) clearInterval(inviteInterval);
+  inviteInterval = setInterval(checkGameInvites, 3000);
   // Theme-Button Emoji setzen
   var themeBtn = document.getElementById('btn-theme');
   if (themeBtn) themeBtn.textContent = document.body.classList.contains('light') ? '☀️' : '🌙';
@@ -681,8 +975,10 @@ if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = n
 if (requestsInterval) { clearInterval(requestsInterval); requestsInterval = null; }
 if (chatInterval) { clearInterval(chatInterval); chatInterval = null; }
 if (unreadInterval) { clearInterval(unreadInterval); unreadInterval = null; }
+if (inviteInterval) { clearInterval(inviteInterval); inviteInterval = null; }
+if (tttPollInterval) { clearInterval(tttPollInterval); tttPollInterval = null; }
 closePrivateChat();
-friendsList = []; unreadCounts = {};
+friendsList = []; unreadCounts = {}; seenInviteIds = new Set(); tttOn = false;
 document.getElementById('sidebar').classList.remove('visible', 'expanded');
 document.getElementById('sidebar-mobile-btn').classList.remove('visible');
 // Online-Status setzen
@@ -872,6 +1168,7 @@ document.getElementById('card-reaction').addEventListener('click', function() { 
 document.getElementById('card-bubble').addEventListener('click', function() { openG('bubble'); });
 document.getElementById('card-guess').addEventListener('click', function() { openG('guess'); });
 document.getElementById('card-wordle').addEventListener('click', function() { openG('wordle'); });
+document.getElementById('card-multiplayer').addEventListener('click', function() { openG('multiplayer'); });
 document.getElementById('btn-x').addEventListener('click', closeG);
 document.getElementById('btn-again').addEventListener('click', resetG);
 document.getElementById('popup').addEventListener('click', function(e) { if (e.target === this) closeG(); });
@@ -883,13 +1180,21 @@ document.getElementById('sidebar-toggle').addEventListener('click', function() {
 document.getElementById('sidebar-mobile-btn').addEventListener('click', function() {
   document.getElementById('sidebar').classList.toggle('expanded');
 });
+document.getElementById('btn-vs-ai').addEventListener('click', function() { tttStart(lobbyAiDiff); });
+document.querySelectorAll('.diff-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.diff-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    lobbyAiDiff = this.dataset.diff;
+  });
+});
 document.getElementById('pc-close').addEventListener('click', closePrivateChat);
 document.getElementById('pc-send').addEventListener('click', sendPrivateMessage);
 document.getElementById('pc-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') sendPrivateMessage(); });
 
 function openG(id) {
   which = id;
-  var titles = { memory: 'Farb-Gedächtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest', bubble: 'Bubble Pop', guess: 'Zahlen-Raten', wordle: 'Info-Wordle' };
+  var titles = { memory: 'Farb-Gedächtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest', bubble: 'Bubble Pop', guess: 'Zahlen-Raten', wordle: 'Info-Wordle', multiplayer: '⚔️ Duell' };
   document.getElementById('gtitle').textContent = titles[id] || id;
   document.getElementById('pts').textContent = '0';
   var canvas = document.getElementById('c');
@@ -898,12 +1203,16 @@ function openG(id) {
   var reactionArea = document.getElementById('reaction-area');
   var guessArea = document.getElementById('guess-area');
   var wordleArea = document.getElementById('wordle-area');
+  var lobbyArea = document.getElementById('lobby-area');
   canvas.style.display = 'none';
   pads.classList.remove('active');
   memStatus.classList.remove('active');
   reactionArea.classList.remove('active');
   guessArea.classList.remove('active');
   wordleArea.classList.remove('active');
+  lobbyArea.classList.remove('active');
+  document.getElementById('pbot-pts-wrap').style.display = '';
+  document.getElementById('btn-again').style.display = 'inline-block';
   if (id === 'memory') {
     pads.classList.add('active');
     memStatus.classList.add('active');
@@ -915,6 +1224,8 @@ function openG(id) {
     guessArea.classList.add('active');
   } else if (id === 'wordle') {
     wordleArea.classList.add('active');
+  } else if (id === 'multiplayer') {
+    lobbyArea.classList.add('active');
   }
   document.getElementById('popup').classList.add('on');
   runG();
@@ -922,15 +1233,24 @@ function openG(id) {
 
 function closeG() {
   if (game) { game.stop(); game = null; }
+  if (tttPollInterval) { clearInterval(tttPollInterval); tttPollInterval = null; }
+  tttOn = false;
   document.getElementById('popup').classList.remove('on');
   document.getElementById('memory-pads').classList.remove('active');
   document.getElementById('memory-status').classList.remove('active');
   document.getElementById('reaction-area').classList.remove('active');
   document.getElementById('guess-area').classList.remove('active');
   document.getElementById('wordle-area').classList.remove('active');
+  document.getElementById('lobby-area').classList.remove('active');
 }
 
 function resetG() {
+  if (which === 'multiplayer') {
+    if (tttPollInterval) { clearInterval(tttPollInterval); tttPollInterval = null; }
+    tttOn = false; tttLobbyId = null;
+    loadLobbyScreen();
+    return;
+  }
   if (game) { game.stop(); game = null; }
   document.getElementById('pts').textContent = '0';
   runG();
@@ -949,6 +1269,8 @@ function runG() {
     game = guessGame();
   } else if (which === 'wordle') {
     game = wordleGame();
+  } else if (which === 'multiplayer') {
+    loadLobbyScreen();
   } else {
     c.width = 380; c.height = 420;
     game = stack(c);

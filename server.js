@@ -170,8 +170,9 @@ app.post('/api/save-score', async (req, res) => {
       // Reaction: niedrigere ms = besser; 0 = noch kein Score
       updates.reaction = (user.reaction === 0) ? score : Math.min(user.reaction, score);
     } else if (game_type === 'bubble') {
-      // Bubble-Scores in der precision-Spalte speichern (gleiche DB-Struktur)
       updates.precision = Math.max(user.precision || 0, score);
+    } else if (game_type === 'tictactoe') {
+      // Kein eigenes User-Feld; nur highscores + games_played
     } else {
       updates[game_type] = Math.max(user[game_type] || 0, score);
     }
@@ -460,6 +461,111 @@ app.delete('/api/friends/remove', async (req, res) => {
     await db.from('friendships').delete()
       .eq('sender_id', friend_id).eq('receiver_id', user_id);
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+// ============= MULTIPLAYER LOBBY =============
+// WICHTIG: /invite/:user_id VOR /:id registrieren!
+
+app.post('/api/lobby/create', async (req, res) => {
+  const { host_id, game_type } = req.body;
+  if (!host_id) return res.status(400).json({ error: 'Fehlende Daten' });
+  try {
+    const { data, error } = await db.from('game_lobbies')
+      .insert({
+        host_id,
+        game_type: game_type || 'tictactoe',
+        status: 'waiting',
+        game_state: { board: Array(9).fill(''), currentTurn: 'X' }
+      })
+      .select().single();
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+app.post('/api/lobby/join', async (req, res) => {
+  const { lobby_id, guest_id } = req.body;
+  if (!lobby_id || !guest_id) return res.status(400).json({ error: 'Fehlende Daten' });
+  try {
+    const { data, error } = await db.from('game_lobbies')
+      .update({ guest_id, status: 'playing', updated_at: new Date().toISOString() })
+      .eq('id', lobby_id)
+      .eq('status', 'waiting')
+      .select().single();
+    if (error || !data) return res.status(400).json({ error: 'Lobby nicht verfügbar' });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+app.post('/api/lobby/move', async (req, res) => {
+  const { lobby_id, user_id, move } = req.body;
+  if (!lobby_id || !user_id || move === undefined) return res.status(400).json({ error: 'Fehlende Daten' });
+  try {
+    const { data: lobby, error: e1 } = await db.from('game_lobbies').select('*').eq('id', lobby_id).single();
+    if (e1 || !lobby) return res.status(404).json({ error: 'Lobby nicht gefunden' });
+    const state = lobby.game_state || { board: Array(9).fill(''), currentTurn: 'X' };
+    const symbol = lobby.host_id === parseInt(user_id) ? 'X' : 'O';
+    if (state.currentTurn !== symbol) return res.status(400).json({ error: 'Nicht dein Zug' });
+    if (state.board[move]) return res.status(400).json({ error: 'Feld belegt' });
+    state.board[move] = symbol;
+    state.currentTurn = symbol === 'X' ? 'O' : 'X';
+    const { data, error: e2 } = await db.from('game_lobbies')
+      .update({ game_state: state, updated_at: new Date().toISOString() })
+      .eq('id', lobby_id).select().single();
+    if (e2) throw e2;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+app.post('/api/lobby/invite', async (req, res) => {
+  const { lobby_id, from_id, to_id } = req.body;
+  if (!lobby_id || !from_id || !to_id) return res.status(400).json({ error: 'Fehlende Daten' });
+  try {
+    const { data, error } = await db.from('game_invites')
+      .insert({ lobby_id, from_id, to_id, status: 'pending' })
+      .select().single();
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+app.get('/api/lobby/invite/:user_id', async (req, res) => {
+  try {
+    const { data, error } = await db.from('game_invites')
+      .select('id, lobby_id, from_id, created_at, users!from_id(name, avatar_seed)')
+      .eq('to_id', req.params.user_id)
+      .eq('status', 'pending');
+    if (error) throw error;
+    const result = (data || []).map(inv => ({
+      id: inv.id,
+      lobby_id: inv.lobby_id,
+      from_id: inv.from_id,
+      from_name: inv.users?.name || 'Unbekannt',
+      avatar_seed: inv.users?.avatar_seed,
+      created_at: inv.created_at
+    }));
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+app.get('/api/lobby/:id', async (req, res) => {
+  try {
+    const { data, error } = await db.from('game_lobbies').select('*').eq('id', req.params.id).single();
+    if (error || !data) return res.status(404).json({ error: 'Nicht gefunden' });
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }

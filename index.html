@@ -60,6 +60,7 @@
     <div class="card" id="card-bubble"><div class="em">🫧</div><h3>Bubble Pop</h3><p>Triff die kleinen Blasen für mehr Punkte!</p></div>
     <div class="card" id="card-guess"><div class="em">🔢</div><h3>Zahlen-Raten</h3><p>Finde die Zahl in so wenig Versuchen wie möglich!</p></div>
     <div class="card" id="card-wordle"><div class="em">💻</div><h3>Info-Wordle</h3><p>Errate das Informatik-Wort!</p></div>
+    <div class="card" id="card-multiplayer"><div class="em">⚔️</div><h3>Duell</h3><p>Spiel gegen KI oder einen Freund!</p></div>
   </div>
   
 
@@ -168,7 +169,28 @@
       <div id="wordle-keyboard"></div>
     </div>
 
-    <div class="pbot"><span>Punkte: <b id="pts">0</b></span><button id="btn-again">Nochmal</button></div>
+    <div id="lobby-area" class="lobby-area">
+      <div id="lobby-screen">
+        <div class="lobby-online-count"><span id="lobby-online-num">0</span> Spieler gerade online</div>
+        <div class="lobby-difficulty">
+          <span class="diff-label">Schwierigkeit:</span>
+          <div class="diff-btns">
+            <button class="diff-btn active" data-diff="easy">Leicht</button>
+            <button class="diff-btn" data-diff="medium">Mittel</button>
+            <button class="diff-btn" data-diff="hard">Schwer</button>
+          </div>
+        </div>
+        <button id="btn-vs-ai" class="btn-vs-ai">🤖 Gegen KI spielen</button>
+        <div class="lobby-divider">— oder Freund einladen —</div>
+        <div id="lobby-users-list" class="lobby-users-list"></div>
+      </div>
+      <div id="ttt-screen" class="ttt-screen">
+        <div id="ttt-status" class="ttt-status"></div>
+        <div id="ttt-board" class="ttt-board"></div>
+      </div>
+    </div>
+
+    <div class="pbot"><span id="pbot-pts-wrap">Punkte: <b id="pts">0</b></span><button id="btn-again">Nochmal</button></div>
   </div>
 </div>
  
