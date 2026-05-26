@@ -393,8 +393,11 @@ document.getElementById('btn-register').addEventListener('click', async function
       body: JSON.stringify({ name: n, pass: p1, pass2: p2 })
     });
     var data = await res.json();
-    
-    
+    if (!res.ok || !data.user) {
+      e.textContent = data.error || 'Registrierung fehlgeschlagen.';
+      setLoading('btn-register', false, 'Registrieren');
+      return;
+    }
     user = data.user;
     sessionStorage.removeItem('logged_out');
     setLoading('btn-register', false, 'Registrieren');
@@ -423,8 +426,11 @@ document.getElementById('btn-login').addEventListener('click', async function() 
       body: JSON.stringify({ name: n, pass: p })
     });
     var data = await res.json();
-
-
+    if (!res.ok || !data.user) {
+      e.textContent = data.error || 'Login fehlgeschlagen.';
+      setLoading('btn-login', false, 'Einloggen');
+      return;
+    }
     user = data.user;
     localStorage.setItem('lastUser', n);
     sessionStorage.removeItem('logged_out');
