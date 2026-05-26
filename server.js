@@ -465,6 +465,72 @@ app.delete('/api/friends/remove', async (req, res) => {
   }
 });
 
+// ============= PRIVATE CHAT =============
+
+app.get('/api/chat/private/:user_id/:friend_id', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.user_id);
+    const friendId = parseInt(req.params.friend_id);
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const { data, error } = await db
+      .from('private_chat')
+      .select('id, sender_id, receiver_id, message, is_read, created_at')
+      .or(`and(sender_id.eq.${userId},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${userId})`)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    // Als gelesen markieren
+    await db.from('private_chat')
+      .update({ is_read: true })
+      .eq('receiver_id', userId)
+      .eq('sender_id', friendId)
+      .eq('is_read', false);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+app.post('/api/chat/private', async (req, res) => {
+  try {
+    const { sender_id, receiver_id, message } = req.body;
+    if (!sender_id || !receiver_id || !message) return res.status(400).json({ error: 'Fehlende Felder' });
+    const trimmed = String(message).trim().slice(0, 200);
+    if (!trimmed) return res.status(400).json({ error: 'Leere Nachricht' });
+    const { data, error } = await db
+      .from('private_chat')
+      .insert({ sender_id, receiver_id, message: trimmed, is_read: false })
+      .select()
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+app.get('/api/chat/unread/:user_id', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.user_id);
+    const { data, error } = await db
+      .from('private_chat')
+      .select('sender_id')
+      .eq('receiver_id', userId)
+      .eq('is_read', false);
+    if (error) throw error;
+    const counts = {};
+    (data || []).forEach(function(row) {
+      counts[row.sender_id] = (counts[row.sender_id] || 0) + 1;
+    });
+    const result = Object.entries(counts).map(function([friend_id, count]) {
+      return { friend_id: parseInt(friend_id), count };
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
 // ============= GLOBAL CHAT =============
 
 app.get('/api/chat/global', async (req, res) => {

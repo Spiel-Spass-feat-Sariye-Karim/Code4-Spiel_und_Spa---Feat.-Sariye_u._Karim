@@ -5,6 +5,8 @@ var game=null,which='',user=null;
 var heartbeatInterval=null,requestsInterval=null,chatInterval=null;
 var lastChatCount=0;
 var allUsersCache=[],friendIdsSet=new Set(),sentRequestIds=new Set();
+var activeChatFriend=null,privateChatInterval=null,unreadInterval=null;
+var friendsList=[],unreadCounts={};
 
 /* ---- DARK/LIGHT MODE ---- */
 (function() {
@@ -152,6 +154,137 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+/* ---- PRIVATE CHAT ---- */
+async function loadUnreadCounts() {
+  if (!user) return;
+  try {
+    var res = await fetch(API_URL + '/api/chat/unread/' + user.id);
+    if (!res.ok) return;
+    var data = await res.json();
+    if (!Array.isArray(data)) return;
+    unreadCounts = {};
+    data.forEach(function(item) { unreadCounts[item.friend_id] = item.count; });
+    updateSidebarBadges();
+  } catch (e) {}
+}
+
+function updateSidebarBadges() {
+  document.querySelectorAll('.sidebar-friend').forEach(function(el) {
+    var fid = parseInt(el.dataset.id);
+    var badge = el.querySelector('.sidebar-unread-badge');
+    var count = unreadCounts[fid] || 0;
+    if (badge) {
+      badge.textContent = count;
+      badge.style.display = count > 0 ? 'flex' : 'none';
+    }
+  });
+}
+
+function renderSidebar(friends) {
+  friendsList = friends;
+  var container = document.getElementById('sidebar-friends');
+  if (!container) return;
+  if (!friends.length) {
+    container.innerHTML = '<div class="sidebar-empty">Noch keine Freunde</div>';
+    return;
+  }
+  var html = '';
+  friends.forEach(function(f) {
+    var seed = f.avatar_seed || f.name || 'unknown';
+    var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
+    var count = unreadCounts[f.id] || 0;
+    html +=
+      '<div class="sidebar-friend" data-id="' + f.id + '">' +
+      '<div class="sidebar-friend-av-wrap">' +
+      '<img class="sidebar-friend-av" src="' + av + '" alt="">' +
+      '<span class="sidebar-unread-badge" style="display:' + (count > 0 ? 'flex' : 'none') + '">' + count + '</span>' +
+      '</div>' +
+      '<div class="sidebar-friend-info">' +
+      '<div class="sidebar-friend-name">' + escHtml(f.name) + '</div>' +
+      '<div class="sidebar-friend-status">' + (f.is_online ? '<span class="online-dot green"></span>Online' : '<span class="online-dot gray"></span>Offline') + '</div>' +
+      '</div>' +
+      '</div>';
+  });
+  container.innerHTML = html;
+  container.querySelectorAll('.sidebar-friend').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var fid = parseInt(this.dataset.id);
+      var f = friendsList.find(function(fr) { return fr.id === fid; });
+      if (f) openPrivateChat(f);
+    });
+  });
+}
+
+function openPrivateChat(friend) {
+  activeChatFriend = friend;
+  var seed = friend.avatar_seed || friend.name || 'unknown';
+  document.getElementById('pc-avatar').src = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
+  document.getElementById('pc-name').textContent = friend.name;
+  document.getElementById('pc-input').value = '';
+  document.getElementById('private-chat-modal').classList.add('open');
+  loadPrivateMessages();
+  if (privateChatInterval) clearInterval(privateChatInterval);
+  privateChatInterval = setInterval(loadPrivateMessages, 5000);
+  if (unreadCounts[friend.id]) { unreadCounts[friend.id] = 0; updateSidebarBadges(); }
+  if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('expanded');
+}
+
+function closePrivateChat() {
+  if (privateChatInterval) { clearInterval(privateChatInterval); privateChatInterval = null; }
+  activeChatFriend = null;
+  document.getElementById('private-chat-modal').classList.remove('open');
+}
+
+async function loadPrivateMessages() {
+  if (!user || !activeChatFriend) return;
+  try {
+    var res = await fetch(API_URL + '/api/chat/private/' + user.id + '/' + activeChatFriend.id + '?limit=50');
+    if (!res.ok) return;
+    var msgs = await res.json();
+    if (!Array.isArray(msgs)) return;
+    var container = document.getElementById('pc-messages');
+    if (!container) return;
+    var wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 40;
+    var html = '';
+    msgs.slice().reverse().forEach(function(m) {
+      var isOwn = m.sender_id === user.id;
+      var av = isOwn
+        ? 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + (user.avatar_seed || user.name)
+        : 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + (activeChatFriend.avatar_seed || activeChatFriend.name);
+      var name = isOwn ? user.name : activeChatFriend.name;
+      var time = new Date(m.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      html +=
+        '<div class="chat-msg' + (isOwn ? ' own' : '') + '">' +
+        '<img class="chat-avatar" src="' + av + '" alt="">' +
+        '<div class="chat-bubble">' +
+        '<div class="chat-meta"><span class="chat-name">' + escHtml(name) + '</span><span class="chat-time">' + time + '</span></div>' +
+        '<div class="chat-text">' + escHtml(m.message) + '</div>' +
+        '</div>' +
+        '</div>';
+    });
+    container.innerHTML = html;
+    if (wasAtBottom || container.scrollTop === 0) container.scrollTop = container.scrollHeight;
+    if (unreadCounts[activeChatFriend.id]) { unreadCounts[activeChatFriend.id] = 0; updateSidebarBadges(); }
+  } catch (e) {}
+}
+
+async function sendPrivateMessage() {
+  if (!user || !activeChatFriend) return;
+  var input = document.getElementById('pc-input');
+  if (!input) return;
+  var msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  try {
+    await fetch(API_URL + '/api/chat/private', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sender_id: user.id, receiver_id: activeChatFriend.id, message: msg })
+    });
+    loadPrivateMessages();
+  } catch (e) {}
+}
+
 /* ---- TOAST & ACHIEVEMENTS ---- */
 function showToast(msg) {
   var t = document.createElement('div');
@@ -198,11 +331,13 @@ async function loadFriends() {
   try {
     var res = await fetch(API_URL + '/api/friends/' + user.id);
     var friends = await res.json();
-    if (!res.ok || !Array.isArray(friends)) { renderFriendsBoard([]); return; }
+    if (!res.ok || !Array.isArray(friends)) { renderFriendsBoard([]); renderSidebar([]); return; }
     friendIdsSet = new Set(friends.map(function(f) { return f.id; }));
     renderFriendsBoard(friends);
+    renderSidebar(friends);
   } catch (err) {
     document.getElementById('friends-list').innerHTML = '<span style="color:var(--dim);font-size:0.82rem">Nicht verfügbar</span>';
+    renderSidebar([]);
   }
 }
 
@@ -512,11 +647,18 @@ document.getElementById("avatar").src =
   loadStats();
   loadFriends();
   loadFriendRequests();
-  // Chat laden
+  // Globaler Chat laden
   lastChatCount = 0;
   loadGlobalChat();
   if (chatInterval) clearInterval(chatInterval);
   chatInterval = setInterval(loadGlobalChat, 10000);
+  // Sidebar + Unread-Counts
+  document.getElementById('sidebar').classList.add('visible');
+  document.getElementById('sidebar-mobile-btn').classList.add('visible');
+  unreadCounts = {};
+  loadUnreadCounts();
+  if (unreadInterval) clearInterval(unreadInterval);
+  unreadInterval = setInterval(loadUnreadCounts, 5000);
   // Heartbeat starten
   if (heartbeatInterval) clearInterval(heartbeatInterval);
   fetch(API_URL + '/api/users/heartbeat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id }) });
@@ -538,6 +680,11 @@ if (!confirm("Wirklich abmelden?")) return;
 if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
 if (requestsInterval) { clearInterval(requestsInterval); requestsInterval = null; }
 if (chatInterval) { clearInterval(chatInterval); chatInterval = null; }
+if (unreadInterval) { clearInterval(unreadInterval); unreadInterval = null; }
+closePrivateChat();
+friendsList = []; unreadCounts = {};
+document.getElementById('sidebar').classList.remove('visible', 'expanded');
+document.getElementById('sidebar-mobile-btn').classList.remove('visible');
 // Online-Status setzen
 if (user) {
   try { await fetch(API_URL + '/api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id }) }); } catch(e) {}
@@ -730,6 +877,15 @@ document.getElementById('btn-again').addEventListener('click', resetG);
 document.getElementById('popup').addEventListener('click', function(e) { if (e.target === this) closeG(); });
 document.getElementById('chat-send').addEventListener('click', sendChatMessage);
 document.getElementById('chat-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') sendChatMessage(); });
+document.getElementById('sidebar-toggle').addEventListener('click', function() {
+  document.getElementById('sidebar').classList.toggle('expanded');
+});
+document.getElementById('sidebar-mobile-btn').addEventListener('click', function() {
+  document.getElementById('sidebar').classList.toggle('expanded');
+});
+document.getElementById('pc-close').addEventListener('click', closePrivateChat);
+document.getElementById('pc-send').addEventListener('click', sendPrivateMessage);
+document.getElementById('pc-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') sendPrivateMessage(); });
 
 function openG(id) {
   which = id;

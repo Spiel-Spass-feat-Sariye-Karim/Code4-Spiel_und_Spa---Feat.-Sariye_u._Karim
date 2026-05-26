@@ -101,16 +101,41 @@
     <div id="friend-search-results"></div>
   </div>
 </div>
-</div>
 
-<div class="hs-section chat-section">
-  <h3>💬 Globaler Chat</h3>
-  <div id="chat-window" class="chat-window"></div>
-  <div class="chat-input-row">
-    <input id="chat-input" placeholder="Nachricht eingeben..." maxlength="200" autocomplete="off">
-    <button id="chat-send">Senden</button>
+  <div class="hs-section chat-section">
+    <h3>💬 Globaler Chat</h3>
+    <div id="chat-window" class="chat-window"></div>
+    <div class="chat-input-row">
+      <input id="chat-input" placeholder="Nachricht eingeben..." maxlength="200" autocomplete="off">
+      <button id="chat-send">Senden</button>
+    </div>
   </div>
 </div>
+
+<!-- SIDEBAR -->
+<div id="sidebar" class="sidebar">
+  <div class="sidebar-header">
+    <button id="sidebar-toggle" class="sidebar-toggle-btn" title="Freunde-Chat">💬</button>
+    <span class="sidebar-label">Freunde</span>
+  </div>
+  <div id="sidebar-friends"></div>
+</div>
+<button id="sidebar-mobile-btn" class="sidebar-mobile-btn" title="Freunde-Chat">💬</button>
+
+<!-- PRIVATE CHAT MODAL -->
+<div id="private-chat-modal" class="private-chat-modal">
+  <div class="pc-header">
+    <div class="pc-header-info">
+      <img id="pc-avatar" class="pc-avatar" src="" alt="">
+      <span id="pc-name"></span>
+    </div>
+    <button id="pc-close">✕</button>
+  </div>
+  <div id="pc-messages" class="pc-messages"></div>
+  <div class="pc-input-row">
+    <input id="pc-input" placeholder="Nachricht..." maxlength="200" autocomplete="off">
+    <button id="pc-send">Senden</button>
+  </div>
 </div>
 
 <!-- POPUP -->
