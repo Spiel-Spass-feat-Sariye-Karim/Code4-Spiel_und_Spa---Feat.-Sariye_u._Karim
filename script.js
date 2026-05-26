@@ -1,7 +1,7 @@
 // Backend Server URL
 var API_URL = 'https://code4-spiel-und-spa-feat-sariye-u-karim.onrender.com';
 
-var game=null,which='',user=null,dailyGame=null;
+var game=null,which='',user=null,dailyGame=null,dailyMeta=null;
 var heartbeatInterval=null,requestsInterval=null;
 var allUsersCache=[],friendIdsSet=new Set(),sentRequestIds=new Set();
 
@@ -137,13 +137,67 @@ function checkAchievements() {
 }
 
 /* ---- TÄGLICHE CHALLENGE ---- */
+var DAILY_MINI_GAMES = [
+  { id: 0, name: 'Farb-Match', description: 'Farbname erscheint in anderer Farbe - ist Text und Farbe gleich?', fn: colorMatchMini },
+  { id: 1, name: 'Zahlen-Folge', description: 'Kurze Zahlenfolge merken und danach eintippen.', fn: numberSequenceMini },
+  { id: 2, name: 'Doppel-Klick-Timing', description: 'Treffe 1000ms zwischen zwei Klicks so genau wie möglich.', fn: doubleClickTimingMini },
+  { id: 3, name: 'Emoji-Suche', description: 'Finde das Ziel-Emoji im Grid so schnell wie möglich.', fn: emojiSearchMini },
+  { id: 4, name: 'Buchstaben-Regen', description: 'Nur Vokale anklicken, Konsonanten ignorieren.', fn: letterRainMini },
+  { id: 5, name: 'Muster-Kopie', description: 'Merke dir ein kurzes Muster und baue es nach.', fn: patternCopyMini },
+  { id: 6, name: 'Schnell-Rechnen', description: 'Löse 10 einfache Mathe-Aufgaben so schnell wie möglich.', fn: quickMathMini },
+  { id: 7, name: 'Farb-Sequenz', description: 'Wiederhole die Farbsequenz mit sechs Farben.', fn: colorSequenceMini },
+  { id: 8, name: 'Ziel-Stopp', description: 'Stoppe den bewegenden Balken so nah wie möglich bei 50%.', fn: targetStopMini },
+  { id: 9, name: 'Wort-Scramble', description: 'Entschlüssele das vertauschte Informatik-Wort.', fn: wordScrambleMini },
+  { id: 10, name: 'Klick-Rhythmus', description: 'Klicke im Takt der vorgegebenen Sequenz.', fn: rhythmClickMini },
+  { id: 11, name: 'Zahlen-Sortierung', description: 'Sortiere fünf Zahlen in aufsteigender Reihenfolge.', fn: numberSortMini },
+  { id: 12, name: 'Farb-Mischer', description: 'Stelle die Ziel-RGB-Farbe mit Reglern nach.', fn: colorMixerMini },
+  { id: 13, name: 'Reaktions-Kette', description: 'Klicke fünf aufleuchtende Buttons in der Reihenfolge.', fn: reactionChainMini },
+  { id: 14, name: 'Buchstaben-Zähler', description: 'Schätze, wie oft ein Buchstabe im kurzen Text vorkommt.', fn: letterCountMini },
+  { id: 15, name: 'Ping-Pong-Klick', description: 'Klicke im richtigen Moment, wenn der Ball zurückkommt.', fn: pingPongClickMini },
+  { id: 16, name: 'Speicher-Grid', description: 'Merke das aufleuchtende 3x3-Feld und klicke es danach nach.', fn: memoryGridMini },
+  { id: 17, name: 'Wort-Tipp-Speed', description: 'Tippe das angezeigte Wort so schnell wie möglich ab.', fn: typingSpeedMini },
+  { id: 18, name: 'Zahlen-Kreuz', description: 'Finde die fehlende Zahl in der einfachen Gleichung.', fn: numberCrossMini },
+  { id: 19, name: 'Icon-Gedächtnis', description: 'Merke sechs Icons und wähle sie anschließend aus zwölf aus.', fn: iconMemoryMini },
+  { id: 20, name: 'Balance-Klick', description: 'Balance die Waage aus durch gezielte Klicks.', fn: balanceClickMini },
+  { id: 21, name: 'Schnell-Augen', description: 'Sieh dir kurz Punkte an und gib die Zahl ein.', fn: quickEyesMini },
+  { id: 22, name: 'Tastatur-Sprint', description: 'Tippe die zufällige Buchstabenfolge so schnell wie möglich.', fn: keyboardSprintMini },
+  { id: 23, name: 'Farbfeld-Unterschied', description: 'Welche Farbe ist dunkler oder heller?', fn: colorDifferenceMini },
+  { id: 24, name: 'Morse-Code', description: 'Erkenne die einfache Morse-Sequenz und errate den Buchstaben.', fn: morseCodeMini },
+  { id: 25, name: 'Pixel-Art-Kopie', description: 'Zeichne das kleine 5x5 Pixel-Bild nach.', fn: pixelArtMini },
+  { id: 26, name: 'Zahlen-Memory', description: 'Decke gleiche Zahlen-Paare auf wie beim Memory.', fn: numberMemoryMini },
+  { id: 27, name: 'Wort-Kette', description: 'Finde ein Wort, das mit dem letzten Buchstaben des vorherigen Wortes beginnt.', fn: wordChainMini },
+  { id: 28, name: 'Reaktions-Stop', description: 'Stoppe den Countdown so genau wie möglich bei 0.', fn: reactionStopMini },
+  { id: 29, name: 'Speed-Kategorien', description: 'Klicke schnell, ob der Begriff Tier, Pflanze oder Technik ist.', fn: categorySpeedMini }
+];
+
+function getDayOfYear(date) {
+  var start = new Date(date.getFullYear(), 0, 0);
+  var diff = date - start + (start.getTimezoneOffset() - date.getTimezoneOffset()) * 60000;
+  return Math.floor(diff / 86400000);
+}
+
 async function loadDailyChallenge() {
+  try {
+    var res = await fetch(API_URL + '/api/daily-challenge');
+    var data = await res.json();
+    if (!res.ok || data.game_id === undefined) return;
+    dailyGame = data.game_id;
+    dailyMeta = data;
+    document.getElementById('challenge-game-name').textContent = data.game_name;
+    document.getElementById('challenge-game-desc').textContent = data.game_description;
+    loadDailyScores();
+  } catch (err) {
+    document.getElementById('challenge-game-name').textContent = 'Nicht verfügbar';
+    document.getElementById('challenge-game-desc').textContent = '';
+    document.getElementById('daily-scores-list').innerHTML = '<span style="color:var(--dim);font-size:0.8rem">Nicht verfügbar</span>';
+  }
+}
+
+async function loadDailyScores() {
   try {
     var res = await fetch(API_URL + '/api/daily-scores');
     var data = await res.json();
-    if (!res.ok) return;
-    dailyGame = data.game;
-    document.getElementById('challenge-game-name').textContent = data.name;
+    if (!res.ok) throw new Error('Fehler');
     var html = '';
     if (!data.scores || data.scores.length === 0) {
       html = '<div style="color:var(--dim);font-size:0.82rem;padding:0.3rem 0">Noch keine Scores heute!</div>';
@@ -693,7 +747,7 @@ document.getElementById('card-precision').addEventListener('click', function() {
 document.getElementById('card-guess').addEventListener('click', function() { openG('guess'); });
 document.getElementById('card-wordle').addEventListener('click', function() { openG('wordle'); });
 document.getElementById('btn-challenge-play').addEventListener('click', function() {
-  if (dailyGame) openG(dailyGame);
+  if (dailyGame !== null) openG('daily_' + dailyGame);
 });
 document.getElementById('btn-x').addEventListener('click', closeG);
 document.getElementById('btn-again').addEventListener('click', resetG);
@@ -702,7 +756,7 @@ document.getElementById('popup').addEventListener('click', function(e) { if (e.t
 function openG(id) {
   which = id;
   var titles = { memory: 'Farb-Gedächtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest', precision: 'Klick-Präzision', guess: 'Zahlen-Raten', wordle: 'Info-Wordle' };
-  document.getElementById('gtitle').textContent = titles[id] || id;
+  document.getElementById('gtitle').textContent = titles[id] || (dailyMeta ? dailyMeta.game_name : id);
   document.getElementById('pts').textContent = '0';
   var canvas = document.getElementById('c');
   var pads = document.getElementById('memory-pads');
@@ -710,12 +764,14 @@ function openG(id) {
   var reactionArea = document.getElementById('reaction-area');
   var guessArea = document.getElementById('guess-area');
   var wordleArea = document.getElementById('wordle-area');
+  var dailyArea = document.getElementById('daily-area');
   canvas.style.display = 'none';
   pads.classList.remove('active');
   memStatus.classList.remove('active');
   reactionArea.classList.remove('active');
   guessArea.classList.remove('active');
   wordleArea.classList.remove('active');
+  dailyArea.classList.remove('active');
   if (id === 'memory') {
     pads.classList.add('active');
     memStatus.classList.add('active');
@@ -727,6 +783,8 @@ function openG(id) {
     guessArea.classList.add('active');
   } else if (id === 'wordle') {
     wordleArea.classList.add('active');
+  } else if (id.startsWith('daily_')) {
+    dailyArea.classList.add('active');
   }
   document.getElementById('popup').classList.add('on');
   runG();
@@ -740,6 +798,7 @@ function closeG() {
   document.getElementById('reaction-area').classList.remove('active');
   document.getElementById('guess-area').classList.remove('active');
   document.getElementById('wordle-area').classList.remove('active');
+  document.getElementById('daily-area').classList.remove('active');
 }
 
 function resetG() {
@@ -761,14 +820,699 @@ function runG() {
     game = guessGame();
   } else if (which === 'wordle') {
     game = wordleGame();
+  } else if (which.startsWith('daily_')) {
+    c.style.display = 'none';
+    game = dailyMiniGame(parseInt(which.split('_')[1], 10));
   } else {
     c.width = 380; c.height = 420;
     game = stack(c);
   }
 }
 
+function fillDailyArea(html) {
+  var area = document.getElementById('daily-area');
+  area.innerHTML = html;
+  return area;
+}
 
-/* ---- SPIEL: FARB-GEDAECHTNIS ---- */ 
+function dailyMiniGame(id) {
+  var meta = DAILY_MINI_GAMES.find(function(item) { return item.id === id; });
+  if (!meta || typeof meta.fn !== 'function') {
+    fillDailyArea('<div class="daily-panel"><div class="daily-text">Dieses Spiel ist derzeit nicht verfügbar.</div></div>');
+    return { stop: function() {} };
+  }
+  return meta.fn(id);
+}
+
+function getRandomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function shuffleArray(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+function createTimerDisplay(area, initial) {
+  var el = document.createElement('div');
+  el.className = 'daily-timer';
+  el.textContent = initial || '';
+  area.appendChild(el);
+  return el;
+}
+
+function createStatusDisplay(area, initial) {
+  var el = document.createElement('div');
+  el.className = 'daily-status';
+  el.textContent = initial || '';
+  area.appendChild(el);
+  return el;
+}
+
+function createButton(text) {
+  var btn = document.createElement('button');
+  btn.className = 'daily-button';
+  btn.textContent = text;
+  return btn;
+}
+
+function createCell(value, extraClass) {
+  var btn = document.createElement('button');
+  btn.className = 'daily-cell' + (extraClass ? ' ' + extraClass : '');
+  btn.type = 'button';
+  btn.textContent = value;
+  return btn;
+}
+
+function colorMatchMini(id) {
+  var rounds = 10;
+  var score = 0;
+  var current = 0;
+  var active = true;
+  var words = ['ROT', 'BLAU', 'GRÜN', 'GELB'];
+  var cols = ['red', 'blue', 'green', 'gold'];
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text" id="daily-question"></div><div class="daily-grid daily-grid-3"></div></div>');
+  var status = createStatusDisplay(area, 'Triff die richtige Entscheidung.');
+  var grid = area.querySelector('.daily-grid');
+  var btnYes = createButton('Ja');
+  var btnNo = createButton('Nein');
+  grid.appendChild(btnYes);
+  grid.appendChild(btnNo);
+  function nextRound() {
+    if (!active) return;
+    if (current >= rounds) return finish();
+    var wordIdx = getRandomInt(0, words.length - 1);
+    var colorIdx = getRandomInt(0, cols.length - 1);
+    var question = area.querySelector('#daily-question');
+    question.textContent = words[wordIdx];
+    question.style.color = cols[colorIdx];
+    question.style.fontSize = '2rem';
+    question.style.fontWeight = '800';
+    question.style.textTransform = 'uppercase';
+    area.querySelector('.daily-status').textContent = 'Runde ' + (current + 1) + ' von ' + rounds;
+    btnYes.onclick = function() { checkAnswer(wordIdx === colorIdx); };
+    btnNo.onclick = function() { checkAnswer(wordIdx !== colorIdx); };
+  }
+  function checkAnswer(correct) {
+    if (!active) return;
+    if (correct) { score++; area.querySelector('.daily-status').textContent = 'Richtig!'; }
+    else { area.querySelector('.daily-status').textContent = 'Falsch!'; }
+    current++;
+    setTimeout(nextRound, 600);
+  }
+  function finish() {
+    active = false;
+    document.getElementById('pts').textContent = score;
+    area.querySelector('.daily-status').textContent = 'Fertig! Du hast ' + score + ' Punkte erreicht.';
+    saveHS('daily_' + id, score);
+  }
+  nextRound();
+  return { stop: function() { active = false; btnYes.onclick = null; btnNo.onclick = null; } };
+}
+
+function numberSequenceMini(id) {
+  var rounds = 4;
+  var length = 4;
+  var score = 0;
+  var active = true;
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text" id="daily-question"></div><input id="daily-answer" class="daily-input" placeholder="Zahlenfolge eingeben" autocomplete="off"><div class="daily-controls"></div></div>');
+  var status = createStatusDisplay(area, 'Merke dir die Folge.');
+  var input = area.querySelector('#daily-answer');
+  var controls = area.querySelector('.daily-controls');
+  var btn = createButton('Prüfen'); controls.appendChild(btn);
+  var sequence = '';
+  function nextRound() {
+    if (!active) return;
+    if (rounds <= 0) return finish();
+    sequence = '';
+    for (var i = 0; i < length; i++) sequence += getRandomInt(1, 9);
+    var question = area.querySelector('#daily-question');
+    question.textContent = sequence.split('').join(' ');
+    area.querySelector('.daily-status').textContent = 'Länge: ' + length + ' Zeichen. Merke dir die Zahlen.';
+    input.value = '';
+    btn.disabled = true;
+    setTimeout(function() {
+      question.textContent = 'Jetzt eintippen!';
+      btn.disabled = false;
+      input.focus();
+    }, 2500);
+  }
+  function submit() {
+    if (!active) return;
+    var answer = input.value.trim();
+    if (answer === sequence) { score += 10; status.textContent = 'Richtig!'; }
+    else { status.textContent = 'Falsch – richtig wäre ' + sequence + '.'; }
+    rounds--; length++;
+    setTimeout(nextRound, 800);
+  }
+  btn.onclick = submit;
+  input.addEventListener('keydown', function(e) { if (e.key === 'Enter') submit(); });
+  function finish() {
+    active = false;
+    document.getElementById('pts').textContent = score;
+    status.textContent = 'Ende! Score: ' + score;
+    saveHS('daily_' + id, score);
+  }
+  nextRound();
+  return { stop: function() { active = false; btn.onclick = null; } };
+}
+
+function doubleClickTimingMini(id) {
+  var active = true;
+  var start = null;
+  var clickedOnce = false;
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text">Klicke zweimal: erst Start, dann so nah wie möglich an 1000ms.</div><div class="daily-controls"></div></div>');
+  var status = createStatusDisplay(area, 'Erster Klick startet die Messung.');
+  var controls = area.querySelector('.daily-controls');
+  var btn = createButton('Start'); controls.appendChild(btn);
+  btn.onclick = function() {
+    if (!active) return;
+    if (!clickedOnce) {
+      clickedOnce = true; start = Date.now(); btn.textContent = 'Jetzt erneut klicken'; status.textContent = 'Warte auf den zweiten Klick...';
+    } else {
+      var diff = Date.now() - start;
+      var score = Math.max(0, 1000 - Math.abs(diff - 1000));
+      document.getElementById('pts').textContent = score;
+      status.textContent = 'Du hast ' + diff + 'ms getroffen. Score: ' + score;
+      active = false;
+      saveHS('daily_' + id, score);
+    }
+  };
+  return { stop: function() { active = false; btn.onclick = null; } };
+}
+
+function emojiSearchMini(id) {
+  var active = true;
+  var score = 0;
+  var target = null;
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text" id="daily-question"></div><div class="daily-grid"></div></div>');
+  var status = createStatusDisplay(area, 'Finde das Ziel-Emoji.');
+  var grid = area.querySelector('.daily-grid');
+  var emojis = ['🍎','🍊','🍌','🍉','🍇','🍓','🍒','🍍','🥑','🥥','🥕','🥦','🌶️','🍆','🥔','🥭'];
+  function render() {
+    grid.innerHTML = '';
+    var options = shuffleArray(emojis);
+    target = options[0];
+    area.querySelector('#daily-question').textContent = 'Finde dieses Emoji: ' + target;
+    for (var i = 0; i < 16; i++) {
+      var cell = createCell(options[i] || emojis[i]);
+      cell.onclick = function() { if (!active) return; if (this.textContent === target) { score = 100; status.textContent = 'Richtig!'; saveHS('daily_' + id, score); active = false; document.getElementById('pts').textContent = score; } else { status.textContent = 'Falsch! Versuch es nochmal.'; } };
+      grid.appendChild(cell);
+    }
+  }
+  render();
+  return { stop: function() { active = false; grid.querySelectorAll('button').forEach(function(btn) { btn.onclick = null; }); } };
+}
+
+function letterRainMini(id) {
+  var round = 0;
+  var score = 0;
+  var active = true;
+  var letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text" id="daily-question"></div><div class="daily-controls"></div></div>');
+  var status = createStatusDisplay(area, 'Klicke nur Vokale.');
+  var controls = area.querySelector('.daily-controls');
+  var btnYes = createButton('Vokal');
+  var btnNo = createButton('Konsonant');
+  controls.appendChild(btnYes); controls.appendChild(btnNo);
+  function next() {
+    if (!active) return;
+    if (round >= 10) return finish();
+    round++;
+    var letter = letters[getRandomInt(0, letters.length - 1)];
+    area.querySelector('#daily-question').textContent = letter;
+    status.textContent = 'Runde ' + round + ' von 10';
+    btnYes.onclick = function() { check('AEIOUY'.includes(letter)); };
+    btnNo.onclick = function() { check(!'AEIOUY'.includes(letter)); };
+  }
+  function check(correct) {
+    if (!active) return;
+    if (correct) { score += 10; status.textContent = 'Richtig!'; }
+    else { status.textContent = 'Falsch!'; }
+    next();
+  }
+  function finish() { active = false; document.getElementById('pts').textContent = score; saveHS('daily_' + id, score); status.textContent = 'Fertig! Score: ' + score; }
+  next();
+  return { stop: function() { active = false; btnYes.onclick = null; btnNo.onclick = null; } };
+}
+
+function patternCopyMini(id) {
+  var active = true;
+  var pattern = shuffleArray(['▲','●','■','◆']).slice(0, 4);
+  var position = 0;
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text">Merke dir das Muster und klicke es danach nach.</div><div class="daily-grid daily-grid-3"></div><div class="daily-status"></div></div>');
+  var grid = area.querySelector('.daily-grid');
+  var status = area.querySelector('.daily-status');
+  var display = document.createElement('div'); display.className = 'daily-text'; display.textContent = pattern.join(' ');
+  area.insertBefore(display, grid);
+  var inputGrid = document.createElement('div'); inputGrid.className = 'daily-grid daily-grid-3';
+  area.appendChild(inputGrid);
+  var choices = shuffleArray(pattern.concat(shuffleArray(['◯','✦','△','■']).slice(0, 2)));
+  choices.forEach(function(symbol) {
+    var cell = createCell(symbol);
+    cell.onclick = function() { if (!active) return; if (symbol === pattern[position]) { position++; this.classList.add('correct'); if (position >= pattern.length) { finish(); } else { status.textContent = 'Weiter so!'; } } else { this.classList.add('wrong'); active = false; status.textContent = 'Falsch!'; saveHS('daily_' + id, 0); } };
+    inputGrid.appendChild(cell);
+  });
+  function finish() { active = false; var score = 100; document.getElementById('pts').textContent = score; status.textContent = 'Richtig! Score: ' + score; saveHS('daily_' + id, score); }
+  return { stop: function() { active = false; inputGrid.querySelectorAll('button').forEach(function(btn) { btn.onclick = null; }); } };
+}
+
+function quickMathMini(id) {
+  var problems = 10;
+  var score = 0;
+  var active = true;
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text" id="daily-question"></div><input id="daily-answer" class="daily-input" placeholder="Ergebnis eingeben" autocomplete="off"><div class="daily-controls"></div><div class="daily-status"></div></div>');
+  var btn = createButton('Prüfen'); area.querySelector('.daily-controls').appendChild(btn);
+  var status = area.querySelector('.daily-status');
+  var input = area.querySelector('#daily-answer');
+  var currentAnswer = 0;
+  function next() {
+    if (!active) return;
+    if (problems <= 0) return finish();
+    var a = getRandomInt(1, 15);
+    var b = getRandomInt(1, 15);
+    var op = ['+','-','×'][getRandomInt(0,2)];
+    if (op === '-') { if (a < b) { var tmp = a; a = b; b = tmp; } currentAnswer = a - b; }
+    else if (op === '×') currentAnswer = a * b;
+    else currentAnswer = a + b;
+    area.querySelector('#daily-question').textContent = a + ' ' + op + ' ' + b + ' = ?';
+    input.value = '';
+    problems--;
+  }
+  function submit() {
+    if (!active) return;
+    var val = parseInt(input.value, 10);
+    if (val === currentAnswer) { score += 10; status.textContent = 'Richtig!'; }
+    else { status.textContent = 'Falsch! Richtige Antwort: ' + currentAnswer; }
+    setTimeout(next, 700);
+  }
+  btn.onclick = submit;
+  input.addEventListener('keydown', function(e) { if (e.key === 'Enter') submit(); });
+  function finish() { active = false; document.getElementById('pts').textContent = score; status.textContent = 'Geschafft! Score: ' + score; saveHS('daily_' + id, score); }
+  next();
+  return { stop: function() { active = false; btn.onclick = null; } };
+}
+
+function colorSequenceMini(id) {
+  var options = ['Rot','Blau','Grün','Gelb','Lila','Türkis'];
+  var sequence = [];
+  var step = 0;
+  var score = 0;
+  var active = true;
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text" id="daily-question"></div><div class="daily-grid daily-grid-3"></div><div class="daily-status"></div></div>');
+  var grid = area.querySelector('.daily-grid');
+  var status = area.querySelector('.daily-status');
+  var question = area.querySelector('#daily-question');
+  var buttons = [];
+  options.forEach(function(color) {
+    var btn = createCell(color);
+    btn.onclick = function() { if (!active) return; if (color === sequence[step]) { step++; if (step >= sequence.length) { score += 10; status.textContent = 'Runde geschafft!'; setTimeout(nextRound, 600); } } else { status.textContent = 'Falsche Reihenfolge!'; active = false; saveHS('daily_' + id, score); } };
+    grid.appendChild(btn);
+    buttons.push(btn);
+  });
+  function nextRound() {
+    if (!active) return;
+    sequence.push(options[getRandomInt(0, options.length - 1)]);
+    step = 0;
+    question.textContent = 'Merke die Sequenz: ' + sequence.join(', ');
+    status.textContent = 'Klicke die Sequenz nach.';
+  }
+  nextRound();
+  return { stop: function() { active = false; buttons.forEach(function(b) { b.onclick = null; }); } };
+}
+
+function targetStopMini(id) {
+  var active = true;
+  var value = 0;
+  var direction = 1;
+  var interval = null;
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text">Stoppe den Balken bei 50%.</div><div class="daily-row"><span id="daily-bar"></span></div><div class="daily-controls"></div><div class="daily-status"></div></div>');
+  var bar = area.querySelector('#daily-bar');
+  var status = area.querySelector('.daily-status');
+  var btn = createButton('Stoppen'); area.querySelector('.daily-controls').appendChild(btn);
+  function update() { bar.style.display='block'; bar.style.width=(value)+'%'; bar.style.height='18px'; bar.style.background='#f59e0b'; status.textContent='Aktuell: ' + Math.round(value) + '%'; }
+  function tick() { if (!active) return; value += direction * 2.5; if (value >= 100 || value <= 0) { direction *= -1; value = Math.max(0, Math.min(100, value)); } update(); }
+  interval = setInterval(tick, 50);
+  btn.onclick = function() {
+    if (!active) return;
+    active = false;
+    clearInterval(interval);
+    var score = Math.max(0, 100 - Math.abs(value - 50) * 2);
+    document.getElementById('pts').textContent = score;
+    status.textContent = 'Du hast ' + Math.round(value) + '%. Score: ' + score;
+    saveHS('daily_' + id, score);
+  };
+  return { stop: function() { active = false; clearInterval(interval); btn.onclick = null; } };
+}
+
+function wordScrambleMini(id) {
+  var words = ['PIXEL','BYTE','SERVER','LOGIN','CODE','CACHE','DATA','INPUT','OUTPUT','DEBUG'];
+  var active = true;
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text" id="daily-question"></div><input id="daily-answer" class="daily-input" placeholder="Wort eingeben" autocomplete="off"><div class="daily-controls"></div><div class="daily-status"></div></div>');
+  var status = area.querySelector('.daily-status');
+  var input = area.querySelector('#daily-answer');
+  var btn = createButton('Fertig'); area.querySelector('.daily-controls').appendChild(btn);
+  var word = words[getRandomInt(0, words.length - 1)];
+  var scrambled = shuffleArray(word.split('')).join('');
+  area.querySelector('#daily-question').textContent = scrambled;
+  function submit() {
+    if (!active) return;
+    if (input.value.trim().toUpperCase() === word) { var score = 100; document.getElementById('pts').textContent = score; status.textContent = 'Richtig!'; saveHS('daily_' + id, score); }
+    else { status.textContent = 'Falsch! Richtige Lösung: ' + word; saveHS('daily_' + id, 0); }
+    active = false;
+  }
+  btn.onclick = submit;
+  input.addEventListener('keydown', function(e) { if (e.key === 'Enter') submit(); });
+  return { stop: function() { active = false; btn.onclick = null; } };
+}
+
+function rhythmClickMini(id) {
+  var pattern = ['Schnell','Langsam','Schnell'];
+  var step = 0;
+  var active = true;
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text">Klicke die Sequenz: Schnell - Langsam - Schnell.</div><div class="daily-grid daily-grid-3"></div><div class="daily-status"></div></div>');
+  var status = area.querySelector('.daily-status');
+  var grid = area.querySelector('.daily-grid');
+  var buttons = ['Schnell','Langsam'].map(function(label) {
+    var btn = createCell(label);
+    btn.onclick = function() { if (!active) return; if (label === pattern[step]) { step++; if (step >= pattern.length) { finish(); } else { status.textContent = 'Weiter so!'; } } else { status.textContent = 'Falsch!'; active = false; saveHS('daily_' + id, 0); } };
+    grid.appendChild(btn);
+    return btn;
+  });
+  function finish() { active = false; var score = 100; document.getElementById('pts').textContent = score; status.textContent = 'Richtig! Score: ' + score; saveHS('daily_' + id, score); }
+  return { stop: function() { active = false; buttons.forEach(function(btn) { btn.onclick = null; }); } };
+}
+
+function numberSortMini(id) {
+  var active = true;
+  var nums = [];
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text">Klicke die Zahlen in aufsteigender Reihenfolge.</div><div class="daily-grid daily-grid-3"></div><div class="daily-status"></div></div>');
+  var status = area.querySelector('.daily-status');
+  var grid = area.querySelector('.daily-grid');
+  function start() {
+    nums = shuffleArray([getRandomInt(10, 99), getRandomInt(10, 99), getRandomInt(10, 99), getRandomInt(10, 99), getRandomInt(10, 99)]);
+    var sorted = nums.slice().sort(function(a, b){return a-b;});
+    var index = 0;
+    grid.innerHTML = '';
+    nums.forEach(function(value) {
+      var cell = createCell(value);
+      cell.onclick = function() { if (!active) return; if (value === sorted[index]) { index++; this.classList.add('correct'); if (index >= sorted.length) { finish(); } } else { active = false; status.textContent = 'Falsch!'; saveHS('daily_' + id, 0); } };
+      grid.appendChild(cell);
+    });
+  }
+  function finish() { active = false; var score = 100; document.getElementById('pts').textContent = score; status.textContent = 'Geschafft! Score: ' + score; saveHS('daily_' + id, score); }
+  start();
+  return { stop: function() { active = false; grid.querySelectorAll('button').forEach(function(btn) { btn.onclick = null; }); } };
+}
+
+function colorMixerMini(id) {
+  var active = true;
+  var target = { r: getRandomInt(50, 220), g: getRandomInt(50, 220), b: getRandomInt(50, 220) };
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text">Stelle die Ziel-RGB-Farbe ein.</div><div class="daily-row"><span>Zielfarbe</span><span id="daily-target" style="width:48px;height:32px;border-radius:10px;display:inline-block;"></span></div><div class="daily-controls"></div><div class="daily-status"></div></div>');
+  var targetBox = area.querySelector('#daily-target');
+  targetBox.style.background = 'rgb(' + target.r + ',' + target.g + ',' + target.b + ')';
+  var controls = area.querySelector('.daily-controls');
+  ['R','G','B'].forEach(function(ch) {
+    var row = document.createElement('div'); row.style.marginBottom='0.7rem';
+    row.innerHTML = '<label>' + ch + '</label>';
+    var input = document.createElement('input'); input.type = 'range'; input.min = 0; input.max = 255; input.value = 128; input.className='daily-input';
+    var label = document.createElement('span'); label.textContent='128';
+    input.oninput = function() { label.textContent = this.value; updatePreview(); };
+    row.appendChild(input); row.appendChild(label);
+    controls.appendChild(row);
+    row.dataset.channel = ch.toLowerCase();
+  });
+  var status = area.querySelector('.daily-status');
+  var btn = createButton('Vergleichen'); controls.appendChild(btn);
+  var preview = document.createElement('div'); preview.style.height='48px'; preview.style.background='#111'; preview.style.border='1px solid #333'; preview.style.borderRadius='10px'; preview.style.marginTop='0.8rem'; controls.appendChild(preview);
+  function updatePreview() {
+    var values = Array.from(controls.querySelectorAll('input')).map(function(i){return i.value;});
+    preview.style.background = 'rgb(' + values.join(',') + ')';
+  }
+  updatePreview();
+  btn.onclick = function() {
+    var values = Array.from(controls.querySelectorAll('input')).map(function(i){return parseInt(i.value, 10);});
+    var dist = Math.abs(values[0]-target.r) + Math.abs(values[1]-target.g) + Math.abs(values[2]-target.b);
+    var score = Math.max(0, 255 - dist);
+    document.getElementById('pts').textContent = score;
+    status.textContent = 'Score: ' + score + ' / 255';
+    saveHS('daily_' + id, score);
+    active = false;
+  };
+  return { stop: function() { active = false; } };
+}
+
+function reactionChainMini(id) {
+  var active = true;
+  var sequence = []; var step = 0;
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text">Klicke die leuchtenden Buttons in Reihenfolge.</div><div class="daily-grid daily-grid-3"></div><div class="daily-status"></div></div>');
+  var status = area.querySelector('.daily-status');
+  var grid = area.querySelector('.daily-grid');
+  var labels = ['A','B','C','D','E'];
+  labels.forEach(function(label) {
+    var btn = createCell(label);
+    btn.onclick = function() { if (!active) return; if (label === sequence[step]) { step++; this.classList.add('correct'); status.textContent = 'Weiter!'; if (step >= sequence.length) finish(); } else { active = false; status.textContent = 'Falsch!'; saveHS('daily_' + id, 0); } };
+    grid.appendChild(btn);
+  });
+  function flash(index) {
+    if (index >= sequence.length) return;
+    var label = sequence[index];
+    var btn = Array.from(grid.children).find(function(b){return b.textContent===label;});
+    if (!btn) return;
+    btn.classList.add('active');
+    setTimeout(function(){ btn.classList.remove('active'); setTimeout(function(){ flash(index+1); }, 250); }, 500);
+  }
+  function start() {
+    sequence = shuffleArray(labels).slice(0, 5);
+    status.textContent = 'Merke dir die Reihenfolge.';
+    flash(0);
+  }
+  function finish() { active = false; var score = 100; document.getElementById('pts').textContent = score; status.textContent = 'Richtig! Score: ' + score; saveHS('daily_' + id, score); }
+  start();
+  return { stop: function() { active = false; grid.querySelectorAll('button').forEach(function(btn){btn.onclick=null;}); } };
+}
+
+function letterCountMini(id) {
+  var active = true;
+  var sentences = ['Schnell braune Füchse springen über den faulen Hund.', 'Coding macht Spaß und fördert die Kreativität.', 'Pixel, Code und Logik gehören zusammen.'];
+  var sentence = sentences[getRandomInt(0, sentences.length-1)];
+  var letters = sentence.replace(/[^A-Za-zÄÖÜäöü]/g, '');
+  var target = letters.charAt(getRandomInt(0, letters.length-1)).toUpperCase();
+  var answer = (sentence.toUpperCase().match(new RegExp(target, 'g')) || []).length;
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text">' + sentence + '</div><div class="daily-text">Zähle den Buchstaben: ' + target + '</div><input id="daily-answer" class="daily-input" placeholder="Anzahl eingeben" autocomplete="off"><div class="daily-controls"></div><div class="daily-status"></div></div>');
+  var input = area.querySelector('#daily-answer');
+  var button = createButton('Prüfen'); area.querySelector('.daily-controls').appendChild(button);
+  var status = area.querySelector('.daily-status');
+  function submit() { if (!active) return; var val = parseInt(input.value,10); if (val === answer) { var score = 100; document.getElementById('pts').textContent = score; status.textContent = 'Richtig!'; saveHS('daily_' + id, score); } else { status.textContent = 'Falsch! Richtige Antwort: ' + answer; saveHS('daily_' + id, 0); } active = false; }
+  button.onclick = submit;
+  input.addEventListener('keydown', function(e){ if (e.key==='Enter') submit(); });
+  return { stop:function(){ active=false; button.onclick=null;} };
+}
+
+function pingPongClickMini(id) {
+  var active = true;
+  var pos = 0;
+  var dir = 1;
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text">Klicke beim richtigen Moment, wenn der Ball auf der Mitte ist.</div><div class="daily-row"><span id="daily-track" style="width:100%;height:20px;background:#111;border-radius:999px;position:relative;"></span></div><div class="daily-controls"></div><div class="daily-status"></div></div>');
+  var status = area.querySelector('.daily-status');
+  var track = area.querySelector('#daily-track');
+  var btn = createButton('Klicken'); area.querySelector('.daily-controls').appendChild(btn);
+  var ball = document.createElement('div'); ball.style.width = '18px'; ball.style.height='18px'; ball.style.borderRadius='50%'; ball.style.background='#f59e0b'; ball.style.position='absolute'; ball.style.top='1px'; track.appendChild(ball);
+  function update() { ball.style.left = pos + '%'; }
+  var interval = setInterval(function(){ if(!active)return; pos += dir*2.5; if(pos<=0||pos>=85){dir *= -1;} update(); }, 40);
+  btn.onclick=function(){ if(!active) return; active=false; clearInterval(interval); var center = pos + 9; var score = Math.max(0, 100 - Math.abs(center - 50)*2); document.getElementById('pts').textContent = score; status.textContent = 'Du hast ' + Math.round(center) + '% getroffen. Score: ' + score; saveHS('daily_' + id, score); };
+  return { stop:function(){ active=false; clearInterval(interval); btn.onclick=null; } };
+}
+
+function memoryGridMini(id) {
+  var active = true;
+  var cells = [];
+  var selected = [];
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text">Merke dir die markierten Felder und klicke sie danach.</div><div class="daily-grid daily-grid-3"></div><div class="daily-status"></div></div>');
+  var grid = area.querySelector('.daily-grid');
+  var status = area.querySelector('.daily-status');
+  var pattern = shuffleArray(Array.from({ length: 9 }, function(_, i){ return i; })).slice(0, 4);
+  for (var i = 0; i < 9; i++) {
+    var cell = createCell('');
+    grid.appendChild(cell);
+    cells.push(cell);
+  }
+  pattern.forEach(function(index){ cells[index].classList.add('active'); });
+  setTimeout(function(){ if(!active) return; pattern.forEach(function(index){ cells[index].classList.remove('active'); }); status.textContent='Jetzt nachklicken!'; cells.forEach(function(cell, idx){ cell.onclick=function(){ if(!active)return; if(pattern.includes(idx) && !selected.includes(idx)){ selected.push(idx); cell.classList.add('correct'); if (selected.length===pattern.length) finish(); } else { active=false; cell.classList.add('wrong'); status.textContent='Falsch!'; saveHS('daily_'+id,0); } }; }); }, 1200);
+  function finish(){ active=false; var score=100; document.getElementById('pts').textContent=score; status.textContent='Richtig!'; saveHS('daily_'+id,score); }
+  return { stop:function(){ active=false; cells.forEach(function(cell){ cell.onclick=null; }); } };
+}
+
+function typingSpeedMini(id) {
+  var active = true;
+  var words = ['SPIEL','SCHNELL','KLICK','PIXEL','CODE','LOS','TASTE'];
+  var word = words[getRandomInt(0, words.length-1)];
+  var start = null;
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text">Tippe das Wort so schnell wie möglich.</div><div class="daily-text" id="daily-question">' + word + '</div><input id="daily-answer" class="daily-input" placeholder="Wort eingeben" autocomplete="off"><div class="daily-status"></div></div>');
+  var input = area.querySelector('#daily-answer');
+  var status = area.querySelector('.daily-status');
+  input.onfocus = function() { if (!start) start = Date.now(); };
+  input.addEventListener('keydown', function(e) { if (e.key === 'Enter') { if (!active) return; var time = Date.now() - start; if (input.value.trim().toUpperCase() === word) { var score = Math.max(0, 120 - Math.round(time / 20)); document.getElementById('pts').textContent=score; status.textContent='Richtig! Zeit: ' + Math.round(time/100)/10 + 's'; saveHS('daily_'+id,score); } else { status.textContent='Falsch!'; saveHS('daily_'+id,0); } active=false; } });
+  return { stop:function(){ active=false; input.onfocus=null; input.onkeydown=null; } };
+}
+
+function numberCrossMini(id) {
+  var a = getRandomInt(2, 9);
+  var b = getRandomInt(2, 9);
+  var answer = a * b;
+  var missing = getRandomInt(1, 2) === 1 ? a : b;
+  var symbol = missing === a ? 'x' : '?';
+  var equation = (missing === a ? '? x ' + b : a + ' x ?') + ' = ' + answer;
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text">Fülle die fehlende Zahl aus.</div><div class="daily-text" id="daily-question">' + equation + '</div><input id="daily-answer" class="daily-input" placeholder="Zahl eingeben" autocomplete="off"><div class="daily-controls"></div><div class="daily-status"></div></div>');
+  var btn = createButton('Prüfen'); area.querySelector('.daily-controls').appendChild(btn);
+  var status = area.querySelector('.daily-status');
+  var input = area.querySelector('#daily-answer');
+  function submit(){ var val = parseInt(input.value,10); if(val===missing){ var score=100; document.getElementById('pts').textContent=score; status.textContent='Richtig!'; saveHS('daily_'+id,score);} else{ status.textContent='Falsch!'; saveHS('daily_'+id,0);} }
+  btn.onclick=submit;
+  input.addEventListener('keydown', function(e){ if(e.key==='Enter') submit(); });
+  return { stop:function(){ btn.onclick=null;} };
+}
+
+function iconMemoryMini(id) {
+  var allIcons = ['⚽','🎸','🚗','📱','🍎','🌵','🐶','🖥️','🚀','🎧','🛋️','✈️'];
+  var target = shuffleArray(allIcons).slice(0, 6);
+  var choices = shuffleArray(allIcons);
+  var selected = [];
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text">Merke dir diese Icons:</div><div class="daily-grid daily-grid-3"></div><div class="daily-text">Wähle danach die richtigen Icons aus.</div><div class="daily-grid daily-grid-3"></div><div class="daily-status"></div></div>');
+  var displays = area.querySelectorAll('.daily-grid');
+  var status = area.querySelector('.daily-status');
+  target.forEach(function(icon){ var cell=createCell(icon); cell.style.opacity='0.7'; displays[0].appendChild(cell); });
+  setTimeout(function(){ displays[0].innerHTML = ''; choices.forEach(function(icon){ var cell=createCell(icon); cell.onclick=function(){ if(selected.includes(icon)) return; selected.push(icon); this.classList.add('selected'); if(selected.length >= 6){ finish(); } }; displays[1].appendChild(cell); }); status.textContent='Wähle die sechs richtigen Icons.'; }, 1200);
+  function finish(){ var correct = selected.filter(function(icon){ return target.includes(icon); }).length; var score = correct * 20; document.getElementById('pts').textContent=score; status.textContent='Treffer: ' + correct + '/6'; saveHS('daily_'+id,score); }
+  return { stop:function(){ area.querySelectorAll('button').forEach(function(btn){ btn.onclick=null; }); } };
+}
+
+function balanceClickMini(id) {
+  var value = getRandomInt(-20,20);
+  var active=true;
+  var area=fillDailyArea('<div class="daily-panel"><div class="daily-text">Balance die Waage aus: klick links oder rechts.</div><div class="daily-row"><span id="daily-balance">' + value + '</span></div><div class="daily-controls"></div><div class="daily-status"></div></div>');
+  var status=area.querySelector('.daily-status');
+  var btnL=createButton('Links'); var btnR=createButton('Rechts'); area.querySelector('.daily-controls').appendChild(btnL); area.querySelector('.daily-controls').appendChild(btnR);
+  function update(){ area.querySelector('#daily-balance').textContent=value; }
+  btnL.onclick=function(){ if(!active)return; value--; update(); check(); };
+  btnR.onclick=function(){ if(!active)return; value++; update(); check(); };
+  function check(){ if(value===0){ active=false; var score=100; document.getElementById('pts').textContent=score; status.textContent='Ausgeglichen! Score: '+score; saveHS('daily_'+id,score);} }
+  return { stop:function(){ active=false; btnL.onclick=null; btnR.onclick=null; } };
+}
+
+function quickEyesMini(id) {
+  var value = getRandomInt(5, 15);
+  var active = true;
+  var area = fillDailyArea('<div class="daily-panel"><div class="daily-text" id="daily-question"></div><input id="daily-answer" class="daily-input" placeholder="Anzahl eingeben" autocomplete="off"><div class="daily-controls"></div><div class="daily-status"></div></div>');
+  var status = area.querySelector('.daily-status');
+  var input = area.querySelector('#daily-answer');
+  var btn = createButton('Prüfen'); area.querySelector('.daily-controls').appendChild(btn);
+  area.querySelector('#daily-question').textContent = 'Merk dir die Punkte.';
+  setTimeout(function(){ area.querySelector('#daily-question').textContent = value + ' Punkte'; setTimeout(function(){ area.querySelector('#daily-question').textContent = 'Wie viele Punkte waren das?'; }, 900); }, 600);
+  btn.onclick=function(){ if(!active)return; var val = parseInt(input.value,10); if(val===value){ var score=100; document.getElementById('pts').textContent=score; status.textContent='Richtig!'; saveHS('daily_'+id,score);} else { status.textContent='Falsch!'; saveHS('daily_'+id,0);} active=false; };
+  return { stop:function(){ active=false; btn.onclick=null; } };
+}
+
+function keyboardSprintMini(id) {
+  var letters = shuffleArray('ASDFGHJKLQWERTZUIOPYXCVBNM'.split('')).slice(0, 6);
+  var active=true; var start=null;
+  var area=fillDailyArea('<div class="daily-panel"><div class="daily-text">Tippe die Buchstabenfolge schnell ab.</div><div class="daily-text" id="daily-question">' + letters.join(' ') + '</div><input id="daily-answer" class="daily-input" placeholder="Tippe hier" autocomplete="off"><div class="daily-status"></div></div>');
+  var input=area.querySelector('#daily-answer'); var status=area.querySelector('.daily-status');
+  input.onfocus=function(){ if(!start) start=Date.now(); };
+  input.addEventListener('keydown', function(e){ if(e.key==='Enter'){ if(!active) return; var entered=input.value.trim().toUpperCase().replace(/\s+/g,''); var target = letters.join(''); var time = Date.now()-start; if(entered===target){ var score=Math.max(0,120-Math.round(time/20)); document.getElementById('pts').textContent=score; status.textContent='Richtig! Zeit: '+Math.round(time/100)/10+'s'; saveHS('daily_'+id,score); } else { status.textContent='Falsch!'; saveHS('daily_'+id,0); } active=false; }});
+  return { stop:function(){ active=false; input.onfocus=null; input.onkeydown=null; } };
+}
+
+function colorDifferenceMini(id) {
+  var active=true;
+  var base = getRandomInt(0,255);
+  var lighter = 'rgb(' + Math.min(255, base+20) + ',' + Math.min(255, base+20) + ',' + Math.min(255, base+20) + ')';
+  var darker = 'rgb(' + Math.max(0, base-20) + ',' + Math.max(0, base-20) + ',' + Math.max(0, base-20) + ')';
+  var left = Math.random() < 0.5 ? lighter : darker;
+  var right = left === lighter ? darker : lighter;
+  var correct = left === darker ? 'links' : 'rechts';
+  var area=fillDailyArea('<div class="daily-panel"><div class="daily-text">Welche Farbe ist dunkler?</div><div class="daily-row"><span id="daily-left" style="width:120px;height:80px;border-radius:14px;display:inline-block;"></span><span id="daily-right" style="width:120px;height:80px;border-radius:14px;display:inline-block;margin-left:1rem;"></span></div><div class="daily-controls"></div><div class="daily-status"></div></div>');
+  area.querySelector('#daily-left').style.background=left;
+  area.querySelector('#daily-right').style.background=right;
+  var status=area.querySelector('.daily-status');
+  var btnL=createButton('Links'); var btnR=createButton('Rechts'); area.querySelector('.daily-controls').appendChild(btnL); area.querySelector('.daily-controls').appendChild(btnR);
+  function finish(chosen){ if(!active)return; active=false; var score = chosen===correct?100:0; document.getElementById('pts').textContent=score; status.textContent = chosen===correct ? 'Richtig!' : 'Falsch!'; saveHS('daily_'+id,score);} btnL.onclick=function(){finish('links');}; btnR.onclick=function(){finish('rechts');}; return { stop:function(){ active=false; btnL.onclick=null; btnR.onclick=null; } };
+}
+
+function morseCodeMini(id) {
+  var letters = {A:'.-','B':'-...','C':'-.-.','D':'-..','E':'.','F':'..-.','G':'--.','H':'....','I':'..','J':'.---'};
+  var keys = Object.keys(letters);
+  var letter = keys[getRandomInt(0, keys.length-1)];
+  var code = letters[letter];
+  var area=fillDailyArea('<div class="daily-panel"><div class="daily-text">Welche Morse-Sequenz ist das?</div><div class="daily-text" id="daily-question">' + code + '</div><input id="daily-answer" class="daily-input" placeholder="Buchstabe eingeben" autocomplete="off"><div class="daily-controls"></div><div class="daily-status"></div></div>');
+  var btn=createButton('Prüfen'); area.querySelector('.daily-controls').appendChild(btn);
+  var status=area.querySelector('.daily-status'); var input=area.querySelector('#daily-answer');
+  function submit(){ if(input.value.trim().toUpperCase()===letter){ var score=100; document.getElementById('pts').textContent=score; status.textContent='Richtig!'; saveHS('daily_'+id,score);} else { status.textContent='Falsch!'; saveHS('daily_'+id,0); } }
+  btn.onclick=submit; input.addEventListener('keydown', function(e){ if(e.key==='Enter') submit(); }); return { stop:function(){ btn.onclick=null;} };
+}
+
+function pixelArtMini(id) {
+  var active=true;
+  var pattern=[];
+  for(var r=0;r<5;r++){ pattern[r]=[]; for(var c=0;c<5;c++){ pattern[r][c]=Math.random()<0.3; }}
+  var area=fillDailyArea('<div class="daily-panel"><div class="daily-text">Zeichne das Pixelbild nach.</div><div class="daily-grid daily-grid-3" id="daily-pixel"></div><div class="daily-status"></div></div>');
+  var status=area.querySelector('.daily-status');
+  var grid=area.querySelector('#daily-pixel'); grid.style.gridTemplateColumns='repeat(5,1fr)';
+  var cells=[];
+  for(var i=0;i<25;i++){ var btn=createCell(''); btn.style.height='40px'; btn.style.background='#111'; btn.dataset.idx=i; btn.onclick=function(){ if(!active)return; this.classList.toggle('selected'); this.style.background=this.classList.contains('selected')?'#f59e0b':'#111'; check(); }; cells.push(btn); grid.appendChild(btn); }
+  setTimeout(function(){ if(!active)return; status.textContent='Jetzt nachzeichnen!'; }, 400);
+  function check(){ var correct=0; cells.forEach(function(cell,i){ var r=Math.floor(i/5), c=i%5; var wanted=pattern[r][c]; var selected=cell.classList.contains('selected'); if(wanted===selected) correct++; }); if(correct===25){ active=false; var score=100; document.getElementById('pts').textContent=score; status.textContent='Perfekt!'; saveHS('daily_'+id,score);} }
+  return { stop:function(){ active=false; cells.forEach(function(cell){ cell.onclick=null; }); } };
+}
+
+function numberMemoryMini(id) {
+  var active=true;
+  var values=shuffleArray([1,1,2,2,3,3,4,4,5,5]).slice(0,10);
+  var revealed=[];
+  var first=null;
+  var matches=0;
+  var area=fillDailyArea('<div class="daily-panel"><div class="daily-text">Finde alle Zahlen-Paare.</div><div class="daily-grid daily-grid-3"></div><div class="daily-status"></div></div>');
+  var grid=area.querySelector('.daily-grid'); var status=area.querySelector('.daily-status');
+  values.forEach(function(value,i){ var btn=createCell('?'); btn.onclick=function(){ if(!active)return; if(revealed.includes(i))return; btn.textContent=value; if(first===null){ first={i:i,value:value}; } else { if(first.value===value){ revealed.push(first.i, i); matches++; btn.classList.add('correct'); grid.children[first.i].classList.add('correct'); if(matches===5){ finish(); } } else { active=false; setTimeout(function(){ btn.textContent='?'; grid.children[first.i].textContent='?'; active=true; first=null; },500); } first=null;} }; grid.appendChild(btn); });
+  function finish(){ active=false; var score=100; document.getElementById('pts').textContent=score; status.textContent='Alle Paare gefunden!'; saveHS('daily_'+id,score);} return { stop:function(){ active=false; Array.from(grid.children).forEach(function(btn){ btn.onclick=null; }); } };
+}
+
+function wordChainMini(id) {
+  var active=true;
+  var words=['APFEL','LOKAL','LICHT','TASTA','APPS','SPEED','DATEN','NETZ'];
+  var current=words[getRandomInt(0, words.length-1)];
+  var steps=0;
+  var area=fillDailyArea('<div class="daily-panel"><div class="daily-text">Finde ein Wort, das mit dem letzten Buchstaben beginnt.</div><div class="daily-text" id="daily-question">' + current + '</div><input id="daily-answer" class="daily-input" placeholder="Neues Wort" autocomplete="off"><div class="daily-controls"></div><div class="daily-status"></div></div>');
+  var status=area.querySelector('.daily-status'); var input=area.querySelector('#daily-answer'); var btn=createButton('Weiter'); area.querySelector('.daily-controls').appendChild(btn);
+  function submit(){ if(!active)return; var val=input.value.trim().toUpperCase(); if(!val||val.charAt(0)!==current.slice(-1)){ active=false; status.textContent='Falsch!'; saveHS('daily_'+id, steps*20); return; } steps++; current=val; area.querySelector('#daily-question').textContent=current; input.value=''; status.textContent='Gut! Weiter...'; if(steps>=5){ active=false; var score=steps*20; document.getElementById('pts').textContent=score; status.textContent='Super! Score: '+score; saveHS('daily_'+id,score); } }
+  btn.onclick=submit; input.addEventListener('keydown', function(e){ if(e.key==='Enter') submit(); }); return { stop:function(){ active=false; btn.onclick=null; } };
+}
+
+function reactionStopMini(id) {
+  var active=true;
+  var time=5000;
+  var interval=null;
+  var area=fillDailyArea('<div class="daily-panel"><div class="daily-text">Stoppe den Countdown bei exakt 0.</div><div class="daily-text" id="daily-question">5.0</div><div class="daily-controls"></div><div class="daily-status"></div></div>');
+  var display=area.querySelector('#daily-question'); var status=area.querySelector('.daily-status'); var btn=createButton('Stoppen'); area.querySelector('.daily-controls').appendChild(btn);
+  interval=setInterval(function(){ if(!active)return; time-=50; if(time<=0){ time=0; clearInterval(interval); } display.textContent=(time/1000).toFixed(2); },50);
+  btn.onclick=function(){ if(!active)return; active=false; clearInterval(interval); var score=Math.max(0,100-Math.round(Math.abs(time)*0.02)); document.getElementById('pts').textContent=score; status.textContent='Abstand: '+time.toFixed(0)+'ms. Score: '+score; saveHS('daily_'+id,score); };
+  return { stop:function(){ active=false; clearInterval(interval); btn.onclick=null; } };
+}
+
+function categorySpeedMini(id) {
+  var terms=[{text:'LÖWE',cat:'Tier'},{text:'ROSE',cat:'Pflanze'},{text:'MODEM',cat:'Technik'},{text:'KAKTUS',cat:'Pflanze'},{text:'MAUS',cat:'Technik'},{text:'TAUBE',cat:'Tier'}];
+  var item=terms[getRandomInt(0,terms.length-1)];
+  var area=fillDailyArea('<div class="daily-panel"><div class="daily-text">Wähle die richtige Kategorie für: ' + item.text + '</div><div class="daily-controls"></div><div class="daily-status"></div></div>');
+  var status=area.querySelector('.daily-status'); var controls=area.querySelector('.daily-controls');
+  ['Tier','Pflanze','Technik'].forEach(function(label){ var btn=createButton(label); btn.onclick=function(){ var score = label===item.cat ? 100 : 0; document.getElementById('pts').textContent=score; status.textContent = label===item.cat ? 'Richtig!' : 'Falsch!'; saveHS('daily_'+id,score); }; controls.appendChild(btn); });
+  return { stop:function(){ area.querySelectorAll('button').forEach(function(btn){ btn.onclick=null; }); } };
+}
+
+/* ---- SPIEL: FARB-GEDAECHTNIS ---- */
 function memory() { 
   var colors = ['green', 'red', 'blue', 'yellow']; 
   var seq = []; 
@@ -1184,11 +1928,8 @@ var created = user.created_at_
   : "-";
 
 var profileTotal = getScoreTotal(user);
-var reactionInfo = user.reaction > 0 ? user.reaction + 'ms' : '-';
 document.getElementById("profile-info").innerHTML =
 "Rang: " + getRank(profileTotal) + "<br>" +
-"⚡ Beste Reaktion: " + reactionInfo + "<br>" +
-"🎯 Präzision: " + (user.precision||0) + "&nbsp;&nbsp;🔢 Raten: " + (user.guess||0) + "&nbsp;&nbsp;💻 Wordle: " + (user.wordle||0) + "<br>" +
 "Mitglied seit: " + created + "<br>" +
 "Spiele gespielt: " + (user.games_played || 0);
 document.getElementById("profile-overlay").classList.add("on");
