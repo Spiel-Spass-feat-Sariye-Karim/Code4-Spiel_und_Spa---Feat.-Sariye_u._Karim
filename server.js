@@ -249,7 +249,7 @@ app.get('/api/global-highscores', async (req, res) => {
       if (!u) return;
       const uid = u.name.toLowerCase();
       if (!userMap[uid]) {
-        userMap[uid] = { name: u.name, avatar_seed: u.avatar_seed, memory: 0, stack: 0, reaction_ms: 0 };
+        userMap[uid] = { name: u.name, avatar_seed: u.avatar_seed, memory: 0, stack: 0, reaction_ms: 0, precision: 0, guess: 0, wordle: 0 };
       }
       if (item.game_type === 'memory') {
         userMap[uid].memory = Math.max(userMap[uid].memory, item.score);
@@ -259,6 +259,12 @@ app.get('/api/global-highscores', async (req, res) => {
         userMap[uid].reaction_ms = userMap[uid].reaction_ms === 0
           ? item.score
           : Math.min(userMap[uid].reaction_ms, item.score);
+      } else if (item.game_type === 'precision') {
+        userMap[uid].precision = Math.max(userMap[uid].precision, item.score);
+      } else if (item.game_type === 'guess') {
+        userMap[uid].guess = Math.max(userMap[uid].guess, item.score);
+      } else if (item.game_type === 'wordle') {
+        userMap[uid].wordle = Math.max(userMap[uid].wordle, item.score);
       }
     });
 
@@ -267,20 +273,26 @@ app.get('/api/global-highscores', async (req, res) => {
     // Rang-Punkte vergeben pro Spiel
     function rankPts(i) { return i === 0 ? 10 : i === 1 ? 8 : i <= 4 ? 5 : 1; }
 
-    const memRanked      = [...users].sort((a, b) => b.memory - a.memory);
-    const stackRanked    = [...users].sort((a, b) => b.stack - a.stack);
-    const reactionRanked = [...users].sort((a, b) => {
+    const memRanked       = [...users].sort((a, b) => b.memory - a.memory);
+    const stackRanked     = [...users].sort((a, b) => b.stack - a.stack);
+    const precisionRanked = [...users].sort((a, b) => b.precision - a.precision);
+    const guessRanked     = [...users].sort((a, b) => b.guess - a.guess);
+    const wordleRanked    = [...users].sort((a, b) => b.wordle - a.wordle);
+    const reactionRanked  = [...users].sort((a, b) => {
       if (!a.reaction_ms && !b.reaction_ms) return 0;
       if (!a.reaction_ms) return 1;
       if (!b.reaction_ms) return -1;
-      return a.reaction_ms - b.reaction_ms; // niedrigere ms = besser
+      return a.reaction_ms - b.reaction_ms;
     });
 
     const pts = {};
     users.forEach(u => { pts[u.name.toLowerCase()] = 0; });
-    memRanked.forEach((u, i)      => { if (u.memory     > 0) pts[u.name.toLowerCase()] += rankPts(i); });
-    stackRanked.forEach((u, i)    => { if (u.stack      > 0) pts[u.name.toLowerCase()] += rankPts(i); });
-    reactionRanked.forEach((u, i) => { if (u.reaction_ms > 0) pts[u.name.toLowerCase()] += rankPts(i); });
+    memRanked.forEach((u, i)       => { if (u.memory      > 0) pts[u.name.toLowerCase()] += rankPts(i); });
+    stackRanked.forEach((u, i)     => { if (u.stack       > 0) pts[u.name.toLowerCase()] += rankPts(i); });
+    reactionRanked.forEach((u, i)  => { if (u.reaction_ms > 0) pts[u.name.toLowerCase()] += rankPts(i); });
+    precisionRanked.forEach((u, i) => { if (u.precision   > 0) pts[u.name.toLowerCase()] += rankPts(i); });
+    guessRanked.forEach((u, i)     => { if (u.guess       > 0) pts[u.name.toLowerCase()] += rankPts(i); });
+    wordleRanked.forEach((u, i)    => { if (u.wordle      > 0) pts[u.name.toLowerCase()] += rankPts(i); });
 
     const result = users
       .map(u => ({ ...u, rank_points: pts[u.name.toLowerCase()] }))
@@ -295,8 +307,8 @@ app.get('/api/global-highscores', async (req, res) => {
 
 // ============= TÄGLICHE CHALLENGE =============
 
-const DAILY_ROTATION = ['memory', 'reaction', 'stack'];
-const DAILY_NAMES = { memory: 'Farb-Gedächtnis', reaction: 'Reaktionstest', stack: 'Turm-Stapler' };
+const DAILY_ROTATION = ['memory', 'reaction', 'stack', 'precision', 'guess', 'wordle'];
+const DAILY_NAMES = { memory: 'Farb-Gedächtnis', reaction: 'Reaktionstest', stack: 'Turm-Stapler', precision: 'Klick-Präzision', guess: 'Zahlen-Raten', wordle: 'Info-Wordle' };
 
 function getDailyGame() {
   const dayIndex = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
@@ -316,20 +328,32 @@ app.get('/api/daily-scores', async (req, res) => {
 
     const { data: scores, error } = await db
       .from('highscores')
-      .select('users!user_id(name, avatar_seed), score')
+      .select('user_id, users!user_id(name, avatar_seed), score')
       .eq('game_type', game)
       .gte('created_at', today.toISOString())
-      .lt('created_at', tomorrow.toISOString())
-      .order('score', { ascending: game === 'reaction' }) // reaction: niedrigere ms = besser
-      .limit(10);
+      .lt('created_at', tomorrow.toISOString());
 
     if (error) return res.status(400).json({ error: 'Fehler beim Laden' });
 
-    const result = (scores || []).map(s => ({
-      name: s.users?.name || 'Unbekannt',
-      avatar_seed: s.users?.avatar_seed,
-      score: s.score
-    }));
+    // Pro User nur besten Score des Tages
+    const userBest = {};
+    (scores || []).forEach(s => {
+      if (!s.users) return;
+      const key = s.user_id;
+      if (!userBest[key]) {
+        userBest[key] = { name: s.users.name, avatar_seed: s.users.avatar_seed, score: s.score };
+      } else {
+        const better = game === 'reaction'
+          ? s.score < userBest[key].score
+          : s.score > userBest[key].score;
+        if (better) userBest[key].score = s.score;
+      }
+    });
+
+    const result = Object.values(userBest)
+      .sort((a, b) => game === 'reaction' ? a.score - b.score : b.score - a.score)
+      .slice(0, 10);
+
     res.json({ game, name: DAILY_NAMES[game], scores: result });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
@@ -341,13 +365,11 @@ app.get('/api/daily-scores', async (req, res) => {
 app.get('/api/users/search', async (req, res) => {
   const q = (req.query.q || '').trim();
   const me = parseInt(req.query.me);
-  if (!q || q.length < 1) return res.json([]);
   try {
-    const { data: users, error } = await db
-      .from('users')
-      .select('id, name, avatar_seed, is_online, last_seen')
-      .ilike('name', '%' + q + '%')
-      .limit(10);
+    let query = db.from('users').select('id, name, avatar_seed, is_online, last_seen').limit(100);
+    if (q) query = query.ilike('name', '%' + q + '%');
+    else query = query.order('name');
+    const { data: users, error } = await query;
     if (error) return res.status(400).json({ error: 'Fehler' });
     const result = (users || []).filter(u => u.id !== me);
     res.json(result);

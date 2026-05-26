@@ -54,10 +54,12 @@
   </header>
   <div class="hero"><h1>Bereit zum <em>Zocken</em>?</h1><p>Zwei Spiele, dein Highscore wird gespeichert.</p></div>
   <div class="cards">
-    <div class="card" id="card-memory"> <div class="em">🧠</div> <h3>Farb-Gedaechtnis</h3> <p>Merke dir die
-    Reihenfolge der Farben!</p> </div>
+    <div class="card" id="card-memory"> <div class="em">🧠</div> <h3>Farb-Gedächtnis</h3> <p>Merke dir die Reihenfolge der Farben!</p> </div>
     <div class="card" id="card-stack"><div class="em">🧱</div><h3>Turm-Stapler</h3><p>Staple perfekt — jeder Fehler kostet Breite!</p></div>
     <div class="card" id="card-reaction"><div class="em">⚡</div><h3>Reaktionstest</h3><p>Wie schnell reagierst du?</p></div>
+    <div class="card" id="card-precision"><div class="em">🎯</div><h3>Klick-Präzision</h3><p>Triff die Mitte so genau wie möglich!</p></div>
+    <div class="card" id="card-guess"><div class="em">🔢</div><h3>Zahlen-Raten</h3><p>Finde die Zahl in so wenig Versuchen wie möglich!</p></div>
+    <div class="card" id="card-wordle"><div class="em">💻</div><h3>Info-Wordle</h3><p>Errate das Informatik-Wort!</p></div>
   </div>
   
 <div class="challenge-box" id="challenge-box">
@@ -125,6 +127,21 @@
     <div id="reaction-area" class="reaction-area">
       <div id="reaction-status">Warte auf das Signal...</div>
       <button id="reaction-btn">⏳</button>
+    </div>
+
+    <div id="guess-area" class="guess-area">
+      <div id="guess-status">Errate die Zahl zwischen 1 und 100!</div>
+      <div class="guess-input-row">
+        <input id="guess-input" type="number" min="1" max="100" placeholder="Zahl eingeben...">
+        <button id="guess-btn">Raten</button>
+      </div>
+      <div id="guess-history"></div>
+    </div>
+
+    <div id="wordle-area" class="wordle-area">
+      <div id="wordle-grid"></div>
+      <div id="wordle-status"></div>
+      <div id="wordle-keyboard"></div>
     </div>
 
     <div class="pbot"><span>Punkte: <b id="pts">0</b></span><button id="btn-again">Nochmal</button></div>

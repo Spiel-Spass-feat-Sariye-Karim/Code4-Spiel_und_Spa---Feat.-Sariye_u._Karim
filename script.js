@@ -3,6 +3,7 @@ var API_URL = 'https://code4-spiel-und-spa-feat-sariye-u-karim.onrender.com';
 
 var game=null,which='',user=null,dailyGame=null;
 var heartbeatInterval=null,requestsInterval=null;
+var allUsersCache=[],friendIdsSet=new Set(),sentRequestIds=new Set();
 
 /* ---- DARK/LIGHT MODE ---- */
 (function() {
@@ -72,11 +73,14 @@ setTimeout(function() { playTone(1000, 0.2); }, 200);
 
 /* ---- RANG-SYSTEM ---- */
 function getRank(total) {
-  if (total >= 150) return '👑 Legende';
-  if (total >= 75)  return '⭐ Veteran';
-  if (total >= 30)  return '🔥 Profi';
+  if (total >= 300) return '👑 Legende';
+  if (total >= 150) return '⭐ Veteran';
+  if (total >= 50)  return '🔥 Profi';
   if (total >= 10)  return '🎮 Spieler';
   return '🌱 Neuling';
+}
+function getScoreTotal(u) {
+  return (u.memory||0) + (u.stack||0) + (u.precision||0) + (u.guess||0) + (u.wordle||0);
 }
 
 /* ---- ONLINE STATUS ---- */
@@ -104,21 +108,30 @@ function showToast(msg) {
 
 function checkAchievements() {
   var done = JSON.parse(localStorage.getItem('achievements') || '{}');
-  var total = (user.memory || 0) + (user.stack || 0); // reaction ist ms, nicht addieren
+  var total = getScoreTotal(user);
   if (!done.first_score && total > 0) {
     done.first_score = true; showToast('🎯 Erster Score!');
   }
   if (!done.games10 && (user.games_played || 0) >= 10) {
     done.games10 = true; showToast('🔥 10 Spiele!');
   }
-  if (!done.profi && total >= 30) {
+  if (!done.profi && total >= 50) {
     done.profi = true; showToast('⭐ Profi!');
   }
-  if (!done.legende && total >= 150) {
+  if (!done.legende && total >= 300) {
     done.legende = true; showToast('👑 Legende!');
   }
   if (!done.speed_demon && user.reaction > 0 && user.reaction < 300) {
     done.speed_demon = true; showToast('⚡ Blitz-Reaktion! Unter 300ms!');
+  }
+  if (!done.bullseye && (user.precision || 0) >= 80) {
+    done.bullseye = true; showToast('🎯 Scharfschütze! 80+ Präzision!');
+  }
+  if (!done.mastermind && (user.guess || 0) >= 90) {
+    done.mastermind = true; showToast('🧠 Mastermind! 90+ beim Raten!');
+  }
+  if (!done.wordmaster && (user.wordle || 0) >= 80) {
+    done.wordmaster = true; showToast('💻 Wortmeister! Wordle gemeistert!');
   }
   localStorage.setItem('achievements', JSON.stringify(done));
 }
@@ -159,6 +172,7 @@ async function loadFriends() {
     var res = await fetch(API_URL + '/api/friends/' + user.id);
     var friends = await res.json();
     if (!res.ok || !Array.isArray(friends)) { renderFriendsBoard([]); return; }
+    friendIdsSet = new Set(friends.map(function(f) { return f.id; }));
     renderFriendsBoard(friends);
   } catch (err) {
     document.getElementById('friends-list').innerHTML = '<span style="color:var(--dim);font-size:0.82rem">Nicht verfügbar</span>';
@@ -271,32 +285,42 @@ async function respondFriend(friendshipId, action) {
   } catch (err) { console.error(err); }
 }
 
-/* Live-Suche mit Debounce */
-var searchDebounce = null;
+/* ---- FREUNDE SUCHE (alle laden, lokal filtern) ---- */
+async function loadAllUsersForSearch() {
+  if (!user) return;
+  var container = document.getElementById('friend-search-results');
+  if (container) container.innerHTML = '<div style="color:var(--dim);font-size:0.82rem;padding:0.3rem 0">Lädt...</div>';
+  try {
+    var res = await fetch(API_URL + '/api/users/search?me=' + user.id);
+    var users = await res.json();
+    if (!res.ok || !Array.isArray(users)) return;
+    allUsersCache = users.sort(function(a, b) { return a.name.localeCompare(b.name); });
+    var q = document.getElementById('friend-search') ? document.getElementById('friend-search').value.trim().toLowerCase() : '';
+    var filtered = q ? allUsersCache.filter(function(u) { return u.name.toLowerCase().indexOf(q) !== -1; }) : allUsersCache;
+    renderSearchResults(filtered);
+  } catch (err) {
+    if (container) container.innerHTML = '<div style="color:var(--dim);font-size:0.82rem">Nicht verfügbar</div>';
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   var searchInput = document.getElementById('friend-search');
   if (searchInput) {
     searchInput.addEventListener('input', function() {
-      clearTimeout(searchDebounce);
-      var q = this.value.trim();
-      if (!q) { document.getElementById('friend-search-results').innerHTML = ''; return; }
-      searchDebounce = setTimeout(function() { searchUsers(q); }, 300);
+      var q = this.value.trim().toLowerCase();
+      if (!allUsersCache.length) { loadAllUsersForSearch(); return; }
+      var filtered = q ? allUsersCache.filter(function(u) { return u.name.toLowerCase().indexOf(q) !== -1; }) : allUsersCache;
+      renderSearchResults(filtered);
+    });
+    searchInput.addEventListener('focus', function() {
+      if (!allUsersCache.length) loadAllUsersForSearch();
     });
   }
 });
 
-async function searchUsers(q) {
-  if (!user) return;
-  try {
-    var res = await fetch(API_URL + '/api/users/search?q=' + encodeURIComponent(q) + '&me=' + user.id);
-    var results = await res.json();
-    if (!res.ok || !Array.isArray(results)) return;
-    renderSearchResults(results);
-  } catch (err) { console.error(err); }
-}
-
 function renderSearchResults(results) {
   var container = document.getElementById('friend-search-results');
+  if (!container) return;
   if (!results.length) {
     container.innerHTML = '<div style="color:var(--dim);font-size:0.82rem;padding:0.3rem 0">Keine Ergebnisse.</div>';
     return;
@@ -305,6 +329,10 @@ function renderSearchResults(results) {
   results.forEach(function(u) {
     var seed = u.avatar_seed || u.name || 'unknown';
     var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
+    var isFriend = friendIdsSet.has(u.id);
+    var sentReq = sentRequestIds.has(u.id);
+    var btnText = isFriend ? '✓ Freund' : sentReq ? '✓ Gesendet' : '+ Anfragen';
+    var btnDis = (isFriend || sentReq) ? ' disabled' : '';
     html +=
       '<div class="search-user-row">' +
       '<img class="fr-avatar" src="' + av + '" alt="">' +
@@ -312,11 +340,11 @@ function renderSearchResults(results) {
       '<div class="fr-name">' + u.name + '</div>' +
       '<div class="fr-status">' + formatLastSeen(u.last_seen, u.is_online) + '</div>' +
       '</div>' +
-      '<button class="btn-send-request" data-id="' + u.id + '">+ Anfragen</button>' +
+      '<button class="btn-send-request" data-id="' + u.id + '"' + btnDis + '>' + btnText + '</button>' +
       '</div>';
   });
   container.innerHTML = html;
-  container.querySelectorAll('.btn-send-request').forEach(function(btn) {
+  container.querySelectorAll('.btn-send-request:not([disabled])').forEach(function(btn) {
     btn.addEventListener('click', function() { sendFriendRequest(parseInt(this.dataset.id), this); });
   });
 }
@@ -334,6 +362,7 @@ async function sendFriendRequest(friendId, btn) {
     var data = await res.json();
     if (res.ok) {
       btn.textContent = '✓ Gesendet';
+      sentRequestIds.add(friendId);
       showToast('📩 Anfrage gesendet!');
     } else {
       btn.textContent = data.error || 'Fehler';
@@ -484,6 +513,7 @@ if (user) {
 sessionStorage.setItem('logged_out', 'true');
 document.cookie = 'arcadebox_user=; max-age=0';
 user = null;
+allUsersCache = []; friendIdsSet = new Set(); sentRequestIds = new Set();
 if (game) { game.stop(); game = null; }
 // Alle Popups schließen
 document.getElementById("popup")
@@ -549,10 +579,13 @@ function showHS() {
     ? (reactionMs < 400 ? '🟢 ' : '') + reactionMs + 'ms ⚡'
     : '-';
   document.getElementById('hs-list').innerHTML =
-    '<div class="hs-row"><span>🧠 Farb-Gedächtnis</span><span>' + badge(user.memory || 0) + (user.memory || 0) + '</span></div>' +
-    '<div class="hs-row"><span>🧱 Turm-Stapler</span><span>' + badge(user.stack || 0) + (user.stack || 0) + '</span></div>' +
-    '<div class="hs-row"><span>⚡ Reaktionstest</span><span>' + reactionDisplay + '</span></div>';
-  var total = (user.memory || 0) + (user.stack || 0);
+    '<div class="hs-row"><span>🧠 Farb-Gedächtnis</span><span>' + badge(user.memory||0) + (user.memory||0) + '</span></div>' +
+    '<div class="hs-row"><span>🧱 Turm-Stapler</span><span>' + badge(user.stack||0) + (user.stack||0) + '</span></div>' +
+    '<div class="hs-row"><span>⚡ Reaktionstest</span><span>' + reactionDisplay + '</span></div>' +
+    '<div class="hs-row"><span>🎯 Klick-Präzision</span><span>' + badge(user.precision||0) + (user.precision||0) + '</span></div>' +
+    '<div class="hs-row"><span>🔢 Zahlen-Raten</span><span>' + badge(user.guess||0) + (user.guess||0) + '</span></div>' +
+    '<div class="hs-row"><span>💻 Info-Wordle</span><span>' + badge(user.wordle||0) + (user.wordle||0) + '</span></div>';
+  var total = getScoreTotal(user);
   var rankEl = document.getElementById('stat-rank');
   if (rankEl) rankEl.textContent = getRank(total);
 }
@@ -590,7 +623,7 @@ try {
       '<div style="display:flex;align-items:center;gap:8px;min-width:0;">' +
       '<img src="' + av + '" style="width:24px;height:24px;border-radius:50%;flex-shrink:0">' +
       '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + item.name + '</span>' +
-      '<span style="font-size:0.7rem;color:var(--dim);flex-shrink:0">' + getRank((item.memory||0)+(item.stack||0)) + '</span>' +
+      '<span style="font-size:0.7rem;color:var(--dim);flex-shrink:0">' + getRank((item.memory||0)+(item.stack||0)+(item.precision||0)+(item.guess||0)+(item.wordle||0)) + '</span>' +
       '</div>' +
       '<div class="score" style="font-size:0.78rem">' + (item.memory||0) + '&nbsp;/&nbsp;' + (item.stack||0) + '&nbsp;/&nbsp;' + reactionDisplay + '</div>' +
       '</div>';
@@ -606,7 +639,7 @@ try {
 async function loadStats() {
 if (!user) return;
 document.getElementById("stat-games").textContent = user.games_played || 0;
-document.getElementById("stat-total").textContent = (user.memory || 0) + (user.stack || 0);
+document.getElementById("stat-total").textContent = getScoreTotal(user);
 
 try {
   var res = await fetch(API_URL + '/api/user/' + user.id);
@@ -615,7 +648,7 @@ try {
   if (res.ok && userData) {
     user = userData;
     document.getElementById("stat-games").textContent = user.games_played || 0;
-    document.getElementById("stat-total").textContent = (user.memory || 0) + (user.stack || 0);
+    document.getElementById("stat-total").textContent = getScoreTotal(user);
     showHS();
   }
 } catch (err) {
@@ -630,6 +663,9 @@ document.querySelectorAll('.board-tab').forEach(function(tab) {
     document.querySelectorAll('.board-panel').forEach(function(p) { p.classList.remove('active'); });
     tab.classList.add('active');
     document.getElementById('board-' + tab.dataset.board).classList.add('active');
+    if (tab.dataset.board === 'friends') {
+      loadAllUsersForSearch();
+    }
   });
 });
 
@@ -653,6 +689,9 @@ document.getElementById('btn-theme').addEventListener('click', function() {
 document.getElementById('card-memory').addEventListener('click', function() { openG('memory'); });
 document.getElementById('card-stack').addEventListener('click', function() { openG('stack'); });
 document.getElementById('card-reaction').addEventListener('click', function() { openG('reaction'); });
+document.getElementById('card-precision').addEventListener('click', function() { openG('precision'); });
+document.getElementById('card-guess').addEventListener('click', function() { openG('guess'); });
+document.getElementById('card-wordle').addEventListener('click', function() { openG('wordle'); });
 document.getElementById('btn-challenge-play').addEventListener('click', function() {
   if (dailyGame) openG(dailyGame);
 });
@@ -662,24 +701,32 @@ document.getElementById('popup').addEventListener('click', function(e) { if (e.t
 
 function openG(id) {
   which = id;
-  var titles = { memory: 'Farb-Gedaechtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest' };
+  var titles = { memory: 'Farb-Gedächtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest', precision: 'Klick-Präzision', guess: 'Zahlen-Raten', wordle: 'Info-Wordle' };
   document.getElementById('gtitle').textContent = titles[id] || id;
   document.getElementById('pts').textContent = '0';
   var canvas = document.getElementById('c');
   var pads = document.getElementById('memory-pads');
   var memStatus = document.getElementById('memory-status');
   var reactionArea = document.getElementById('reaction-area');
+  var guessArea = document.getElementById('guess-area');
+  var wordleArea = document.getElementById('wordle-area');
   canvas.style.display = 'none';
   pads.classList.remove('active');
   memStatus.classList.remove('active');
   reactionArea.classList.remove('active');
+  guessArea.classList.remove('active');
+  wordleArea.classList.remove('active');
   if (id === 'memory') {
     pads.classList.add('active');
     memStatus.classList.add('active');
-  } else if (id === 'stack') {
+  } else if (id === 'stack' || id === 'precision') {
     canvas.style.display = 'block';
   } else if (id === 'reaction') {
     reactionArea.classList.add('active');
+  } else if (id === 'guess') {
+    guessArea.classList.add('active');
+  } else if (id === 'wordle') {
+    wordleArea.classList.add('active');
   }
   document.getElementById('popup').classList.add('on');
   runG();
@@ -691,6 +738,8 @@ function closeG() {
   document.getElementById('memory-pads').classList.remove('active');
   document.getElementById('memory-status').classList.remove('active');
   document.getElementById('reaction-area').classList.remove('active');
+  document.getElementById('guess-area').classList.remove('active');
+  document.getElementById('wordle-area').classList.remove('active');
 }
 
 function resetG() {
@@ -705,11 +754,18 @@ function runG() {
     game = memory();
   } else if (which === 'reaction') {
     game = reaction();
+  } else if (which === 'precision') {
+    c.width = 380; c.height = 420;
+    game = precision(c);
+  } else if (which === 'guess') {
+    game = guessGame();
+  } else if (which === 'wordle') {
+    game = wordleGame();
   } else {
     c.width = 380; c.height = 420;
     game = stack(c);
   }
-} 
+}
 
 
 /* ---- SPIEL: FARB-GEDAECHTNIS ---- */ 
@@ -861,6 +917,253 @@ function reaction() {
   };
 }
 
+/* ---- SPIEL 4: KLICK-PRÄZISION ---- */
+function precision(cv) {
+  var ctx = cv.getContext('2d'), W = 380, H = 420, on = true;
+  var sc = 0, shots = 0, maxShots = 10, targetR = 55;
+  var tx, ty;
+
+  function newTarget() {
+    tx = targetR + 10 + Math.random() * (W - 2 * targetR - 20);
+    ty = targetR + 30 + Math.random() * (H - 2 * targetR - 50);
+  }
+
+  function draw() {
+    ctx.fillStyle = '#0c0c14'; ctx.fillRect(0, 0, W, H);
+    // rings: outer=1pt, mid=5pt, bull=10pt
+    var rings = [
+      { r: targetR,       color: '#b71c1c' },
+      { r: targetR * 0.65, color: '#e53935' },
+      { r: targetR * 0.32, color: '#ffffff' }
+    ];
+    rings.forEach(function(ring) {
+      ctx.beginPath(); ctx.arc(tx, ty, ring.r, 0, Math.PI * 2);
+      ctx.fillStyle = ring.color; ctx.fill();
+      ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5; ctx.stroke();
+    });
+    // crosshair
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(tx - targetR, ty); ctx.lineTo(tx + targetR, ty);
+    ctx.moveTo(tx, ty - targetR); ctx.lineTo(tx, ty + targetR); ctx.stroke();
+    // HUD
+    ctx.fillStyle = '#eee'; ctx.font = '13px Bricolage Grotesque,sans-serif';
+    ctx.textAlign = 'left'; ctx.fillText('Schuss ' + shots + '/' + maxShots, 8, 18);
+    ctx.textAlign = 'right'; ctx.fillText('Punkte: ' + sc, W - 8, 18);
+  }
+
+  function handleClick(e) {
+    if (!on) return;
+    var rect = cv.getBoundingClientRect();
+    var scaleX = W / rect.width, scaleY = H / rect.height;
+    var x = (e.clientX - rect.left) * scaleX;
+    var y = (e.clientY - rect.top) * scaleY;
+    var dist = Math.sqrt((x - tx) * (x - tx) + (y - ty) * (y - ty));
+    var pts = 0;
+    if (dist <= targetR * 0.32) pts = 10;
+    else if (dist <= targetR * 0.65) pts = 5;
+    else if (dist <= targetR) pts = 1;
+    sc += pts; shots++;
+    document.getElementById('pts').textContent = sc;
+    // hit marker
+    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = pts >= 10 ? '#ffd700' : pts >= 5 ? '#4caf50' : pts > 0 ? '#90caf9' : '#ef5350'; ctx.fill();
+    ctx.fillStyle = pts >= 10 ? '#ffd700' : pts >= 5 ? '#4caf50' : pts > 0 ? '#fff' : '#ef5350';
+    ctx.font = 'bold 18px Bricolage Grotesque,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(pts > 0 ? '+' + pts : '✕', x, y - 12);
+    if (shots >= maxShots) {
+      on = false; cv.removeEventListener('click', handleClick);
+      setTimeout(function() { saveHS('precision', sc); gg(ctx, W, H, sc); }, 600);
+    } else {
+      setTimeout(function() { newTarget(); draw(); }, 600);
+    }
+  }
+
+  newTarget(); draw();
+  cv.addEventListener('click', handleClick);
+  return { stop: function() { on = false; cv.removeEventListener('click', handleClick); } };
+}
+
+/* ---- SPIEL 5: ZAHLEN-RATEN ---- */
+function guessGame() {
+  var on = true;
+  var secret = Math.floor(Math.random() * 100) + 1;
+  var tries = 0;
+  var statusEl = document.getElementById('guess-status');
+  var input = document.getElementById('guess-input');
+  var btn = document.getElementById('guess-btn');
+  var history = document.getElementById('guess-history');
+
+  input.value = ''; input.disabled = false; btn.disabled = false;
+  history.innerHTML = '';
+  statusEl.textContent = 'Errate die Zahl zwischen 1 und 100!';
+
+  function handleGuess() {
+    if (!on) return;
+    var val = parseInt(input.value);
+    if (isNaN(val) || val < 1 || val > 100) {
+      statusEl.textContent = '⚠️ Zahl zwischen 1 und 100 eingeben!'; return;
+    }
+    tries++;
+    input.value = '';
+    var entry = document.createElement('div');
+    entry.className = 'guess-entry';
+    if (val === secret) {
+      on = false;
+      var score = Math.max(0, 100 - (tries - 1) * 10);
+      entry.textContent = val + ' ✅ Richtig!'; entry.style.color = '#4caf50';
+      history.appendChild(entry); history.scrollTop = history.scrollHeight;
+      statusEl.textContent = '🎉 Gefunden in ' + tries + ' Versuch' + (tries > 1 ? 'en' : '') + '! +' + score + ' Punkte';
+      document.getElementById('pts').textContent = score;
+      btn.disabled = true; input.disabled = true;
+      sounds.highscore(); saveHS('guess', score);
+    } else {
+      var hint = val < secret ? val + ' ⬇️ Zu niedrig!' : val + ' ⬆️ Zu hoch!';
+      entry.textContent = hint; entry.style.color = val < secret ? '#42a5f5' : '#ff7043';
+      history.appendChild(entry); history.scrollTop = history.scrollHeight;
+      var remaining = 10 - tries;
+      statusEl.textContent = 'Versuch ' + tries + '/10 — noch ' + remaining + ' übrig';
+      document.getElementById('pts').textContent = Math.max(0, 100 - tries * 10);
+      if (tries >= 10) {
+        on = false;
+        statusEl.textContent = '💀 Game Over! Die Zahl war ' + secret;
+        btn.disabled = true; input.disabled = true;
+        saveHS('guess', 0);
+      }
+    }
+  }
+
+  btn.addEventListener('click', handleGuess);
+  function keyHandler(e) { if (e.key === 'Enter') { e.preventDefault(); handleGuess(); } }
+  input.addEventListener('keydown', keyHandler);
+
+  return {
+    stop: function() {
+      on = false;
+      btn.removeEventListener('click', handleGuess);
+      input.removeEventListener('keydown', keyHandler);
+      btn.disabled = false; input.disabled = false;
+    }
+  };
+}
+
+/* ---- SPIEL 6: INFO-WORDLE ---- */
+var WORDLE_WORDS = ['PIXEL', 'BYTES', 'CLICK', 'DATEN', 'NETZT', 'VIRUS', 'CACHE', 'LOGIN', 'MAILS', 'CLOUD', 'CODES', 'INPUT', 'LINKS', 'MEDIA', 'SHARE', 'SCOUT', 'SMART', 'TASTE', 'WLANS', 'HANDY'];
+
+function wordleGame() {
+  var on = true;
+  var secret = WORDLE_WORDS[Math.floor(Math.random() * WORDLE_WORDS.length)];
+  var currentRow = 0, currentCol = 0, currentGuess = [];
+  var maxRows = 6, wordLen = 5;
+
+  var grid = document.getElementById('wordle-grid');
+  var kbEl = document.getElementById('wordle-keyboard');
+  var statusEl = document.getElementById('wordle-status');
+  grid.innerHTML = ''; kbEl.innerHTML = ''; statusEl.textContent = '';
+
+  // Build grid
+  var cells = [];
+  for (var r = 0; r < maxRows; r++) {
+    cells[r] = [];
+    var row = document.createElement('div'); row.className = 'wordle-row';
+    for (var c = 0; c < wordLen; c++) {
+      var cell = document.createElement('div'); cell.className = 'wordle-cell';
+      row.appendChild(cell); cells[r][c] = cell;
+    }
+    grid.appendChild(row);
+  }
+
+  // Build keyboard
+  var keyMap = {};
+  [['Q','W','E','R','T','Z','U','I','O','P'],['A','S','D','F','G','H','J','K','L'],['ENTER','Y','X','C','V','B','N','M','⌫']].forEach(function(rowKeys) {
+    var kRow = document.createElement('div'); kRow.className = 'wordle-key-row';
+    rowKeys.forEach(function(k) {
+      var btn = document.createElement('button');
+      btn.className = 'wordle-key' + (k.length > 1 ? ' wordle-key-wide' : '');
+      btn.textContent = k; btn.dataset.key = k === '⌫' ? 'BACKSPACE' : k;
+      if (k.length === 1) keyMap[k] = btn;
+      kRow.appendChild(btn);
+    });
+    kbEl.appendChild(kRow);
+  });
+
+  function handleKey(k) {
+    if (!on) return;
+    if (k === 'ENTER') {
+      if (currentGuess.length < wordLen) { statusEl.textContent = 'Noch ' + (wordLen - currentGuess.length) + ' Buchstaben fehlen!'; return; }
+      submitGuess();
+    } else if (k === 'BACKSPACE') {
+      if (currentCol > 0) { currentCol--; currentGuess.pop(); cells[currentRow][currentCol].textContent = ''; cells[currentRow][currentCol].classList.remove('filled'); }
+    } else if (/^[A-Z]$/.test(k) && currentCol < wordLen) {
+      cells[currentRow][currentCol].textContent = k; cells[currentRow][currentCol].classList.add('filled');
+      currentGuess.push(k); currentCol++;
+    }
+  }
+
+  function submitGuess() {
+    var guess = currentGuess.join('');
+    var result = Array(wordLen).fill('absent');
+    var sArr = secret.split(''), gArr = guess.split('');
+    // correct positions first
+    for (var i = 0; i < wordLen; i++) {
+      if (gArr[i] === sArr[i]) { result[i] = 'correct'; sArr[i] = null; gArr[i] = null; }
+    }
+    // present letters
+    for (var i = 0; i < wordLen; i++) {
+      if (gArr[i] === null) continue;
+      var idx = sArr.indexOf(gArr[i]);
+      if (idx !== -1) { result[i] = 'present'; sArr[idx] = null; }
+    }
+    // animate cells + update keyboard
+    result.forEach(function(state, i) {
+      var letter = cells[currentRow][i].textContent;
+      setTimeout(function() { cells[currentRow][i].classList.add(state); }, i * 80);
+      var key = keyMap[letter];
+      if (key) {
+        var cur = key.dataset.state || '';
+        if (state === 'correct' || (state === 'present' && cur !== 'correct') || (state === 'absent' && !cur)) {
+          key.className = 'wordle-key' + (key.classList.contains('wordle-key-wide') ? ' wordle-key-wide' : '') + ' ' + state;
+          key.dataset.state = state;
+        }
+      }
+    });
+    var won = guess === secret;
+    currentRow++; currentGuess = []; currentCol = 0;
+    setTimeout(function() {
+      if (won) {
+        on = false;
+        var score = Math.max(20, (maxRows - currentRow + 1) * 20);
+        statusEl.textContent = '🎉 ' + secret + '! +' + score + ' Punkte';
+        document.getElementById('pts').textContent = score;
+        sounds.highscore(); saveHS('wordle', score);
+      } else if (currentRow >= maxRows) {
+        on = false;
+        statusEl.textContent = '💀 Game Over! Das Wort war: ' + secret;
+        saveHS('wordle', 0);
+      }
+    }, wordLen * 80 + 100);
+  }
+
+  function kbClick(e) { var k = e.target.dataset.key; if (k) handleKey(k); }
+  kbEl.addEventListener('click', kbClick);
+
+  function physKey(e) {
+    if (!on) return;
+    var k = e.key.toUpperCase();
+    if (k === 'ENTER') { e.preventDefault(); handleKey('ENTER'); }
+    else if (k === 'BACKSPACE') handleKey('BACKSPACE');
+    else if (/^[A-ZÜÄÖ]$/.test(k)) handleKey({ 'Ü': 'U', 'Ä': 'A', 'Ö': 'O' }[k] || k);
+  }
+  document.addEventListener('keydown', physKey);
+
+  return {
+    stop: function() {
+      on = false;
+      kbEl.removeEventListener('click', kbClick);
+      document.removeEventListener('keydown', physKey);
+    }
+  };
+}
+
 /* ---- GAME OVER ---- */
 function gg(ctx,W,H,s){
   ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,0,W,H);
@@ -880,11 +1183,12 @@ var created = user.created_at_
   ? new Date(user.created_at_).toLocaleDateString("de-AT")
   : "-";
 
-var profileTotal = (user.memory || 0) + (user.stack || 0);
+var profileTotal = getScoreTotal(user);
 var reactionInfo = user.reaction > 0 ? user.reaction + 'ms' : '-';
 document.getElementById("profile-info").innerHTML =
 "Rang: " + getRank(profileTotal) + "<br>" +
 "⚡ Beste Reaktion: " + reactionInfo + "<br>" +
+"🎯 Präzision: " + (user.precision||0) + "&nbsp;&nbsp;🔢 Raten: " + (user.guess||0) + "&nbsp;&nbsp;💻 Wordle: " + (user.wordle||0) + "<br>" +
 "Mitglied seit: " + created + "<br>" +
 "Spiele gespielt: " + (user.games_played || 0);
 document.getElementById("profile-overlay").classList.add("on");
