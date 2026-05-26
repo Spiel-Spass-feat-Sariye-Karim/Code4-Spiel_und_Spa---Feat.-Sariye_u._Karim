@@ -91,8 +91,21 @@
 
  
 <div class="hs-section global-board">
-<h3>Globales Scoreboard — Top 10</h3>
-<div id="global-hs">Lädt...</div>
+  <div class="board-tabs">
+    <button class="board-tab active" data-board="global">🌍 Global</button>
+    <button class="board-tab" data-board="friends">👥 Freunde</button>
+  </div>
+  <div id="board-global" class="board-panel active">
+    <div id="global-hs">Lädt...</div>
+  </div>
+  <div id="board-friends" class="board-panel">
+    <div id="friends-hs">Lädt...</div>
+    <div class="friends-add">
+      <input id="friend-input" placeholder="Benutzername eingeben" maxlength="20">
+      <button id="btn-add-friend">Hinzufügen</button>
+    </div>
+    <div id="friends-err"></div>
+  </div>
 </div>
 </div>
 

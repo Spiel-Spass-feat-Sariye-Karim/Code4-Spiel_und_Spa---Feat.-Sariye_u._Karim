@@ -471,3 +471,75 @@ body.light .ptop, body.light .pbot { border-color: #ddd; }
 body.light .overlay-box { background: #fff; }
 body.light .challenge-header { background: linear-gradient(135deg, #fff8e1, #fffde7); }
 body.light .challenge-scores { background: rgba(245,158,11,0.04); }
+
+/* ---- Board Tabs (Global / Freunde) ---- */
+.board-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 0.6rem;
+  background: var(--s2);
+  padding: 4px;
+  border-radius: 8px;
+}
+.board-tab {
+  flex: 1;
+  padding: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--dim);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+.board-tab.active { background: var(--c1); color: #fff; }
+.board-panel { display: none; }
+.board-panel.active { display: block; }
+
+/* ---- Freunde UI ---- */
+.friends-add {
+  display: flex;
+  gap: 8px;
+  margin-top: 0.8rem;
+}
+.friends-add input {
+  flex: 1;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: var(--s2);
+  color: var(--tx);
+  font-family: inherit;
+  font-size: 0.85rem;
+  outline: none;
+}
+.friends-add input:focus { border-color: var(--c1); }
+.friends-add button {
+  padding: 0.55rem 1rem;
+  background: var(--c1);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.friends-add button:hover { opacity: 0.85; }
+#friends-err { color: #ff4444; font-size: 0.8rem; min-height: 1.2em; margin-top: 0.3rem; }
+.btn-remove-friend {
+  background: none;
+  border: 1px solid #444;
+  color: var(--dim);
+  border-radius: 6px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-remove-friend:hover { border-color: #ff4444; color: #ff4444; }
+body.light .friends-add input { border-color: #ccc; background: #fff; color: #111; }

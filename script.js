@@ -78,7 +78,7 @@ function showToast(msg) {
 
 function checkAchievements() {
   var done = JSON.parse(localStorage.getItem('achievements') || '{}');
-  var total = (user.memory || 0) + (user.stack || 0) + (user.reaction || 0);
+  var total = (user.memory || 0) + (user.stack || 0); // reaction ist ms, nicht addieren
   if (!done.first_score && total > 0) {
     done.first_score = true; showToast('🎯 Erster Score!');
   }
@@ -90,6 +90,9 @@ function checkAchievements() {
   }
   if (!done.legende && total >= 150) {
     done.legende = true; showToast('👑 Legende!');
+  }
+  if (!done.speed_demon && user.reaction > 0 && user.reaction < 300) {
+    done.speed_demon = true; showToast('⚡ Blitz-Reaktion! Unter 300ms!');
   }
   localStorage.setItem('achievements', JSON.stringify(done));
 }
@@ -120,6 +123,62 @@ async function loadDailyChallenge() {
   } catch (err) {
     document.getElementById('daily-scores-list').innerHTML = '<span style="color:var(--dim);font-size:0.8rem">Nicht verfügbar</span>';
   }
+}
+
+/* ---- FREUNDE ---- */
+async function loadFriends() {
+  if (!user) return;
+  try {
+    var res = await fetch(API_URL + '/api/friends/' + user.id);
+    var friends = await res.json();
+    if (!res.ok || !Array.isArray(friends)) { renderFriendsBoard([]); return; }
+    renderFriendsBoard(friends);
+  } catch (err) {
+    document.getElementById('friends-hs').innerHTML = '<span style="color:var(--dim);font-size:0.82rem">Nicht verfügbar</span>';
+  }
+}
+
+function renderFriendsBoard(friends) {
+  var container = document.getElementById('friends-hs');
+  if (!friends.length) {
+    container.innerHTML = '<div style="color:var(--dim);font-size:0.82rem;padding:0.5rem 0">Noch keine Freunde hinzugefügt.</div>';
+    return;
+  }
+  var sorted = friends.slice().sort(function(a, b) {
+    return ((b.memory||0)+(b.stack||0)) - ((a.memory||0)+(a.stack||0));
+  });
+  var html = '';
+  sorted.forEach(function(f, i) {
+    var seed = f.avatar_seed || f.name || 'unknown';
+    var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
+    var reactionDisplay = f.reaction_ms > 0 ? f.reaction_ms + 'ms' : '-';
+    var meClass = f.name === user.name ? 'me' : '';
+    html +=
+      '<div class="global-row friend-row ' + meClass + '">' +
+      '<div class="rank">#' + (i+1) + '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">' +
+      '<img src="' + av + '" style="width:24px;height:24px;border-radius:50%;flex-shrink:0">' +
+      '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + f.name + '</span>' +
+      '</div>' +
+      '<div class="score" style="font-size:0.78rem">' + (f.memory||0) + '&nbsp;/&nbsp;' + (f.stack||0) + '&nbsp;/&nbsp;' + reactionDisplay + '</div>' +
+      '<button class="btn-remove-friend" data-id="' + f.id + '" title="Entfernen">✕</button>' +
+      '</div>';
+  });
+  container.innerHTML = html;
+  container.querySelectorAll('.btn-remove-friend').forEach(function(btn) {
+    btn.addEventListener('click', function() { removeFriend(parseInt(this.dataset.id)); });
+  });
+}
+
+async function removeFriend(friendId) {
+  try {
+    await fetch(API_URL + '/api/friends/remove', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.id, friend_id: friendId })
+    });
+    loadFriends();
+  } catch (err) { console.error(err); }
 }
 
 function setLoading(btnId, isLoading, normalText) {
@@ -224,6 +283,7 @@ document.getElementById("avatar").src =
   loadGlobalHS();
   loadStats();
   loadDailyChallenge();
+  loadFriends();
   // Theme-Button Emoji setzen
   var themeBtn = document.getElementById('btn-theme');
   if (themeBtn) themeBtn.textContent = document.body.classList.contains('light') ? '☀️' : '🌙';
@@ -268,8 +328,10 @@ async function saveHS(g, s) {
     });
     
     user.games_played = (user.games_played || 0) + 1;
-    if (s > (user[g] || 0)) {
-      user[g] = s;
+    if (g === 'reaction') {
+      if (!user[g] || s < user[g]) user[g] = s; // niedrigere ms = besser
+    } else {
+      if (s > (user[g] || 0)) user[g] = s;
     }
     
     showHS();
@@ -292,11 +354,15 @@ function showHS() {
     if (score >= 10) return '🔥 ';
     return '';
   }
+  var reactionMs = user.reaction || 0;
+  var reactionDisplay = reactionMs > 0
+    ? (reactionMs < 400 ? '🟢 ' : '') + reactionMs + 'ms ⚡'
+    : '-';
   document.getElementById('hs-list').innerHTML =
     '<div class="hs-row"><span>🧠 Farb-Gedächtnis</span><span>' + badge(user.memory || 0) + (user.memory || 0) + '</span></div>' +
     '<div class="hs-row"><span>🧱 Turm-Stapler</span><span>' + badge(user.stack || 0) + (user.stack || 0) + '</span></div>' +
-    '<div class="hs-row"><span>⚡ Reaktionstest</span><span>' + badge(user.reaction || 0) + (user.reaction || 0) + '</span></div>';
-  var total = (user.memory || 0) + (user.stack || 0) + (user.reaction || 0);
+    '<div class="hs-row"><span>⚡ Reaktionstest</span><span>' + reactionDisplay + '</span></div>';
+  var total = (user.memory || 0) + (user.stack || 0);
   var rankEl = document.getElementById('stat-rank');
   if (rankEl) rankEl.textContent = getRank(total);
 }
@@ -327,16 +393,16 @@ try {
     var seed = item.avatar_seed || item.name || "unknown";
     var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
     
-    var itemTotal = (item.memory || 0) + (item.stack || 0) + (item.reaction || 0);
+    var reactionDisplay = item.reaction_ms > 0 ? item.reaction_ms + 'ms' : '-';
     html +=
       '<div class="global-row ' + meClass + '">' +
       '<div class="rank ' + rankClass + '">#' + (i+1) + '</div>' +
-      '<div style="display:flex;align-items:center;gap:8px;">' +
-      '<img src="' + av + '" style="width:24px;height:24px;border-radius:50%;">' +
-      '<span>' + item.name + '</span>' +
-      '<span style="font-size:0.75rem;color:var(--dim);">' + getRank(itemTotal) + '</span>' +
+      '<div style="display:flex;align-items:center;gap:8px;min-width:0;">' +
+      '<img src="' + av + '" style="width:24px;height:24px;border-radius:50%;flex-shrink:0">' +
+      '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + item.name + '</span>' +
+      '<span style="font-size:0.7rem;color:var(--dim);flex-shrink:0">' + getRank((item.memory||0)+(item.stack||0)) + '</span>' +
       '</div>' +
-      '<div class="score">' + (item.memory || 0) + ' / ' + (item.stack || 0) + ' / ' + (item.reaction || 0) + '</div>' +
+      '<div class="score" style="font-size:0.78rem">' + (item.memory||0) + '&nbsp;/&nbsp;' + (item.stack||0) + '&nbsp;/&nbsp;' + reactionDisplay + '</div>' +
       '</div>';
   });
   
@@ -350,7 +416,7 @@ try {
 async function loadStats() {
 if (!user) return;
 document.getElementById("stat-games").textContent = user.games_played || 0;
-document.getElementById("stat-total").textContent = (user.memory || 0) + (user.stack || 0) + (user.reaction || 0);
+document.getElementById("stat-total").textContent = (user.memory || 0) + (user.stack || 0);
 
 try {
   var res = await fetch(API_URL + '/api/user/' + user.id);
@@ -359,13 +425,44 @@ try {
   if (res.ok && userData) {
     user = userData;
     document.getElementById("stat-games").textContent = user.games_played || 0;
-    document.getElementById("stat-total").textContent = (user.memory || 0) + (user.stack || 0) + (user.reaction || 0);
+    document.getElementById("stat-total").textContent = (user.memory || 0) + (user.stack || 0);
     showHS();
   }
 } catch (err) {
   console.error('Fehler beim Laden der Stats:', err);
 }
 }
+
+/* ---- BOARD TABS (Global / Freunde) ---- */
+document.querySelectorAll('.board-tab').forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.board-tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.board-panel').forEach(function(p) { p.classList.remove('active'); });
+    tab.classList.add('active');
+    document.getElementById('board-' + tab.dataset.board).classList.add('active');
+  });
+});
+
+document.getElementById('btn-add-friend').addEventListener('click', async function() {
+  var name = document.getElementById('friend-input').value.trim();
+  var errEl = document.getElementById('friends-err');
+  errEl.textContent = '';
+  if (!name) return;
+  try {
+    var res = await fetch(API_URL + '/api/friends/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.id, friend_name: name })
+    });
+    var data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || 'Fehler'; return; }
+    document.getElementById('friend-input').value = '';
+    showToast('👥 ' + data.friend.name + ' hinzugefügt!');
+    loadFriends();
+  } catch (err) {
+    errEl.textContent = 'Verbindungsfehler';
+  }
+});
 
 /* ---- THEME TOGGLE ---- */
 document.getElementById('btn-theme').addEventListener('click', function() {
@@ -564,14 +661,13 @@ function reaction() {
       return;
     }
     var ms = Date.now() - startTime;
-    var score = Math.max(0, 1000 - ms);
     on = false;
     btn.classList.remove('ready');
     btn.textContent = ms + ' ms';
-    status.textContent = score + ' Punkte! (' + ms + ' ms Reaktionszeit)';
-    document.getElementById('pts').textContent = score;
+    status.textContent = ms + ' ms — ' + (ms < 250 ? '⚡ Blitz!' : ms < 400 ? '🟢 Gut!' : ms < 600 ? '🟡 OK' : '🔴 Langsam');
+    document.getElementById('pts').textContent = ms + 'ms';
     sounds.highscore();
-    saveHS('reaction', score);
+    saveHS('reaction', ms); // ms direkt speichern, niedrigerer Wert = besser
   }
 
   btn.addEventListener('click', handleClick);
@@ -607,9 +703,11 @@ var created = user.created_at_
   ? new Date(user.created_at_).toLocaleDateString("de-AT")
   : "-";
 
-var profileTotal = (user.memory || 0) + (user.stack || 0) + (user.reaction || 0);
+var profileTotal = (user.memory || 0) + (user.stack || 0);
+var reactionInfo = user.reaction > 0 ? user.reaction + 'ms' : '-';
 document.getElementById("profile-info").innerHTML =
 "Rang: " + getRank(profileTotal) + "<br>" +
+"⚡ Beste Reaktion: " + reactionInfo + "<br>" +
 "Mitglied seit: " + created + "<br>" +
 "Spiele gespielt: " + (user.games_played || 0);
 document.getElementById("profile-overlay").classList.add("on");

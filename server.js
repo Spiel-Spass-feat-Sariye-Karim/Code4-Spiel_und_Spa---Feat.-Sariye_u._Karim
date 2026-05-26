@@ -149,7 +149,12 @@ app.post('/api/save-score', async (req, res) => {
       .single();
     
     const updates = {};
-    updates[game_type] = Math.max(user[game_type] || 0, score);
+    if (game_type === 'reaction') {
+      // Reaction: niedrigere ms = besser; 0 = noch kein Score
+      updates[game_type] = (user[game_type] === 0) ? score : Math.min(user[game_type], score);
+    } else {
+      updates[game_type] = Math.max(user[game_type] || 0, score);
+    }
     updates.games_played = (user.games_played || 0) + 1;
     
     await db
@@ -210,43 +215,61 @@ app.put('/api/user/:id', async (req, res) => {
   }
 });
 
-// Get Global Highscores
+// Get Global Highscores (Rang-Punkte System)
 app.get('/api/global-highscores', async (req, res) => {
   try {
     const { data: scores, error } = await db
       .from('highscores')
       .select('users!user_id(name, avatar_seed), score, game_type')
-      .order('score', { ascending: false })
-      .limit(50);
-    
-    if (error) {
-      return res.status(400).json({ error: 'Fehler beim Laden' });
-    }
-    
-    // Gruppiere pro User
+      .limit(500);
+
+    if (error) return res.status(400).json({ error: 'Fehler beim Laden' });
+
+    // Beste Scores pro User und Spiel sammeln
     const userMap = {};
-    scores.forEach(item => {
+    (scores || []).forEach(item => {
       const u = item.users;
       if (!u) return;
-      const uid = u.name.toLowerCase(); // Verwende name als key
+      const uid = u.name.toLowerCase();
       if (!userMap[uid]) {
-        userMap[uid] = { name: u.name, avatar_seed: u.avatar_seed, memory: 0, stack: 0, reaction: 0 };
+        userMap[uid] = { name: u.name, avatar_seed: u.avatar_seed, memory: 0, stack: 0, reaction_ms: 0 };
       }
       if (item.game_type === 'memory') {
         userMap[uid].memory = Math.max(userMap[uid].memory, item.score);
       } else if (item.game_type === 'stack') {
         userMap[uid].stack = Math.max(userMap[uid].stack, item.score);
-      } else if (item.game_type === 'reaction') {
-        userMap[uid].reaction = Math.max(userMap[uid].reaction, item.score);
+      } else if (item.game_type === 'reaction' && item.score > 0) {
+        userMap[uid].reaction_ms = userMap[uid].reaction_ms === 0
+          ? item.score
+          : Math.min(userMap[uid].reaction_ms, item.score);
       }
     });
 
-    // In Array umwandeln und nach Gesamtscore sortieren
-    const result = Object.values(userMap)
-      .map(user => ({ ...user, total: user.memory + user.stack + user.reaction }))
-      .sort((a, b) => b.total - a.total)
+    const users = Object.values(userMap);
+
+    // Rang-Punkte vergeben pro Spiel
+    function rankPts(i) { return i === 0 ? 10 : i === 1 ? 8 : i <= 4 ? 5 : 1; }
+
+    const memRanked      = [...users].sort((a, b) => b.memory - a.memory);
+    const stackRanked    = [...users].sort((a, b) => b.stack - a.stack);
+    const reactionRanked = [...users].sort((a, b) => {
+      if (!a.reaction_ms && !b.reaction_ms) return 0;
+      if (!a.reaction_ms) return 1;
+      if (!b.reaction_ms) return -1;
+      return a.reaction_ms - b.reaction_ms; // niedrigere ms = besser
+    });
+
+    const pts = {};
+    users.forEach(u => { pts[u.name.toLowerCase()] = 0; });
+    memRanked.forEach((u, i)      => { if (u.memory     > 0) pts[u.name.toLowerCase()] += rankPts(i); });
+    stackRanked.forEach((u, i)    => { if (u.stack      > 0) pts[u.name.toLowerCase()] += rankPts(i); });
+    reactionRanked.forEach((u, i) => { if (u.reaction_ms > 0) pts[u.name.toLowerCase()] += rankPts(i); });
+
+    const result = users
+      .map(u => ({ ...u, rank_points: pts[u.name.toLowerCase()] }))
+      .sort((a, b) => b.rank_points - a.rank_points)
       .slice(0, 10);
-    
+
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
@@ -280,7 +303,7 @@ app.get('/api/daily-scores', async (req, res) => {
       .eq('game_type', game)
       .gte('created_at', today.toISOString())
       .lt('created_at', tomorrow.toISOString())
-      .order('score', { ascending: false })
+      .order('score', { ascending: game === 'reaction' }) // reaction: niedrigere ms = besser
       .limit(10);
 
     if (error) return res.status(400).json({ error: 'Fehler beim Laden' });
@@ -291,6 +314,60 @@ app.get('/api/daily-scores', async (req, res) => {
       score: s.score
     }));
     res.json({ game, name: DAILY_NAMES[game], scores: result });
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+// ============= FREUNDE =============
+
+app.post('/api/friends/add', async (req, res) => {
+  const { user_id, friend_name } = req.body;
+  if (!user_id || !friend_name) return res.status(400).json({ error: 'Fehlende Daten' });
+  try {
+    const { data: friend } = await db.from('users').select('id, name')
+      .eq('name', friend_name.toLowerCase()).maybeSingle();
+    if (!friend) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    if (friend.id === parseInt(user_id)) return res.status(400).json({ error: 'Du kannst dich nicht selbst hinzufügen' });
+
+    const { error } = await db.from('friendships').insert([
+      { user_id: parseInt(user_id), friend_id: friend.id },
+      { user_id: friend.id, friend_id: parseInt(user_id) }
+    ]);
+    if (error) {
+      if (error.code === '23505') return res.status(400).json({ error: 'Bereits befreundet' });
+      return res.status(400).json({ error: 'Fehler beim Hinzufügen' });
+    }
+    res.json({ success: true, friend: { id: friend.id, name: friend.name } });
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+app.get('/api/friends/:user_id', async (req, res) => {
+  try {
+    const { data: friendships } = await db.from('friendships')
+      .select('friend_id').eq('user_id', req.params.user_id);
+    if (!friendships || friendships.length === 0) return res.json([]);
+
+    const friendIds = friendships.map(f => f.friend_id);
+    const { data: friends, error } = await db.from('users')
+      .select('id, name, avatar_seed, memory, stack, reaction').in('id', friendIds);
+    if (error) return res.status(400).json({ error: 'Fehler beim Laden' });
+
+    res.json((friends || []).map(f => ({ ...f, reaction_ms: f.reaction })));
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+app.delete('/api/friends/remove', async (req, res) => {
+  const { user_id, friend_id } = req.body;
+  if (!user_id || !friend_id) return res.status(400).json({ error: 'Fehlende Daten' });
+  try {
+    await db.from('friendships').delete().eq('user_id', user_id).eq('friend_id', friend_id);
+    await db.from('friendships').delete().eq('user_id', friend_id).eq('friend_id', user_id);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }
