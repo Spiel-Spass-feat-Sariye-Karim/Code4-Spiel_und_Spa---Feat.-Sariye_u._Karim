@@ -465,6 +465,41 @@ app.delete('/api/friends/remove', async (req, res) => {
   }
 });
 
+// ============= GLOBAL CHAT =============
+
+app.get('/api/chat/global', async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const { data, error } = await db
+      .from('global_chat')
+      .select('id, user_id, user_name, avatar_seed, message, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+app.post('/api/chat/global', async (req, res) => {
+  try {
+    const { user_id, user_name, avatar_seed, message } = req.body;
+    if (!user_id || !user_name || !message) return res.status(400).json({ error: 'Fehlende Felder' });
+    const trimmed = String(message).trim().slice(0, 200);
+    if (!trimmed) return res.status(400).json({ error: 'Leere Nachricht' });
+    const { data, error } = await db
+      .from('global_chat')
+      .insert({ user_id, user_name, avatar_seed: avatar_seed || null, message: trimmed })
+      .select()
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
 // ============= SERVER STARTEN =============
 console.log('About to start server');
 const PORT = process.env.PORT || 3000;

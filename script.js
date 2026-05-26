@@ -2,7 +2,8 @@
 var API_URL = 'https://code4-spiel-und-spa-feat-sariye-u-karim.onrender.com';
 
 var game=null,which='',user=null;
-var heartbeatInterval=null,requestsInterval=null;
+var heartbeatInterval=null,requestsInterval=null,chatInterval=null;
+var lastChatCount=0;
 var allUsersCache=[],friendIdsSet=new Set(),sentRequestIds=new Set();
 
 /* ---- DARK/LIGHT MODE ---- */
@@ -95,6 +96,60 @@ function formatLastSeen(last_seen, is_online) {
   if (hours < 24) return '<span class="online-dot gray"></span>Vor ' + hours + ' Std.';
   var days = Math.floor(hours / 24);
   return '<span class="online-dot gray"></span>Vor ' + days + ' Tag' + (days > 1 ? 'en' : '');
+}
+
+/* ---- GLOBAL CHAT ---- */
+async function loadGlobalChat() {
+  if (!user) return;
+  try {
+    var res = await fetch(API_URL + '/api/chat/global?limit=50');
+    if (!res.ok) return;
+    var msgs = await res.json();
+    if (!Array.isArray(msgs)) return;
+    var win = document.getElementById('chat-window');
+    if (!win) return;
+    var wasAtBottom = win.scrollHeight - win.scrollTop - win.clientHeight < 40;
+    var html = '';
+    var reversed = msgs.slice().reverse();
+    reversed.forEach(function(m) {
+      var isOwn = m.user_id === user.id;
+      var seed = m.avatar_seed || m.user_name || 'unknown';
+      var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
+      var time = new Date(m.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      html +=
+        '<div class="chat-msg' + (isOwn ? ' own' : '') + '">' +
+        '<img class="chat-avatar" src="' + av + '" alt="">' +
+        '<div class="chat-bubble">' +
+        '<div class="chat-meta"><span class="chat-name">' + escHtml(m.user_name) + '</span><span class="chat-time">' + time + '</span></div>' +
+        '<div class="chat-text">' + escHtml(m.message) + '</div>' +
+        '</div>' +
+        '</div>';
+    });
+    win.innerHTML = html;
+    if (wasAtBottom || lastChatCount === 0) win.scrollTop = win.scrollHeight;
+    lastChatCount = msgs.length;
+  } catch (e) {}
+}
+
+async function sendChatMessage() {
+  if (!user) return;
+  var input = document.getElementById('chat-input');
+  if (!input) return;
+  var msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  try {
+    await fetch(API_URL + '/api/chat/global', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.id, user_name: user.name, avatar_seed: user.avatar_seed || user.name, message: msg })
+    });
+    loadGlobalChat();
+  } catch (e) {}
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 /* ---- TOAST & ACHIEVEMENTS ---- */
@@ -457,6 +512,11 @@ document.getElementById("avatar").src =
   loadStats();
   loadFriends();
   loadFriendRequests();
+  // Chat laden
+  lastChatCount = 0;
+  loadGlobalChat();
+  if (chatInterval) clearInterval(chatInterval);
+  chatInterval = setInterval(loadGlobalChat, 10000);
   // Heartbeat starten
   if (heartbeatInterval) clearInterval(heartbeatInterval);
   fetch(API_URL + '/api/users/heartbeat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id }) });
@@ -477,6 +537,7 @@ if (!confirm("Wirklich abmelden?")) return;
 // Intervals stoppen
 if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
 if (requestsInterval) { clearInterval(requestsInterval); requestsInterval = null; }
+if (chatInterval) { clearInterval(chatInterval); chatInterval = null; }
 // Online-Status setzen
 if (user) {
   try { await fetch(API_URL + '/api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id }) }); } catch(e) {}
@@ -667,6 +728,8 @@ document.getElementById('card-wordle').addEventListener('click', function() { op
 document.getElementById('btn-x').addEventListener('click', closeG);
 document.getElementById('btn-again').addEventListener('click', resetG);
 document.getElementById('popup').addEventListener('click', function(e) { if (e.target === this) closeG(); });
+document.getElementById('chat-send').addEventListener('click', sendChatMessage);
+document.getElementById('chat-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') sendChatMessage(); });
 
 function openG(id) {
   which = id;
