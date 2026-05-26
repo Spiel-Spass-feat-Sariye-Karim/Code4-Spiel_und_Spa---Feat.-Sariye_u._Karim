@@ -1,7 +1,26 @@
 // Backend Server URL
 var API_URL = 'https://code4-spiel-und-spa-feat-sariye-u-karim.onrender.com';
- 
+
 var game=null,which='',user=null;
+
+/* ---- AUTO-LOGIN via Cookie ---- */
+(function() {
+  var match = document.cookie.split('; ').find(function(r) { return r.startsWith('arcadebox_user='); });
+  if (match) {
+    try {
+      user = JSON.parse(decodeURIComponent(match.split('=').slice(1).join('=')));
+      if (user && user.id) { window.addEventListener('DOMContentLoaded', function() { enterApp(); }); return; }
+    } catch(e) { user = null; }
+  }
+  // Kein Cookie — letzten Benutzernamen vorausfüllen
+  var lastUser = localStorage.getItem('lastUser');
+  if (lastUser) {
+    window.addEventListener('DOMContentLoaded', function() {
+      var field = document.getElementById('login-name');
+      if (field) field.value = lastUser;
+    });
+  }
+})();
 
 /* ---- SOUNDS ---- */
 var audioCtx = null;
@@ -109,9 +128,10 @@ document.getElementById('btn-login').addEventListener('click', async function() 
       body: JSON.stringify({ name: n, pass: p })
     });
     var data = await res.json();
-    
-    
+
+
     user = data.user;
+    localStorage.setItem('lastUser', n);
     setLoading('btn-login', false, 'Einloggen');
     enterApp();
   } catch (err) {
@@ -137,6 +157,7 @@ document.getElementById("avatar").src =
 document.getElementById("btn-logout").addEventListener("click",
 function() {
 if (!confirm("Wirklich abmelden?")) return;
+document.cookie = 'arcadebox_user=; max-age=0';
 user = null;
 if (game) { game.stop(); game = null; }
 // Alle Popups schließen

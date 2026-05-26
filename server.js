@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 console.log('Starting server...');
@@ -11,14 +12,16 @@ console.log('SUPABASE_KEY:', process.env.SUPABASE_KEY ? 'Set' : 'Not set');
 
 const db = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
+  process.env.SUPABASE_KEY,
+  { realtime: { transport: require('ws') } }
 );
 
 console.log('Supabase client created');
 
 const app = express();
 app.use(express.json());
-app.use(cors());
+app.use(cors({ origin: '*' }));
+app.use(cookieParser());
 app.use(express.static(__dirname));
 console.log('Express app configured');
 
@@ -48,6 +51,10 @@ app.post('/api/login', async (req, res) => {
     
     // Passwort aus Antwort entfernen (Sicherheit!)
     delete user.pass;
+    res.cookie('arcadebox_user', JSON.stringify(user), {
+      httpOnly: false,
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
     res.json({ success: true, user });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
@@ -104,6 +111,10 @@ app.post('/api/register', async (req, res) => {
     }
     
     delete user.pass;
+    res.cookie('arcadebox_user', JSON.stringify(user), {
+      httpOnly: false,
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
     res.json({ success: true, user });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
