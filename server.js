@@ -100,6 +100,7 @@ app.post('/api/register', async (req, res) => {
         dodge: 0,
         stack: 0,
         memory: 0,
+        reaction: 0,
         games_played: 0,
         avatar_seed: Math.random().toString(36).substring(2, 10)
       })
@@ -229,18 +230,20 @@ app.get('/api/global-highscores', async (req, res) => {
       if (!u) return;
       const uid = u.name.toLowerCase(); // Verwende name als key
       if (!userMap[uid]) {
-        userMap[uid] = { name: u.name, avatar_seed: u.avatar_seed, memory: 0, stack: 0 };
+        userMap[uid] = { name: u.name, avatar_seed: u.avatar_seed, memory: 0, stack: 0, reaction: 0 };
       }
       if (item.game_type === 'memory') {
         userMap[uid].memory = Math.max(userMap[uid].memory, item.score);
       } else if (item.game_type === 'stack') {
         userMap[uid].stack = Math.max(userMap[uid].stack, item.score);
+      } else if (item.game_type === 'reaction') {
+        userMap[uid].reaction = Math.max(userMap[uid].reaction, item.score);
       }
     });
-    
+
     // In Array umwandeln und nach Gesamtscore sortieren
     const result = Object.values(userMap)
-      .map(user => ({ ...user, total: user.memory + user.stack }))
+      .map(user => ({ ...user, total: user.memory + user.stack + user.reaction }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);
     

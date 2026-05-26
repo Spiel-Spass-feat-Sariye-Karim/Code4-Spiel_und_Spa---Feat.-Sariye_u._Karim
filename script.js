@@ -51,6 +51,42 @@ setTimeout(function() { playTone(1000, 0.2); }, 200);
 }
 };
 
+/* ---- RANG-SYSTEM ---- */
+function getRank(total) {
+  if (total >= 150) return '👑 Legende';
+  if (total >= 75)  return '⭐ Veteran';
+  if (total >= 30)  return '🔥 Profi';
+  if (total >= 10)  return '🎮 Spieler';
+  return '🌱 Neuling';
+}
+
+/* ---- TOAST & ACHIEVEMENTS ---- */
+function showToast(msg) {
+  var t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 3000);
+}
+
+function checkAchievements() {
+  var done = JSON.parse(localStorage.getItem('achievements') || '{}');
+  var total = (user.memory || 0) + (user.stack || 0) + (user.reaction || 0);
+  if (!done.first_score && total > 0) {
+    done.first_score = true; showToast('🎯 Erster Score!');
+  }
+  if (!done.games10 && (user.games_played || 0) >= 10) {
+    done.games10 = true; showToast('🔥 10 Spiele!');
+  }
+  if (!done.profi && total >= 30) {
+    done.profi = true; showToast('⭐ Profi!');
+  }
+  if (!done.legende && total >= 150) {
+    done.legende = true; showToast('👑 Legende!');
+  }
+  localStorage.setItem('achievements', JSON.stringify(done));
+}
+
 function setLoading(btnId, isLoading, normalText) {
 var btn = document.getElementById(btnId);
 btn.disabled = isLoading;
@@ -201,6 +237,7 @@ async function saveHS(g, s) {
     loadGlobalHS();
     loadStats();
     sounds.highscore();
+    checkAchievements();
     return true;
   } catch (err) {
     console.error('Verbindungsfehler:', err);
@@ -209,21 +246,19 @@ async function saveHS(g, s) {
 }
  
 function showHS() {
-  function rang(score) {
+  function badge(score) {
     if (score >= 50) return '👑 ';
     if (score >= 25) return '⭐ ';
     if (score >= 10) return '🔥 ';
     return '';
   }
   document.getElementById('hs-list').innerHTML =
-    '<div class="hs-row">' +
-    '<span>🧠 Farb-Gedächtnis</span>' +
-    '<span>' + rang(user.memory || 0) + (user.memory || 0) + '</span>' +
-    '</div>' +
-    '<div class="hs-row">' +
-    '<span>🧱 Turm-Stapler</span>' +
-    '<span>' + rang(user.stack || 0) + (user.stack || 0) + '</span>' +
-    '</div>';
+    '<div class="hs-row"><span>🧠 Farb-Gedächtnis</span><span>' + badge(user.memory || 0) + (user.memory || 0) + '</span></div>' +
+    '<div class="hs-row"><span>🧱 Turm-Stapler</span><span>' + badge(user.stack || 0) + (user.stack || 0) + '</span></div>' +
+    '<div class="hs-row"><span>⚡ Reaktionstest</span><span>' + badge(user.reaction || 0) + (user.reaction || 0) + '</span></div>';
+  var total = (user.memory || 0) + (user.stack || 0) + (user.reaction || 0);
+  var rankEl = document.getElementById('stat-rank');
+  if (rankEl) rankEl.textContent = getRank(total);
 }
  
 /* ---- GLOBALES SCOREBOARD ---- */
@@ -252,14 +287,16 @@ try {
     var seed = item.avatar_seed || item.name || "unknown";
     var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
     
+    var itemTotal = (item.memory || 0) + (item.stack || 0) + (item.reaction || 0);
     html +=
       '<div class="global-row ' + meClass + '">' +
       '<div class="rank ' + rankClass + '">#' + (i+1) + '</div>' +
       '<div style="display:flex;align-items:center;gap:8px;">' +
       '<img src="' + av + '" style="width:24px;height:24px;border-radius:50%;">' +
       '<span>' + item.name + '</span>' +
+      '<span style="font-size:0.75rem;color:var(--dim);">' + getRank(itemTotal) + '</span>' +
       '</div>' +
-      '<div class="score">' + (item.memory || 0) + ' / ' + (item.stack || 0) + '</div>' +
+      '<div class="score">' + (item.memory || 0) + ' / ' + (item.stack || 0) + ' / ' + (item.reaction || 0) + '</div>' +
       '</div>';
   });
   
@@ -273,16 +310,17 @@ try {
 async function loadStats() {
 if (!user) return;
 document.getElementById("stat-games").textContent = user.games_played || 0;
-document.getElementById("stat-total").textContent = (user.memory || 0) + (user.stack || 0);
+document.getElementById("stat-total").textContent = (user.memory || 0) + (user.stack || 0) + (user.reaction || 0);
 
 try {
   var res = await fetch(API_URL + '/api/user/' + user.id);
   var userData = await res.json();
-  
+
   if (res.ok && userData) {
-    user = userData; // Aktualisiere User-Daten
+    user = userData;
     document.getElementById("stat-games").textContent = user.games_played || 0;
-    document.getElementById("stat-total").textContent = (user.memory || 0) + (user.stack || 0);
+    document.getElementById("stat-total").textContent = (user.memory || 0) + (user.stack || 0) + (user.reaction || 0);
+    showHS();
   }
 } catch (err) {
   console.error('Fehler beim Laden der Stats:', err);
@@ -291,25 +329,43 @@ try {
 
 /* ---- POPUP ---- */
 document.getElementById('card-memory').addEventListener('click', function() { openG('memory'); });
-document.getElementById('card-stack').addEventListener('click',function(){openG('stack')});
-document.getElementById('btn-x').addEventListener('click',closeG);
-document.getElementById('btn-again').addEventListener('click',resetG);
-document.getElementById('popup').addEventListener('click',function(e){if(e.target===this)closeG()});
- 
-function openG(id) { which = id; document.getElementById('gtitle').textContent = id === 'memory' ?
-'Farb-Gedaechtnis' : 'Turm-Stapler'; document.getElementById('pts').textContent = '0'; var canvas =
-document.getElementById('c'); var pads = document.getElementById('memory-pads'); var status =
-document.getElementById('memory-status'); if (id === 'memory') { canvas.style.display = 'none';
-pads.classList.add('active'); status.classList.add('active'); } else { canvas.style.display = 'block';
-pads.classList.remove('active'); status.classList.remove('active'); }
-document.getElementById('popup').classList.add('on'); runG(); }
+document.getElementById('card-stack').addEventListener('click', function() { openG('stack'); });
+document.getElementById('card-reaction').addEventListener('click', function() { openG('reaction'); });
+document.getElementById('btn-x').addEventListener('click', closeG);
+document.getElementById('btn-again').addEventListener('click', resetG);
+document.getElementById('popup').addEventListener('click', function(e) { if (e.target === this) closeG(); });
 
+function openG(id) {
+  which = id;
+  var titles = { memory: 'Farb-Gedaechtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest' };
+  document.getElementById('gtitle').textContent = titles[id] || id;
+  document.getElementById('pts').textContent = '0';
+  var canvas = document.getElementById('c');
+  var pads = document.getElementById('memory-pads');
+  var memStatus = document.getElementById('memory-status');
+  var reactionArea = document.getElementById('reaction-area');
+  canvas.style.display = 'none';
+  pads.classList.remove('active');
+  memStatus.classList.remove('active');
+  reactionArea.classList.remove('active');
+  if (id === 'memory') {
+    pads.classList.add('active');
+    memStatus.classList.add('active');
+  } else if (id === 'stack') {
+    canvas.style.display = 'block';
+  } else if (id === 'reaction') {
+    reactionArea.classList.add('active');
+  }
+  document.getElementById('popup').classList.add('on');
+  runG();
+}
 
 function closeG() {
   if (game) { game.stop(); game = null; }
   document.getElementById('popup').classList.remove('on');
   document.getElementById('memory-pads').classList.remove('active');
   document.getElementById('memory-status').classList.remove('active');
+  document.getElementById('reaction-area').classList.remove('active');
 }
 
 function resetG() {
@@ -322,6 +378,8 @@ function runG() {
   var c = document.getElementById('c');
   if (which === 'memory') {
     game = memory();
+  } else if (which === 'reaction') {
+    game = reaction();
   } else {
     c.width = 380; c.height = 420;
     game = stack(c);
@@ -419,6 +477,66 @@ function stack(cv){
   return{stop:function(){on=false;cancelAnimationFrame(raf);cv.removeEventListener('click',drop)}};
 }
  
+/* ---- SPIEL 3: REAKTIONSTEST ---- */
+function reaction() {
+  var btn = document.getElementById('reaction-btn');
+  var status = document.getElementById('reaction-status');
+  var on = true;
+  var waiting = true;
+  var startTime = null;
+  var timeout = null;
+
+  function arm() {
+    waiting = true;
+    startTime = null;
+    btn.className = '';
+    btn.textContent = '⏳';
+    status.textContent = 'Warte auf das Signal...';
+    var delay = 1000 + Math.random() * 3000;
+    timeout = setTimeout(function() {
+      if (!on) return;
+      waiting = false;
+      startTime = Date.now();
+      btn.classList.add('ready');
+      btn.textContent = 'JETZT!';
+      status.textContent = 'Klick so schnell du kannst!';
+    }, delay);
+  }
+
+  function handleClick() {
+    if (!on) return;
+    if (waiting) {
+      clearTimeout(timeout);
+      btn.textContent = '❌';
+      status.textContent = 'Zu früh! Warte auf Grün.';
+      setTimeout(function() { if (on) arm(); }, 1500);
+      return;
+    }
+    var ms = Date.now() - startTime;
+    var score = Math.max(0, 1000 - ms);
+    on = false;
+    btn.classList.remove('ready');
+    btn.textContent = ms + ' ms';
+    status.textContent = score + ' Punkte! (' + ms + ' ms Reaktionszeit)';
+    document.getElementById('pts').textContent = score;
+    sounds.highscore();
+    saveHS('reaction', score);
+  }
+
+  btn.addEventListener('click', handleClick);
+  arm();
+
+  return {
+    stop: function() {
+      on = false;
+      clearTimeout(timeout);
+      btn.removeEventListener('click', handleClick);
+      btn.className = '';
+      btn.textContent = '⏳';
+    }
+  };
+}
+
 /* ---- GAME OVER ---- */
 function gg(ctx,W,H,s){
   ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,0,W,H);
@@ -438,7 +556,9 @@ var created = user.created_at_
   ? new Date(user.created_at_).toLocaleDateString("de-AT")
   : "-";
 
+var profileTotal = (user.memory || 0) + (user.stack || 0) + (user.reaction || 0);
 document.getElementById("profile-info").innerHTML =
+"Rang: " + getRank(profileTotal) + "<br>" +
 "Mitglied seit: " + created + "<br>" +
 "Spiele gespielt: " + (user.games_played || 0);
 document.getElementById("profile-overlay").classList.add("on");
