@@ -48,6 +48,7 @@
     <div class="user-info">
 <img id="avatar" class="avatar" src="" alt="">
 <span>Hallo, <strong id="username"></strong></span>
+<button class="btn-sm" id="btn-theme" title="Dark/Light Mode">🌙</button>
 <button class="btn-sm" id="btn-logout">Abmelden</button>
 </div>
   </header>
@@ -59,6 +60,18 @@
     <div class="card" id="card-reaction"><div class="em">⚡</div><h3>Reaktionstest</h3><p>Wie schnell reagierst du?</p></div>
   </div>
   
+<div class="challenge-box" id="challenge-box">
+  <div class="challenge-header">
+    <span class="challenge-badge">⚡ Tägliche Challenge</span>
+    <span id="challenge-game-name">Lädt...</span>
+  </div>
+  <button class="challenge-play-btn" id="btn-challenge-play">Jetzt spielen</button>
+  <div class="challenge-scores">
+    <div class="challenge-scores-title">🏅 Heutige Top 10</div>
+    <div id="daily-scores-list">Lädt...</div>
+  </div>
+</div>
+
 <div class="stats-grid">
 <div class="stat-box">
 <div class="stat-val" id="stat-games">0</div>

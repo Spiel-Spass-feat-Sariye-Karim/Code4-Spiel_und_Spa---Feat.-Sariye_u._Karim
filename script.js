@@ -1,7 +1,14 @@
 // Backend Server URL
 var API_URL = 'https://code4-spiel-und-spa-feat-sariye-u-karim.onrender.com';
 
-var game=null,which='',user=null;
+var game=null,which='',user=null,dailyGame=null;
+
+/* ---- DARK/LIGHT MODE ---- */
+(function() {
+  if (localStorage.getItem('theme') === 'light') {
+    document.body.classList.add('light');
+  }
+})();
 
 /* ---- AUTO-LOGIN via Cookie ---- */
 (function() {
@@ -85,6 +92,34 @@ function checkAchievements() {
     done.legende = true; showToast('👑 Legende!');
   }
   localStorage.setItem('achievements', JSON.stringify(done));
+}
+
+/* ---- TÄGLICHE CHALLENGE ---- */
+async function loadDailyChallenge() {
+  try {
+    var res = await fetch(API_URL + '/api/daily-scores');
+    var data = await res.json();
+    if (!res.ok) return;
+    dailyGame = data.game;
+    document.getElementById('challenge-game-name').textContent = data.name;
+    var html = '';
+    if (!data.scores || data.scores.length === 0) {
+      html = '<div style="color:var(--dim);font-size:0.82rem;padding:0.3rem 0">Noch keine Scores heute!</div>';
+    } else {
+      data.scores.forEach(function(item, i) {
+        var meClass = (user && item.name === user.name) ? 'me' : '';
+        var rankEmoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '#' + (i + 1);
+        html += '<div class="daily-row ' + meClass + '">' +
+          '<span class="daily-rank">' + rankEmoji + '</span>' +
+          '<span class="daily-name">' + item.name + '</span>' +
+          '<span class="daily-score">' + item.score + '</span>' +
+          '</div>';
+      });
+    }
+    document.getElementById('daily-scores-list').innerHTML = html;
+  } catch (err) {
+    document.getElementById('daily-scores-list').innerHTML = '<span style="color:var(--dim);font-size:0.8rem">Nicht verfügbar</span>';
+  }
 }
 
 function setLoading(btnId, isLoading, normalText) {
@@ -188,6 +223,10 @@ document.getElementById("avatar").src =
   showHS();
   loadGlobalHS();
   loadStats();
+  loadDailyChallenge();
+  // Theme-Button Emoji setzen
+  var themeBtn = document.getElementById('btn-theme');
+  if (themeBtn) themeBtn.textContent = document.body.classList.contains('light') ? '☀️' : '🌙';
 }
  
 document.getElementById("btn-logout").addEventListener("click",
@@ -236,6 +275,7 @@ async function saveHS(g, s) {
     showHS();
     loadGlobalHS();
     loadStats();
+    loadDailyChallenge();
     sounds.highscore();
     checkAchievements();
     return true;
@@ -327,10 +367,21 @@ try {
 }
 }
 
+/* ---- THEME TOGGLE ---- */
+document.getElementById('btn-theme').addEventListener('click', function() {
+  document.body.classList.toggle('light');
+  var isLight = document.body.classList.contains('light');
+  this.textContent = isLight ? '☀️' : '🌙';
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+});
+
 /* ---- POPUP ---- */
 document.getElementById('card-memory').addEventListener('click', function() { openG('memory'); });
 document.getElementById('card-stack').addEventListener('click', function() { openG('stack'); });
 document.getElementById('card-reaction').addEventListener('click', function() { openG('reaction'); });
+document.getElementById('btn-challenge-play').addEventListener('click', function() {
+  if (dailyGame) openG(dailyGame);
+});
 document.getElementById('btn-x').addEventListener('click', closeG);
 document.getElementById('btn-again').addEventListener('click', resetG);
 document.getElementById('popup').addEventListener('click', function(e) { if (e.target === this) closeG(); });

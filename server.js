@@ -253,6 +253,49 @@ app.get('/api/global-highscores', async (req, res) => {
   }
 });
 
+// ============= TÄGLICHE CHALLENGE =============
+
+const DAILY_ROTATION = ['memory', 'reaction', 'stack'];
+const DAILY_NAMES = { memory: 'Farb-Gedächtnis', reaction: 'Reaktionstest', stack: 'Turm-Stapler' };
+
+function getDailyGame() {
+  const dayIndex = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+  return DAILY_ROTATION[dayIndex % DAILY_ROTATION.length];
+}
+
+app.get('/api/daily-challenge', (req, res) => {
+  const game = getDailyGame();
+  res.json({ game, name: DAILY_NAMES[game] });
+});
+
+app.get('/api/daily-scores', async (req, res) => {
+  try {
+    const game = getDailyGame();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const { data: scores, error } = await db
+      .from('highscores')
+      .select('users!user_id(name, avatar_seed), score')
+      .eq('game_type', game)
+      .gte('created_at', today.toISOString())
+      .lt('created_at', tomorrow.toISOString())
+      .order('score', { ascending: false })
+      .limit(10);
+
+    if (error) return res.status(400).json({ error: 'Fehler beim Laden' });
+
+    const result = (scores || []).map(s => ({
+      name: s.users?.name || 'Unbekannt',
+      avatar_seed: s.users?.avatar_seed,
+      score: s.score
+    }));
+    res.json({ game, name: DAILY_NAMES[game], scores: result });
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
 // ============= SERVER STARTEN =============
 console.log('About to start server');
 const PORT = process.env.PORT || 3000;
