@@ -19,17 +19,8 @@ console.log('Supabase client created');
 const app = express();
 app.use(express.json());
 app.use(cors());
+app.use(express.static(__dirname));
 console.log('Express app configured');
-// Root route
-app.get('/', (req, res) => {
-  res.json({ message: "Willkommen bei ArcadeBox Backend! API ist verfügbar." });
-});
-
-
-// Root route
-app.get('/', (req, res) => {
-  res.json({ message: 'Willkommen bei ArcadeBox Backend! API ist verfügbar.' });
-});
 
 // ============= AUTH =============
 
