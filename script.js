@@ -282,7 +282,7 @@ function tttStart(diff) {
   tttOn = true; tttIsAI = true; tttAiDiff = diff || lobbyAiDiff;
   tttCurrentTurn = 'X'; tttMySymbol = 'X'; tttIsHost = true;
   document.getElementById('lobby-screen').style.display = 'none';
-  document.getElementById('ttt-screen').style.display = '';
+  document.getElementById('ttt-screen').style.display = 'block';
   document.getElementById('btn-again').style.display = 'inline-block';
   document.getElementById('pbot-pts-wrap').style.display = 'none';
   var overlay = document.getElementById('ttt-overlay');
@@ -300,7 +300,7 @@ function tttStartOnline(lobbyId, isHost) {
   tttIsHost = isHost; tttMySymbol = isHost ? 'X' : 'O';
   tttCurrentTurn = 'X';
   document.getElementById('lobby-screen').style.display = 'none';
-  document.getElementById('ttt-screen').style.display = '';
+  document.getElementById('ttt-screen').style.display = 'block';
   document.getElementById('btn-again').style.display = 'inline-block';
   document.getElementById('pbot-pts-wrap').style.display = 'none';
   var overlay = document.getElementById('ttt-overlay');
