@@ -1,6 +1,6 @@
 {
   "name": "arcadebox-backend",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "ArcadeBox Game Backend Server",
   "main": "server.js",
   "scripts": {
