@@ -168,7 +168,10 @@ app.post('/api/save-score', async (req, res) => {
     const updates = {};
     if (game_type === 'reaction') {
       // Reaction: niedrigere ms = besser; 0 = noch kein Score
-      updates[game_type] = (user[game_type] === 0) ? score : Math.min(user[game_type], score);
+      updates.reaction = (user.reaction === 0) ? score : Math.min(user.reaction, score);
+    } else if (game_type === 'bubble') {
+      // Bubble-Scores in der precision-Spalte speichern (gleiche DB-Struktur)
+      updates.precision = Math.max(user.precision || 0, score);
     } else {
       updates[game_type] = Math.max(user[game_type] || 0, score);
     }
@@ -259,7 +262,7 @@ app.get('/api/global-highscores', async (req, res) => {
         userMap[uid].reaction_ms = userMap[uid].reaction_ms === 0
           ? item.score
           : Math.min(userMap[uid].reaction_ms, item.score);
-      } else if (item.game_type === 'precision') {
+      } else if (item.game_type === 'bubble' || item.game_type === 'precision') {
         userMap[uid].precision = Math.max(userMap[uid].precision, item.score);
       } else if (item.game_type === 'guess') {
         userMap[uid].guess = Math.max(userMap[uid].guess, item.score);
@@ -300,95 +303,6 @@ app.get('/api/global-highscores', async (req, res) => {
       .slice(0, 10);
 
     res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: 'Server-Fehler' });
-  }
-});
-
-// ============= TÄGLICHE CHALLENGE =============
-
-const DAILY_GAMES = [
-  { id: 0, type: 'daily_0', name: 'Farb-Match', description: 'Farbname erscheint in anderer Farbe - ist Text und Farbe gleich?' },
-  { id: 1, type: 'daily_1', name: 'Zahlen-Folge', description: 'Eine kurze Zahlenfolge merken und danach eintippen.' },
-  { id: 2, type: 'daily_2', name: 'Doppel-Klick-Timing', description: 'Treffe 1000ms zwischen zwei Klicks so genau wie möglich.' },
-  { id: 3, type: 'daily_3', name: 'Emoji-Suche', description: 'Finde das Ziel-Emoji im Grid so schnell wie möglich.' },
-  { id: 4, type: 'daily_4', name: 'Buchstaben-Regen', description: 'Nur Vokale anklicken, Konsonanten ignorieren.' },
-  { id: 5, type: 'daily_5', name: 'Muster-Kopie', description: 'Merke dir ein kurzes Muster und baue es nach.' },
-  { id: 6, type: 'daily_6', name: 'Schnell-Rechnen', description: 'Löse einfache Mathe-Aufgaben so schnell wie möglich.' },
-  { id: 7, type: 'daily_7', name: 'Farb-Sequenz', description: 'Wiederhole die Farbsequenz mit sechs Farben.' },
-  { id: 8, type: 'daily_8', name: 'Ziel-Stopp', description: 'Stoppe den bewegenden Balken so nah wie möglich bei 50%.' },
-  { id: 9, type: 'daily_9', name: 'Wort-Scramble', description: 'Entschlüssele das vertauschte Informatik-Wort.' },
-  { id: 10, type: 'daily_10', name: 'Klick-Rhythmus', description: 'Klicke im Takt der vorgegebenen Sequenz.' },
-  { id: 11, type: 'daily_11', name: 'Zahlen-Sortierung', description: 'Sortiere fünf Zahlen in aufsteigender Reihenfolge.' },
-  { id: 12, type: 'daily_12', name: 'Farb-Mischer', description: 'Stelle die Ziel-RGB-Farbe mit Reglern nach.' },
-  { id: 13, type: 'daily_13', name: 'Reaktions-Kette', description: 'Klicke fünf aufleuchtende Buttons der Reihe nach.' },
-  { id: 14, type: 'daily_14', name: 'Buchstaben-Zähler', description: 'Schätze, wie oft ein Buchstabe im kurzen Text vorkommt.' },
-  { id: 15, type: 'daily_15', name: 'Ping-Pong-Klick', description: 'Klicke im richtigen Moment, wenn der Ball zurückkommt.' },
-  { id: 16, type: 'daily_16', name: 'Speicher-Grid', description: 'Merke das 3x3-Grid und klicke danach die gleichen Felder.' },
-  { id: 17, type: 'daily_17', name: 'Wort-Tipp-Speed', description: 'Tippe das angezeigte Wort so schnell wie möglich ab.' },
-  { id: 18, type: 'daily_18', name: 'Zahlen-Kreuz', description: 'Finde die fehlende Zahl in der einfachen Gleichung.' },
-  { id: 19, type: 'daily_19', name: 'Icon-Gedächtnis', description: 'Merke sechs Icons und wähle sie danach aus zwölf aus.' },
-  { id: 20, type: 'daily_20', name: 'Balance-Klick', description: 'Balance die Waage aus durch Klicks.' },
-  { id: 21, type: 'daily_21', name: 'Schnell-Augen', description: 'Sieh dir kurz Punkte an und gib die Zahl ein.' },
-  { id: 22, type: 'daily_22', name: 'Tastatur-Sprint', description: 'Tippe die zufällige Buchstabenfolge so schnell wie möglich.' },
-  { id: 23, type: 'daily_23', name: 'Farbfeld-Unterschied', description: 'Welche Farbe ist dunkler oder heller?' },
-  { id: 24, type: 'daily_24', name: 'Morse-Code', description: 'Erkenne die einfache Morse-Sequenz und errate den Buchstaben.' },
-  { id: 25, type: 'daily_25', name: 'Pixel-Art-Kopie', description: 'Zeichne das kleine 5x5 Pixel-Bild nach.' },
-  { id: 26, type: 'daily_26', name: 'Zahlen-Memory', description: 'Decke gleiche Zahlen-Paare auf wie beim Memory.' },
-  { id: 27, type: 'daily_27', name: 'Wort-Kette', description: 'Finde ein Wort mit dem letzten Buchstaben des vorherigen Wortes.' },
-  { id: 28, type: 'daily_28', name: 'Reaktions-Stop', description: 'Stoppe den Countdown bei exakt 0.' },
-  { id: 29, type: 'daily_29', name: 'Speed-Kategorien', description: 'Klicke schnell ob Begriff Tier, Pflanze oder Technik ist.' }
-];
-
-function getDayOfYear(date) {
-  const start = new Date(date.getFullYear(), 0, 0);
-  const diff = date - start + ((start.getTimezoneOffset() - date.getTimezoneOffset()) * 60000);
-  return Math.floor(diff / 86400000);
-}
-
-function getDailyInfo() {
-  const now = new Date();
-  const id = getDayOfYear(now) % DAILY_GAMES.length;
-  const game = DAILY_GAMES[id];
-  return { id: game.id, type: game.type, name: game.name, description: game.description, date: now.toISOString().slice(0, 10) };
-}
-
-app.get('/api/daily-challenge', (req, res) => {
-  const info = getDailyInfo();
-  res.json({ game_id: info.id, game_name: info.name, game_description: info.description, date: info.date });
-});
-
-app.get('/api/daily-scores', async (req, res) => {
-  try {
-    const info = getDailyInfo();
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const { data: scores, error } = await db
-      .from('highscores')
-      .select('user_id, users!user_id(name, avatar_seed), score')
-      .eq('game_type', info.type)
-      .gte('created_at', today.toISOString())
-      .lt('created_at', tomorrow.toISOString());
-
-    if (error) return res.status(400).json({ error: 'Fehler beim Laden' });
-
-    const userBest = {};
-    (scores || []).forEach(s => {
-      if (!s.users) return;
-      const key = s.user_id;
-      if (!userBest[key]) {
-        userBest[key] = { name: s.users.name, avatar_seed: s.users.avatar_seed, score: s.score };
-      } else if (s.score > userBest[key].score) {
-        userBest[key].score = s.score;
-      }
-    });
-
-    const result = Object.values(userBest)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
-
-    res.json({ game_id: info.id, game_type: info.type, game_name: info.name, scores: result });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }
