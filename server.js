@@ -49,6 +49,11 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ error: 'Passwort falsch' });
     }
     
+    // Online-Status setzen
+    await db.from('users').update({ is_online: true, last_seen: new Date().toISOString() }).eq('id', user.id);
+    user.is_online = true;
+    user.last_seen = new Date().toISOString();
+
     // Passwort aus Antwort entfernen (Sicherheit!)
     delete user.pass;
     res.cookie('arcadebox_user', JSON.stringify(user), {
@@ -59,6 +64,18 @@ app.post('/api/login', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }
+});
+
+// LOGOUT
+app.post('/api/logout', async (req, res) => {
+  const { user_id } = req.body;
+  if (user_id) {
+    try {
+      await db.from('users').update({ is_online: false }).eq('id', user_id);
+    } catch (err) { /* silent */ }
+  }
+  res.clearCookie('arcadebox_user');
+  res.json({ success: true });
 });
 
 // REGISTRIEREN
@@ -319,54 +336,159 @@ app.get('/api/daily-scores', async (req, res) => {
   }
 });
 
-// ============= FREUNDE =============
+// ============= USER SUCHE =============
 
-app.post('/api/friends/add', async (req, res) => {
-  const { user_id, friend_name } = req.body;
-  if (!user_id || !friend_name) return res.status(400).json({ error: 'Fehlende Daten' });
+app.get('/api/users/search', async (req, res) => {
+  const q = (req.query.q || '').trim();
+  const me = parseInt(req.query.me);
+  if (!q || q.length < 1) return res.json([]);
   try {
-    const { data: friend } = await db.from('users').select('id, name')
-      .eq('name', friend_name.toLowerCase()).maybeSingle();
-    if (!friend) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
-    if (friend.id === parseInt(user_id)) return res.status(400).json({ error: 'Du kannst dich nicht selbst hinzufügen' });
-
-    const { error } = await db.from('friendships').insert([
-      { user_id: parseInt(user_id), friend_id: friend.id },
-      { user_id: friend.id, friend_id: parseInt(user_id) }
-    ]);
-    if (error) {
-      if (error.code === '23505') return res.status(400).json({ error: 'Bereits befreundet' });
-      return res.status(400).json({ error: 'Fehler beim Hinzufügen' });
-    }
-    res.json({ success: true, friend: { id: friend.id, name: friend.name } });
+    const { data: users, error } = await db
+      .from('users')
+      .select('id, name, avatar_seed, is_online, last_seen')
+      .ilike('name', '%' + q + '%')
+      .limit(10);
+    if (error) return res.status(400).json({ error: 'Fehler' });
+    const result = (users || []).filter(u => u.id !== me);
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }
 });
 
+// ============= HEARTBEAT =============
+
+app.post('/api/users/heartbeat', async (req, res) => {
+  const { user_id } = req.body;
+  if (!user_id) return res.status(400).json({ error: 'Fehlende Daten' });
+  try {
+    await db.from('users').update({ is_online: true, last_seen: new Date().toISOString() }).eq('id', user_id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+// ============= FREUNDE V2 =============
+
+// WICHTIG: spezifische Routen VOR /:user_id registrieren!
+
+// Freundschaftsanfrage senden
+app.post('/api/friends/request', async (req, res) => {
+  const { user_id, friend_id } = req.body;
+  if (!user_id || !friend_id) return res.status(400).json({ error: 'Fehlende Daten' });
+  if (parseInt(user_id) === parseInt(friend_id)) return res.status(400).json({ error: 'Du kannst dich nicht selbst hinzufügen' });
+  try {
+    // Prüfen ob schon eine Anfrage/Freundschaft existiert
+    const { data: existing } = await db.from('friendships')
+      .select('id, status')
+      .or(`and(sender_id.eq.${user_id},receiver_id.eq.${friend_id}),and(sender_id.eq.${friend_id},receiver_id.eq.${user_id})`)
+      .maybeSingle();
+    if (existing) {
+      if (existing.status === 'accepted') return res.status(400).json({ error: 'Ihr seid bereits befreundet' });
+      if (existing.status === 'pending') return res.status(400).json({ error: 'Anfrage bereits gesendet' });
+    }
+    const { error } = await db.from('friendships').insert({
+      sender_id: parseInt(user_id),
+      receiver_id: parseInt(friend_id),
+      status: 'pending'
+    });
+    if (error) return res.status(400).json({ error: 'Fehler beim Senden der Anfrage' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+// Offene Anfragen abrufen (MUSS vor /:user_id stehen!)
+app.get('/api/friends/requests/:user_id', async (req, res) => {
+  try {
+    const { data: requests, error } = await db
+      .from('friendships')
+      .select('id, sender_id, created_at, users!sender_id(name, avatar_seed, is_online, last_seen)')
+      .eq('receiver_id', req.params.user_id)
+      .eq('status', 'pending');
+    if (error) return res.status(400).json({ error: 'Fehler beim Laden' });
+    const result = (requests || []).map(r => ({
+      id: r.id,
+      sender_id: r.sender_id,
+      name: r.users?.name || 'Unbekannt',
+      avatar_seed: r.users?.avatar_seed,
+      is_online: r.users?.is_online,
+      last_seen: r.users?.last_seen,
+      created_at: r.created_at
+    }));
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+// Anfrage beantworten (accept / decline)
+app.post('/api/friends/respond', async (req, res) => {
+  const { friendship_id, action } = req.body;
+  if (!friendship_id || !action) return res.status(400).json({ error: 'Fehlende Daten' });
+  try {
+    if (action === 'accept') {
+      // Status auf accepted setzen
+      const { data: fs, error: e1 } = await db.from('friendships')
+        .update({ status: 'accepted' })
+        .eq('id', friendship_id)
+        .select('sender_id, receiver_id')
+        .single();
+      if (e1 || !fs) return res.status(400).json({ error: 'Anfrage nicht gefunden' });
+      // Gegenrichtung auch einfügen
+      await db.from('friendships').insert({
+        sender_id: fs.receiver_id,
+        receiver_id: fs.sender_id,
+        status: 'accepted'
+      });
+      res.json({ success: true });
+    } else if (action === 'decline') {
+      await db.from('friendships').delete().eq('id', friendship_id);
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ error: 'Ungültige Aktion' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+// Freundesliste abrufen
 app.get('/api/friends/:user_id', async (req, res) => {
   try {
-    const { data: friendships } = await db.from('friendships')
-      .select('friend_id').eq('user_id', req.params.user_id);
-    if (!friendships || friendships.length === 0) return res.json([]);
-
-    const friendIds = friendships.map(f => f.friend_id);
-    const { data: friends, error } = await db.from('users')
-      .select('id, name, avatar_seed, memory, stack, reaction').in('id', friendIds);
+    const { data: friendships, error } = await db
+      .from('friendships')
+      .select('receiver_id, users!receiver_id(id, name, avatar_seed, memory, stack, reaction, is_online, last_seen)')
+      .eq('sender_id', req.params.user_id)
+      .eq('status', 'accepted');
     if (error) return res.status(400).json({ error: 'Fehler beim Laden' });
-
-    res.json((friends || []).map(f => ({ ...f, reaction_ms: f.reaction })));
+    const result = (friendships || []).map(f => ({
+      id: f.users?.id,
+      name: f.users?.name,
+      avatar_seed: f.users?.avatar_seed,
+      memory: f.users?.memory || 0,
+      stack: f.users?.stack || 0,
+      reaction_ms: f.users?.reaction || 0,
+      is_online: f.users?.is_online,
+      last_seen: f.users?.last_seen
+    }));
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }
 });
 
+// Freundschaft entfernen (beide Richtungen)
 app.delete('/api/friends/remove', async (req, res) => {
   const { user_id, friend_id } = req.body;
   if (!user_id || !friend_id) return res.status(400).json({ error: 'Fehlende Daten' });
   try {
-    await db.from('friendships').delete().eq('user_id', user_id).eq('friend_id', friend_id);
-    await db.from('friendships').delete().eq('user_id', friend_id).eq('friend_id', user_id);
+    await db.from('friendships').delete()
+      .eq('sender_id', user_id).eq('receiver_id', friend_id);
+    await db.from('friendships').delete()
+      .eq('sender_id', friend_id).eq('receiver_id', user_id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });

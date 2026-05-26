@@ -2,6 +2,7 @@
 var API_URL = 'https://code4-spiel-und-spa-feat-sariye-u-karim.onrender.com';
 
 var game=null,which='',user=null,dailyGame=null;
+var heartbeatInterval=null,requestsInterval=null;
 
 /* ---- DARK/LIGHT MODE ---- */
 (function() {
@@ -67,6 +68,20 @@ function getRank(total) {
   return '🌱 Neuling';
 }
 
+/* ---- ONLINE STATUS ---- */
+function formatLastSeen(last_seen, is_online) {
+  if (is_online) return '<span class="online-dot green"></span>Online';
+  if (!last_seen) return '<span class="online-dot gray"></span>Offline';
+  var diff = Date.now() - new Date(last_seen).getTime();
+  var mins = Math.floor(diff / 60000);
+  if (mins < 5) return '<span class="online-dot yellow"></span>Gerade eben';
+  if (mins < 60) return '<span class="online-dot yellow"></span>Vor ' + mins + ' Min.';
+  var hours = Math.floor(mins / 60);
+  if (hours < 24) return '<span class="online-dot gray"></span>Vor ' + hours + ' Std.';
+  var days = Math.floor(hours / 24);
+  return '<span class="online-dot gray"></span>Vor ' + days + ' Tag' + (days > 1 ? 'en' : '');
+}
+
 /* ---- TOAST & ACHIEVEMENTS ---- */
 function showToast(msg) {
   var t = document.createElement('div');
@@ -125,7 +140,8 @@ async function loadDailyChallenge() {
   }
 }
 
-/* ---- FREUNDE ---- */
+/* ---- FREUNDE V2 ---- */
+
 async function loadFriends() {
   if (!user) return;
   try {
@@ -134,33 +150,32 @@ async function loadFriends() {
     if (!res.ok || !Array.isArray(friends)) { renderFriendsBoard([]); return; }
     renderFriendsBoard(friends);
   } catch (err) {
-    document.getElementById('friends-hs').innerHTML = '<span style="color:var(--dim);font-size:0.82rem">Nicht verfügbar</span>';
+    document.getElementById('friends-list').innerHTML = '<span style="color:var(--dim);font-size:0.82rem">Nicht verfügbar</span>';
   }
 }
 
 function renderFriendsBoard(friends) {
-  var container = document.getElementById('friends-hs');
+  var container = document.getElementById('friends-list');
   if (!friends.length) {
-    container.innerHTML = '<div style="color:var(--dim);font-size:0.82rem;padding:0.5rem 0">Noch keine Freunde hinzugefügt.</div>';
+    container.innerHTML = '<div style="color:var(--dim);font-size:0.82rem;padding:0.3rem 0">Noch keine Freunde.</div>';
     return;
   }
   var sorted = friends.slice().sort(function(a, b) {
     return ((b.memory||0)+(b.stack||0)) - ((a.memory||0)+(a.stack||0));
   });
   var html = '';
-  sorted.forEach(function(f, i) {
+  sorted.forEach(function(f) {
     var seed = f.avatar_seed || f.name || 'unknown';
     var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
     var reactionDisplay = f.reaction_ms > 0 ? f.reaction_ms + 'ms' : '-';
-    var meClass = f.name === user.name ? 'me' : '';
     html +=
-      '<div class="global-row friend-row ' + meClass + '">' +
-      '<div class="rank">#' + (i+1) + '</div>' +
-      '<div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">' +
-      '<img src="' + av + '" style="width:24px;height:24px;border-radius:50%;flex-shrink:0">' +
-      '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + f.name + '</span>' +
+      '<div class="friend-row">' +
+      '<img class="fr-avatar" src="' + av + '" alt="">' +
+      '<div class="fr-info">' +
+      '<div class="fr-name">' + f.name + '</div>' +
+      '<div class="fr-status">' + formatLastSeen(f.last_seen, f.is_online) + '</div>' +
       '</div>' +
-      '<div class="score" style="font-size:0.78rem">' + (f.memory||0) + '&nbsp;/&nbsp;' + (f.stack||0) + '&nbsp;/&nbsp;' + reactionDisplay + '</div>' +
+      '<div class="fr-scores">' + (f.memory||0) + '&nbsp;/&nbsp;' + (f.stack||0) + '&nbsp;/&nbsp;' + reactionDisplay + '</div>' +
       '<button class="btn-remove-friend" data-id="' + f.id + '" title="Entfernen">✕</button>' +
       '</div>';
   });
@@ -179,6 +194,144 @@ async function removeFriend(friendId) {
     });
     loadFriends();
   } catch (err) { console.error(err); }
+}
+
+async function loadFriendRequests() {
+  if (!user) return;
+  try {
+    var res = await fetch(API_URL + '/api/friends/requests/' + user.id);
+    var requests = await res.json();
+    if (!res.ok || !Array.isArray(requests)) return;
+    // Badge aktualisieren
+    var badge = document.getElementById('friends-badge');
+    if (badge) {
+      badge.textContent = requests.length;
+      badge.style.display = requests.length > 0 ? 'inline-flex' : 'none';
+    }
+    renderFriendRequests(requests);
+  } catch (err) { console.error(err); }
+}
+
+function renderFriendRequests(requests) {
+  var container = document.getElementById('friends-requests');
+  var title = document.getElementById('requests-title');
+  if (!requests.length) {
+    container.innerHTML = '';
+    if (title) title.style.display = 'none';
+    return;
+  }
+  if (title) title.style.display = '';
+  var html = '';
+  requests.forEach(function(r) {
+    var seed = r.avatar_seed || r.name || 'unknown';
+    var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
+    html +=
+      '<div class="friend-request-row">' +
+      '<img class="fr-avatar" src="' + av + '" alt="">' +
+      '<div class="fr-info">' +
+      '<div class="fr-name">' + r.name + '</div>' +
+      '<div class="fr-status">' + formatLastSeen(r.last_seen, r.is_online) + '</div>' +
+      '</div>' +
+      '<button class="btn-accept" data-id="' + r.id + '">✅</button>' +
+      '<button class="btn-decline" data-id="' + r.id + '">❌</button>' +
+      '</div>';
+  });
+  container.innerHTML = html;
+  container.querySelectorAll('.btn-accept').forEach(function(btn) {
+    btn.addEventListener('click', function() { respondFriend(parseInt(this.dataset.id), 'accept'); });
+  });
+  container.querySelectorAll('.btn-decline').forEach(function(btn) {
+    btn.addEventListener('click', function() { respondFriend(parseInt(this.dataset.id), 'decline'); });
+  });
+}
+
+async function respondFriend(friendshipId, action) {
+  try {
+    var res = await fetch(API_URL + '/api/friends/respond', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ friendship_id: friendshipId, action: action })
+    });
+    if (res.ok) {
+      if (action === 'accept') showToast('👥 Freundschaft angenommen!');
+      loadFriends();
+      loadFriendRequests();
+    }
+  } catch (err) { console.error(err); }
+}
+
+/* Live-Suche mit Debounce */
+var searchDebounce = null;
+document.addEventListener('DOMContentLoaded', function() {
+  var searchInput = document.getElementById('friend-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      clearTimeout(searchDebounce);
+      var q = this.value.trim();
+      if (!q) { document.getElementById('friend-search-results').innerHTML = ''; return; }
+      searchDebounce = setTimeout(function() { searchUsers(q); }, 300);
+    });
+  }
+});
+
+async function searchUsers(q) {
+  if (!user) return;
+  try {
+    var res = await fetch(API_URL + '/api/users/search?q=' + encodeURIComponent(q) + '&me=' + user.id);
+    var results = await res.json();
+    if (!res.ok || !Array.isArray(results)) return;
+    renderSearchResults(results);
+  } catch (err) { console.error(err); }
+}
+
+function renderSearchResults(results) {
+  var container = document.getElementById('friend-search-results');
+  if (!results.length) {
+    container.innerHTML = '<div style="color:var(--dim);font-size:0.82rem;padding:0.3rem 0">Keine Ergebnisse.</div>';
+    return;
+  }
+  var html = '';
+  results.forEach(function(u) {
+    var seed = u.avatar_seed || u.name || 'unknown';
+    var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
+    html +=
+      '<div class="search-user-row">' +
+      '<img class="fr-avatar" src="' + av + '" alt="">' +
+      '<div class="fr-info">' +
+      '<div class="fr-name">' + u.name + '</div>' +
+      '<div class="fr-status">' + formatLastSeen(u.last_seen, u.is_online) + '</div>' +
+      '</div>' +
+      '<button class="btn-send-request" data-id="' + u.id + '">+ Anfragen</button>' +
+      '</div>';
+  });
+  container.innerHTML = html;
+  container.querySelectorAll('.btn-send-request').forEach(function(btn) {
+    btn.addEventListener('click', function() { sendFriendRequest(parseInt(this.dataset.id), this); });
+  });
+}
+
+async function sendFriendRequest(friendId, btn) {
+  if (!user) return;
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    var res = await fetch(API_URL + '/api/friends/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.id, friend_id: friendId })
+    });
+    var data = await res.json();
+    if (res.ok) {
+      btn.textContent = '✓ Gesendet';
+      showToast('📩 Anfrage gesendet!');
+    } else {
+      btn.textContent = data.error || 'Fehler';
+      setTimeout(function() { btn.disabled = false; btn.textContent = '+ Anfragen'; }, 2000);
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '+ Anfragen';
+  }
 }
 
 function setLoading(btnId, isLoading, normalText) {
@@ -284,14 +437,31 @@ document.getElementById("avatar").src =
   loadStats();
   loadDailyChallenge();
   loadFriends();
+  loadFriendRequests();
+  // Heartbeat starten
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  fetch(API_URL + '/api/users/heartbeat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id }) });
+  heartbeatInterval = setInterval(function() {
+    if (user) fetch(API_URL + '/api/users/heartbeat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id }) });
+  }, 30000);
+  // Anfragen periodisch prüfen
+  if (requestsInterval) clearInterval(requestsInterval);
+  requestsInterval = setInterval(function() { loadFriendRequests(); }, 60000);
   // Theme-Button Emoji setzen
   var themeBtn = document.getElementById('btn-theme');
   if (themeBtn) themeBtn.textContent = document.body.classList.contains('light') ? '☀️' : '🌙';
 }
  
 document.getElementById("btn-logout").addEventListener("click",
-function() {
+async function() {
 if (!confirm("Wirklich abmelden?")) return;
+// Intervals stoppen
+if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+if (requestsInterval) { clearInterval(requestsInterval); requestsInterval = null; }
+// Online-Status setzen
+if (user) {
+  try { await fetch(API_URL + '/api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id }) }); } catch(e) {}
+}
 document.cookie = 'arcadebox_user=; max-age=0';
 user = null;
 if (game) { game.stop(); game = null; }
@@ -443,24 +613,11 @@ document.querySelectorAll('.board-tab').forEach(function(tab) {
   });
 });
 
-document.getElementById('btn-add-friend').addEventListener('click', async function() {
-  var name = document.getElementById('friend-input').value.trim();
-  var errEl = document.getElementById('friends-err');
-  errEl.textContent = '';
-  if (!name) return;
-  try {
-    var res = await fetch(API_URL + '/api/friends/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: user.id, friend_name: name })
-    });
-    var data = await res.json();
-    if (!res.ok) { errEl.textContent = data.error || 'Fehler'; return; }
-    document.getElementById('friend-input').value = '';
-    showToast('👥 ' + data.friend.name + ' hinzugefügt!');
-    loadFriends();
-  } catch (err) {
-    errEl.textContent = 'Verbindungsfehler';
+// beforeunload: is_online = false setzen
+window.addEventListener('beforeunload', function() {
+  if (user) {
+    var blob = new Blob([JSON.stringify({ user_id: user.id })], { type: 'application/json' });
+    navigator.sendBeacon(API_URL + '/api/logout', blob);
   }
 });
 
