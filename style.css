@@ -1174,7 +1174,7 @@ body.light .pc-input-row input { background: #fff; border-color: #ccc; color: #1
 .lobby-empty { color: var(--dim); font-size: 0.82rem; text-align: center; padding: 0.7rem 0; }
 
 /* TicTacToe */
-.ttt-screen { display: none; padding: 0.3rem 0.2rem; }
+.ttt-screen { display: none; padding: 0.3rem 0.2rem; position: relative; }
 .ttt-status {
   text-align: center;
   font-size: 0.88rem;
@@ -1210,6 +1210,79 @@ body.light .pc-input-row input { background: #fff; border-color: #ccc; color: #1
 .ttt-cell.o { color: var(--c2); }
 body.light .ttt-cell { background: #f0f0f8; border-color: #ccc; }
 body.light .ttt-cell.hoverable:hover { background: #e0e0f0; }
+
+@keyframes tttFadeIn {
+  from { opacity: 0; transform: scale(0.4); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.ttt-cell.placed { animation: tttFadeIn 0.22s ease-out; }
+
+@keyframes tttWinPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,215,0,0.5); }
+  50%       { box-shadow: 0 0 0 7px rgba(255,215,0,0); }
+}
+.ttt-cell.win-cell {
+  background: rgba(255,215,0,0.15) !important;
+  border-color: gold !important;
+  animation: tttWinPulse 0.8s ease-in-out infinite;
+}
+
+.ttt-player-info {
+  display: flex;
+  justify-content: center;
+  gap: 1.6rem;
+  margin-bottom: 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  min-height: 1.2rem;
+}
+.ttt-player-info .ttt-you,
+.ttt-player-info .ttt-opp {
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+.ttt-player-info .ttt-you.active,
+.ttt-player-info .ttt-opp.active {
+  border-color: var(--c1);
+  background: rgba(255,87,51,0.1);
+}
+.x-color { color: var(--c1); }
+.o-color { color: var(--c2); }
+
+.ttt-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.78);
+  border-radius: 10px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1.1rem;
+  z-index: 10;
+}
+.ttt-overlay.show { display: flex; }
+.ttt-overlay-msg {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #fff;
+  text-align: center;
+}
+.ttt-rematch-btn {
+  padding: 0.6rem 1.6rem;
+  background: var(--c1);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.ttt-rematch-btn:hover { opacity: 0.85; }
 
 /* Invite toast */
 .toast-invite {

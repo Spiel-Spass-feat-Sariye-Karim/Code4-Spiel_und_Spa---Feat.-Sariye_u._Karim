@@ -171,7 +171,7 @@ app.post('/api/save-score', async (req, res) => {
       updates.reaction = (user.reaction === 0) ? score : Math.min(user.reaction, score);
     } else if (game_type === 'bubble') {
       updates.precision = Math.max(user.precision || 0, score);
-    } else if (game_type === 'tictactoe') {
+    } else if (game_type === 'tictactoe' || game_type === 'multiplayer_wins') {
       // Kein eigenes User-Feld; nur highscores + games_played
     } else {
       updates[game_type] = Math.max(user[game_type] || 0, score);

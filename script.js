@@ -7,9 +7,9 @@ var lastChatCount=0;
 var allUsersCache=[],friendIdsSet=new Set(),sentRequestIds=new Set();
 var activeChatFriend=null,privateChatInterval=null,unreadInterval=null;
 var friendsList=[],unreadCounts={};
-var inviteInterval=null,seenInviteIds=new Set(),lobbyAiDiff='easy';
+var inviteInterval=null,seenInviteIds=new Set(),lobbyAiDiff='easy',hostWaitInterval=null;
 var tttBoard=Array(9).fill(''),tttOn=false,tttIsAI=false,tttAiDiff='easy';
-var tttCurrentTurn='X',tttMySymbol='X',tttIsHost=true,tttLobbyId=null,tttPollInterval=null;
+var tttCurrentTurn='X',tttMySymbol='X',tttIsHost=true,tttLobbyId=null,tttPollInterval=null,tttLastPlaced=-1;
 
 /* ---- DARK/LIGHT MODE ---- */
 (function() {
@@ -210,10 +210,21 @@ async function sendGameInvite(toId, btn) {
     });
     if (btn) { btn.textContent = '✓ Gesendet'; }
     showToast('⚔️ Einladung gesendet!');
-    // Warte auf Gegner: wenn Lobby auf 'playing' wechselt, Spiel starten
-    tttLobbyId = lobby.id;
-    tttIsHost = true;
-    tttMySymbol = 'X';
+    tttLobbyId = lobby.id; tttIsHost = true; tttMySymbol = 'X';
+    // Poll until guest joins, then start game for host
+    if (hostWaitInterval) clearInterval(hostWaitInterval);
+    hostWaitInterval = setInterval(async function() {
+      try {
+        var r = await fetch(API_URL + '/api/lobby/' + lobby.id);
+        if (!r.ok) return;
+        var lo = await r.json();
+        if (lo.status === 'playing') {
+          clearInterval(hostWaitInterval); hostWaitInterval = null;
+          openG('multiplayer');
+          setTimeout(function() { tttStartOnline(lobby.id, true); }, 80);
+        }
+      } catch(e) {}
+    }, 2000);
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Einladen'; }
   }
@@ -267,19 +278,24 @@ async function acceptGameInvite(inv) {
 
 /* ---- TICTACTOE ---- */
 function tttStart(diff) {
-  tttBoard = Array(9).fill('');
+  tttBoard = Array(9).fill(''); tttLastPlaced = -1;
   tttOn = true; tttIsAI = true; tttAiDiff = diff || lobbyAiDiff;
   tttCurrentTurn = 'X'; tttMySymbol = 'X'; tttIsHost = true;
   document.getElementById('lobby-screen').style.display = 'none';
   document.getElementById('ttt-screen').style.display = '';
   document.getElementById('btn-again').style.display = 'inline-block';
   document.getElementById('pbot-pts-wrap').style.display = 'none';
+  var overlay = document.getElementById('ttt-overlay');
+  if (overlay) overlay.classList.remove('show');
+  document.getElementById('ttt-player-info').innerHTML =
+    '<span class="ttt-you active">Du: <b class="x-color">✕</b></span>' +
+    '<span class="ttt-opp">KI: <b class="o-color">◯</b></span>';
   document.getElementById('ttt-status').textContent = 'Du bist ✕ — Du fängst an!';
   renderTTTBoard();
 }
 
 function tttStartOnline(lobbyId, isHost) {
-  tttBoard = Array(9).fill('');
+  tttBoard = Array(9).fill(''); tttLastPlaced = -1;
   tttOn = true; tttIsAI = false; tttLobbyId = lobbyId;
   tttIsHost = isHost; tttMySymbol = isHost ? 'X' : 'O';
   tttCurrentTurn = 'X';
@@ -287,11 +303,20 @@ function tttStartOnline(lobbyId, isHost) {
   document.getElementById('ttt-screen').style.display = '';
   document.getElementById('btn-again').style.display = 'inline-block';
   document.getElementById('pbot-pts-wrap').style.display = 'none';
+  var overlay = document.getElementById('ttt-overlay');
+  if (overlay) overlay.classList.remove('show');
+  var myClr = tttMySymbol === 'X' ? 'x-color' : 'o-color';
+  var oppClr = tttMySymbol === 'X' ? 'o-color' : 'x-color';
+  var mySym = tttMySymbol === 'X' ? '✕' : '◯';
+  var oppSym = tttMySymbol === 'X' ? '◯' : '✕';
+  document.getElementById('ttt-player-info').innerHTML =
+    '<span class="ttt-you' + (isHost ? ' active' : '') + '">Du: <b class="' + myClr + '">' + mySym + '</b></span>' +
+    '<span class="ttt-opp' + (!isHost ? ' active' : '') + '">Gegner: <b class="' + oppClr + '">' + oppSym + '</b></span>';
   var sym = tttMySymbol === 'X' ? '✕' : '◯';
   document.getElementById('ttt-status').textContent = 'Du bist ' + sym + (isHost ? ' — Du fängst an!' : ' — Gegner fängt an...');
   renderTTTBoard();
   if (tttPollInterval) clearInterval(tttPollInterval);
-  tttPollInterval = setInterval(tttPollOnline, 2500);
+  tttPollInterval = setInterval(tttPollOnline, 2000);
 }
 
 async function tttPollOnline() {
@@ -303,6 +328,12 @@ async function tttPollOnline() {
     var lobby = await res.json();
     var state = lobby.game_state || {};
     if (!state.board) return;
+    // Detect opponent move for animation
+    var changed = false;
+    for (var i = 0; i < 9; i++) {
+      if (!tttBoard[i] && state.board[i]) { tttLastPlaced = i; changed = true; break; }
+    }
+    if (!changed && state.currentTurn === tttCurrentTurn) return;
     tttBoard = state.board;
     tttCurrentTurn = state.currentTurn;
     renderTTTBoard();
@@ -322,23 +353,43 @@ function renderTTTBoard() {
   var board = document.getElementById('ttt-board');
   if (!board) return;
   var isMyTurn = tttCurrentTurn === tttMySymbol;
+  var winLine = tttGetWinLine();
+  var winSet = winLine ? new Set(winLine) : new Set();
   var html = '';
   tttBoard.forEach(function(cell, idx) {
     var sym = cell === 'X' ? '✕' : cell === 'O' ? '◯' : '';
-    var cls = 'ttt-cell' + (cell ? ' taken' : (tttOn && isMyTurn ? ' hoverable' : '')) + (cell === 'X' ? ' x' : cell === 'O' ? ' o' : '');
+    var cls = 'ttt-cell';
+    if (cell) { cls += ' taken'; }
+    else if (tttOn && isMyTurn) { cls += ' hoverable'; }
+    if (cell === 'X') cls += ' x';
+    else if (cell === 'O') cls += ' o';
+    if (winSet.has(idx)) cls += ' win-cell';
+    if (idx === tttLastPlaced) cls += ' placed';
     html += '<div class="' + cls + '" data-idx="' + idx + '">' + sym + '</div>';
   });
+  tttLastPlaced = -1;
   board.innerHTML = html;
   if (tttOn && isMyTurn) {
     board.querySelectorAll('.ttt-cell:not(.taken)').forEach(function(cell) {
       cell.addEventListener('click', function() { tttClick(parseInt(this.dataset.idx)); });
     });
   }
+  // Update player-info active indicator
+  var playerInfo = document.getElementById('ttt-player-info');
+  if (playerInfo && playerInfo.innerHTML) {
+    var youSpan = playerInfo.querySelector('.ttt-you');
+    var oppSpan = playerInfo.querySelector('.ttt-opp');
+    if (youSpan && oppSpan) {
+      var myTurn = tttOn && tttCurrentTurn === tttMySymbol;
+      youSpan.classList.toggle('active', myTurn);
+      oppSpan.classList.toggle('active', !myTurn && tttOn);
+    }
+  }
 }
 
 function tttClick(idx) {
   if (!tttOn || tttBoard[idx] || tttCurrentTurn !== tttMySymbol) return;
-  tttBoard[idx] = tttMySymbol;
+  tttBoard[idx] = tttMySymbol; tttLastPlaced = idx;
   tttCurrentTurn = tttMySymbol === 'X' ? 'O' : 'X';
   renderTTTBoard();
   var result = tttCheck();
@@ -360,7 +411,7 @@ function tttAiMove() {
   if (!tttOn) return;
   var idx = tttGetAiMove();
   if (idx === -1) return;
-  tttBoard[idx] = 'O'; tttCurrentTurn = 'X';
+  tttBoard[idx] = 'O'; tttLastPlaced = idx; tttCurrentTurn = 'X';
   renderTTTBoard();
   var result = tttCheck();
   if (result) { tttGameOver(result); return; }
@@ -426,22 +477,50 @@ function tttCheckBoard(b) {
   return b.every(function(c) { return c !== ''; }) ? 'draw' : null;
 }
 
+function tttGetWinLine() {
+  var lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for (var i = 0; i < lines.length; i++) {
+    var l = lines[i];
+    if (tttBoard[l[0]] && tttBoard[l[0]] === tttBoard[l[1]] && tttBoard[l[1]] === tttBoard[l[2]]) return l;
+  }
+  return null;
+}
+
 function tttGameOver(result) {
   tttOn = false;
   if (tttPollInterval) { clearInterval(tttPollInterval); tttPollInterval = null; }
   var msg;
-  if (result === 'draw') msg = '🤝 Unentschieden!';
+  if (result === 'draw') { msg = '🤝 Unentschieden!'; }
   else if (result === tttMySymbol) {
     msg = '🎉 Du gewinnst!';
     if (tttIsAI) {
       var pts = tttAiDiff === 'hard' ? 30 : tttAiDiff === 'medium' ? 20 : 10;
       saveHS('tictactoe', pts);
+    } else {
+      saveHS('multiplayer_wins', 1);
     }
   } else {
     msg = tttIsAI ? '🤖 KI gewinnt!' : '😢 Gegner gewinnt!';
   }
   document.getElementById('ttt-status').textContent = msg;
   renderTTTBoard();
+  var overlay = document.getElementById('ttt-overlay');
+  var overlayMsg = document.getElementById('ttt-overlay-msg');
+  if (overlay && overlayMsg) {
+    overlayMsg.textContent = msg;
+    overlay.classList.add('show');
+  }
+}
+
+function tttRematch() {
+  var overlay = document.getElementById('ttt-overlay');
+  if (overlay) overlay.classList.remove('show');
+  if (tttIsAI) {
+    tttStart(tttAiDiff);
+  } else {
+    tttLobbyId = null;
+    loadLobbyScreen();
+  }
 }
 
 /* ---- PRIVATE CHAT ---- */
@@ -977,6 +1056,7 @@ if (chatInterval) { clearInterval(chatInterval); chatInterval = null; }
 if (unreadInterval) { clearInterval(unreadInterval); unreadInterval = null; }
 if (inviteInterval) { clearInterval(inviteInterval); inviteInterval = null; }
 if (tttPollInterval) { clearInterval(tttPollInterval); tttPollInterval = null; }
+if (hostWaitInterval) { clearInterval(hostWaitInterval); hostWaitInterval = null; }
 closePrivateChat();
 friendsList = []; unreadCounts = {}; seenInviteIds = new Set(); tttOn = false;
 document.getElementById('sidebar').classList.remove('visible', 'expanded');
@@ -1188,6 +1268,7 @@ document.querySelectorAll('.diff-btn').forEach(function(btn) {
     lobbyAiDiff = this.dataset.diff;
   });
 });
+document.getElementById('ttt-rematch-btn').addEventListener('click', tttRematch);
 document.getElementById('pc-close').addEventListener('click', closePrivateChat);
 document.getElementById('pc-send').addEventListener('click', sendPrivateMessage);
 document.getElementById('pc-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') sendPrivateMessage(); });
@@ -1234,6 +1315,7 @@ function openG(id) {
 function closeG() {
   if (game) { game.stop(); game = null; }
   if (tttPollInterval) { clearInterval(tttPollInterval); tttPollInterval = null; }
+  if (hostWaitInterval) { clearInterval(hostWaitInterval); hostWaitInterval = null; }
   tttOn = false;
   document.getElementById('popup').classList.remove('on');
   document.getElementById('memory-pads').classList.remove('active');
@@ -1247,7 +1329,10 @@ function closeG() {
 function resetG() {
   if (which === 'multiplayer') {
     if (tttPollInterval) { clearInterval(tttPollInterval); tttPollInterval = null; }
+    if (hostWaitInterval) { clearInterval(hostWaitInterval); hostWaitInterval = null; }
     tttOn = false; tttLobbyId = null;
+    var overlay = document.getElementById('ttt-overlay');
+    if (overlay) overlay.classList.remove('show');
     loadLobbyScreen();
     return;
   }
