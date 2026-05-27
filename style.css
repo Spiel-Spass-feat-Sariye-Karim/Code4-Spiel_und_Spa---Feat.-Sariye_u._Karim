@@ -237,16 +237,33 @@ body.light .card-featured { background: #fff5f5; border-color: #fca5a5; box-shad
 .hs-row span:last-child{color:var(--c1);font-weight:700}
  
 /* Popup */
-#popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;z-index:100}
+#popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);align-items:center;justify-content:center;z-index:100;padding:1rem}
 #popup.on{display:flex}
-.pbox{background:var(--s1);border-radius:var(--r);overflow:hidden;width:400px;max-width:95%}
-.ptop,.pbot{display:flex;justify-content:space-between;align-items:center;padding:0.6rem 1rem}
-.ptop{border-bottom:1px solid #282828;font-weight:800}
+.pbox{
+  background:var(--s1);
+  border-radius:16px;
+  overflow:hidden;
+  width:min(640px, 96vw);
+  max-height:92vh;
+  display:flex;
+  flex-direction:column;
+  box-shadow:0 24px 80px rgba(0,0,0,0.7);
+  border:1px solid rgba(255,255,255,0.07);
+}
+.ptop,.pbot{display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1.1rem;flex-shrink:0}
+.ptop{border-bottom:1px solid #282828;font-weight:800;font-size:1rem}
 .pbot{border-top:1px solid #282828}
-.ptop button{background:none;border:none;color:var(--dim);font-size:1.2rem;cursor:pointer}
+.ptop button{
+  width:32px;height:32px;border-radius:50%;
+  background:rgba(255,255,255,0.08);border:none;
+  color:rgba(255,255,255,0.6);font-size:1rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background 0.15s,color 0.15s,transform 0.12s;
+}
+.ptop button:hover{background:#ef4444;color:#fff;transform:scale(1.08) rotate(90deg)}
 .pbot b{color:var(--c1);font-size:1.1rem}
-.pbot button{background:var(--c1);color:#fff;border:none;padding:0.4rem 0.8rem;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit}
-canvas{display:block;width:100%}
+.pbot button{background:var(--c1);color:#fff;border:none;padding:0.45rem 1rem;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit}
+canvas{display:block;width:100%;flex:1;min-height:0}
 
 
 .memory-pads { display: none; grid-template-columns: 1fr 1fr; gap: 10px; padding: 20px; max-width: 300px; margin: 0
@@ -454,13 +471,56 @@ z-index: 200;
 }
 .overlay.on { display: flex; }
 .overlay-box {
-background: var(--s1);
-border-radius: 12px;
-padding: 1.5rem;
-width: 340px;
-max-width: 95%;
-text-align: center;
+  background: var(--s1);
+  border-radius: 16px;
+  width: 360px;
+  max-width: 95%;
+  text-align: center;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
 }
+.overlay-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.1rem 0.85rem;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+}
+.overlay-top h3 {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0;
+}
+#btn-close-profile {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.7);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, transform 0.12s;
+  line-height: 1;
+}
+#btn-close-profile:hover {
+  background: #ef4444;
+  color: #fff;
+  transform: scale(1.08) rotate(90deg);
+}
+.overlay-body { padding: 1.2rem 1.5rem 1.5rem; }
+body.light .overlay-top { background: linear-gradient(135deg,#ede9fe,#dbeafe); }
+body.light .overlay-top h3 { color: #1e1b4b; }
+body.light #btn-close-profile { background: rgba(0,0,0,0.07); color: #555; }
+body.light #btn-close-profile:hover { background: #ef4444; color: #fff; }
 .avatar-nav-wrap {
   display: flex;
   align-items: center;
@@ -1586,6 +1646,34 @@ body.light .gc-input-row input { background: #fff; border-color: #ccc; color: #1
     right: -100vw;
   }
   .global-chat-panel.open { right: 10px; }
+
+  /* Mobile: make chat panels fill screen & always show a visible close btn */
+  .global-chat-panel.open,
+  .private-chat-modal.open {
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100%; height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    transform: none;
+  }
+  .gc-header, .pc-header {
+    padding: 1rem 1rem;
+    font-size: 1rem;
+  }
+  /* Bigger, prominent close button on mobile */
+  .gc-header button,
+  #pc-close {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important;
+    background: rgba(255,255,255,0.18) !important;
+    color: #fff !important;
+    font-size: 1.1rem !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    border: none !important;
+  }
 }
 
 /* ── Rang-Legende Modal ──────────────────────────────────────── */

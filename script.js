@@ -323,7 +323,7 @@ function tttStartOnline(lobbyId, isHost) {
   document.getElementById('ttt-status').textContent = 'Du bist ' + sym + (isHost ? ' — Du fängst an!' : ' — Gegner fängt an...');
   renderTTTBoard();
   if (tttPollInterval) clearInterval(tttPollInterval);
-  tttPollInterval = setInterval(tttPollOnline, 2000);
+  tttPollInterval = setInterval(tttPollOnline, 800);
 }
 
 async function tttPollOnline() {
@@ -601,7 +601,7 @@ function openPrivateChat(friend) {
   document.getElementById('private-chat-modal').classList.add('open');
   loadPrivateMessages();
   if (privateChatInterval) clearInterval(privateChatInterval);
-  privateChatInterval = setInterval(loadPrivateMessages, 5000);
+  privateChatInterval = setInterval(loadPrivateMessages, 1500);
   if (unreadCounts[friend.id]) { unreadCounts[friend.id] = 0; updateSidebarBadges(); }
   if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('expanded');
 }
@@ -733,7 +733,6 @@ function renderFriendsBoard(friends) {
   sorted.forEach(function(f) {
     var seed = f.avatar_seed || f.name || 'unknown';
     var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
-    var reactionDisplay = f.reaction_ms > 0 ? f.reaction_ms + 'ms' : '-';
     html +=
       '<div class="friend-row">' +
       '<img class="fr-avatar" src="' + av + '" alt="">' +
@@ -741,7 +740,6 @@ function renderFriendsBoard(friends) {
       '<div class="fr-name">' + f.name + '</div>' +
       '<div class="fr-status">' + formatLastSeen(f.last_seen, f.is_online) + '</div>' +
       '</div>' +
-      '<div class="fr-scores">' + (f.memory||0) + '&nbsp;/&nbsp;' + (f.stack||0) + '&nbsp;/&nbsp;' + reactionDisplay + '</div>' +
       '<button class="btn-remove-friend" data-id="' + f.id + '" title="Entfernen">✕</button>' +
       '</div>';
   });
@@ -1030,7 +1028,7 @@ document.getElementById("avatar").src =
   lastChatCount = 0;
   loadGlobalChat();
   if (chatInterval) clearInterval(chatInterval);
-  chatInterval = setInterval(loadGlobalChat, 10000);
+  chatInterval = setInterval(loadGlobalChat, 1500);
   // Sidebar + Global-Chat-Button sichtbar schalten
   document.getElementById('sidebar').classList.add('visible');
   document.getElementById('sidebar-mobile-btn').classList.add('visible');
@@ -1052,7 +1050,7 @@ document.getElementById("avatar").src =
   seenInviteIds = new Set();
   inviteFirstCheck = true;
   if (inviteInterval) clearInterval(inviteInterval);
-  inviteInterval = setInterval(checkGameInvites, 3000);
+  inviteInterval = setInterval(checkGameInvites, 1500);
   // Theme-Button Emoji setzen
   var themeBtn = document.getElementById('btn-theme');
   if (themeBtn) themeBtn.textContent = document.body.classList.contains('light') ? '☀️' : '🌙';
@@ -1591,7 +1589,7 @@ p.removeEventListener('click', padClick); }); } }; }
 function stack(cv){
   var ctx=cv.getContext('2d'),W=380,H=420,on=true,raf,sc=0;
   var ly=[{x:W/2-60,w:120}];
-  var cur={x:0,w:120,dir:1,spd:3};
+  var cur={x:0,w:120,dir:1,spd:2};
   var bY=H-25,lH=22;
   var co=['#e8573a','#e88a3a','#e8c83a','#3ae87a','#3ab8e8','#6a3ae8','#e83a9b'];
 
@@ -1615,7 +1613,7 @@ function stack(cv){
     if(oW<=0){on=false;saveHS('stack',sc);gg(ctx,W,H,sc);return}
     ly.push({x:oL,w:oW});sc++;document.getElementById('pts').textContent=sc;
     cur.w=oW;cur.x=Math.random()<0.5?0:W-cur.w;
-    cur.dir=cur.x<W/2?1:-1;cur.spd=Math.min(7,3+sc*0.18);
+    cur.dir=cur.x<W/2?1:-1;cur.spd=Math.min(5,2+sc*0.12);
     if(ly.length*lH>H-80)bY+=lH;
   }
 
