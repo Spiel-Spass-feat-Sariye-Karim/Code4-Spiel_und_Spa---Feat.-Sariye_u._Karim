@@ -1448,9 +1448,11 @@ function stack(cv){
     if(ly.length*lH>H-80)bY+=lH;
   }
 
+  function keyDrop(e){if(e.code==='Space'||e.key===' '){e.preventDefault();drop();}}
   cv.addEventListener('click',drop);
+  document.addEventListener('keydown',keyDrop);
   loop();
-  return{stop:function(){on=false;cancelAnimationFrame(raf);cv.removeEventListener('click',drop)}};
+  return{stop:function(){on=false;cancelAnimationFrame(raf);cv.removeEventListener('click',drop);document.removeEventListener('keydown',keyDrop);}};
 }
 
 /* ---- SPIEL 3: REAKTIONSTEST ---- */
