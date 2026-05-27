@@ -393,17 +393,18 @@ function tttClick(idx) {
   tttCurrentTurn = tttMySymbol === 'X' ? 'O' : 'X';
   renderTTTBoard();
   var result = tttCheck();
-  if (result) { tttGameOver(result); return; }
   if (tttIsAI) {
+    if (result) { tttGameOver(result); return; }
     document.getElementById('ttt-status').textContent = 'KI überlegt...';
     setTimeout(tttAiMove, 380);
   } else {
-    // Online: Zug senden
-    document.getElementById('ttt-status').textContent = 'Gegner ist dran...';
+    // Online: Zug IMMER zuerst senden (auch bei Spielende), damit Gegner das Ergebnis sieht
     fetch(API_URL + '/api/lobby/move', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lobby_id: tttLobbyId, user_id: user.id, move: idx })
     });
+    if (result) { tttGameOver(result); return; }
+    document.getElementById('ttt-status').textContent = 'Gegner ist dran...';
   }
 }
 
@@ -492,7 +493,7 @@ function tttGameOver(result) {
   var msg;
   if (result === 'draw') { msg = '🤝 Unentschieden!'; }
   else if (result === tttMySymbol) {
-    msg = '🎉 Du gewinnst!';
+    msg = '🎉 Du hast gewonnen!';
     if (tttIsAI) {
       var pts = tttAiDiff === 'hard' ? 30 : tttAiDiff === 'medium' ? 20 : 10;
       saveHS('tictactoe', pts);
@@ -500,7 +501,7 @@ function tttGameOver(result) {
       saveHS('multiplayer_wins', 1);
     }
   } else {
-    msg = tttIsAI ? '🤖 KI gewinnt!' : '😢 Gegner gewinnt!';
+    msg = tttIsAI ? '🤖 KI gewinnt!' : '😢 Du hast verloren!';
   }
   document.getElementById('ttt-status').textContent = msg;
   renderTTTBoard();
