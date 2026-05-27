@@ -57,22 +57,12 @@
     <div class="card" id="card-memory"> <div class="em">🧠</div> <h3>Farb-Gedächtnis</h3> <p>Merke dir die Reihenfolge der Farben!</p> </div>
     <div class="card" id="card-stack"><div class="em">🧱</div><h3>Turm-Stapler</h3><p>Staple perfekt — jeder Fehler kostet Breite!</p></div>
     <div class="card" id="card-reaction"><div class="em">⚡</div><h3>Reaktionstest</h3><p>Wie schnell reagierst du?</p></div>
-    <div class="card" id="card-precision"><div class="em">🎯</div><h3>Klick-Präzision</h3><p>Triff die Mitte so genau wie möglich!</p></div>
+    <div class="card" id="card-bubble"><div class="em">🫧</div><h3>Bubble Pop</h3><p>Triff die kleinen Blasen für mehr Punkte!</p></div>
     <div class="card" id="card-guess"><div class="em">🔢</div><h3>Zahlen-Raten</h3><p>Finde die Zahl in so wenig Versuchen wie möglich!</p></div>
     <div class="card" id="card-wordle"><div class="em">💻</div><h3>Info-Wordle</h3><p>Errate das Informatik-Wort!</p></div>
+    <div class="card" id="card-multiplayer"><div class="em">⚔️</div><h3>Duell</h3><p>Spiel gegen KI oder einen Freund!</p></div>
   </div>
   
-<div class="challenge-box" id="challenge-box">
-  <div class="challenge-header">
-    <span class="challenge-badge">⚡ Tägliche Challenge</span>
-    <span id="challenge-game-name">Lädt...</span>
-  </div>
-  <button class="challenge-play-btn" id="btn-challenge-play">Jetzt spielen</button>
-  <div class="challenge-scores">
-    <div class="challenge-scores-title">🏅 Heutige Top 10</div>
-    <div id="daily-scores-list">Lädt...</div>
-  </div>
-</div>
 
 <div class="stats-grid">
 <div class="stat-box">
@@ -112,6 +102,41 @@
     <div id="friend-search-results"></div>
   </div>
 </div>
+
+  <div class="hs-section chat-section">
+    <h3>💬 Globaler Chat</h3>
+    <div id="chat-window" class="chat-window"></div>
+    <div class="chat-input-row">
+      <input id="chat-input" placeholder="Nachricht eingeben..." maxlength="200" autocomplete="off">
+      <button id="chat-send">Senden</button>
+    </div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<div id="sidebar" class="sidebar">
+  <div class="sidebar-header">
+    <button id="sidebar-toggle" class="sidebar-toggle-btn" title="Freunde-Chat">💬</button>
+    <span class="sidebar-label">Freunde</span>
+  </div>
+  <div id="sidebar-friends"></div>
+</div>
+<button id="sidebar-mobile-btn" class="sidebar-mobile-btn" title="Freunde-Chat">💬</button>
+
+<!-- PRIVATE CHAT MODAL -->
+<div id="private-chat-modal" class="private-chat-modal">
+  <div class="pc-header">
+    <div class="pc-header-info">
+      <img id="pc-avatar" class="pc-avatar" src="" alt="">
+      <span id="pc-name"></span>
+    </div>
+    <button id="pc-close">✕</button>
+  </div>
+  <div id="pc-messages" class="pc-messages"></div>
+  <div class="pc-input-row">
+    <input id="pc-input" placeholder="Nachricht..." maxlength="200" autocomplete="off">
+    <button id="pc-send">Senden</button>
+  </div>
 </div>
 
 <!-- POPUP -->
@@ -144,9 +169,33 @@
       <div id="wordle-keyboard"></div>
     </div>
 
-    <div id="daily-game-area" class="daily-game-area"></div>
+    <div id="lobby-area" class="lobby-area">
+      <div id="lobby-screen">
+        <div class="lobby-online-count"><span id="lobby-online-num">0</span> Spieler gerade online</div>
+        <div class="lobby-difficulty">
+          <span class="diff-label">Schwierigkeit:</span>
+          <div class="diff-btns">
+            <button class="diff-btn active" data-diff="easy">Leicht</button>
+            <button class="diff-btn" data-diff="medium">Mittel</button>
+            <button class="diff-btn" data-diff="hard">Schwer</button>
+          </div>
+        </div>
+        <button id="btn-vs-ai" class="btn-vs-ai">🤖 Gegen KI spielen</button>
+        <div class="lobby-divider">— oder Freund einladen —</div>
+        <div id="lobby-users-list" class="lobby-users-list"></div>
+      </div>
+      <div id="ttt-screen" class="ttt-screen">
+        <div id="ttt-player-info" class="ttt-player-info"></div>
+        <div id="ttt-status" class="ttt-status"></div>
+        <div id="ttt-board" class="ttt-board"></div>
+        <div id="ttt-overlay" class="ttt-overlay">
+          <div id="ttt-overlay-msg" class="ttt-overlay-msg"></div>
+          <button id="ttt-rematch-btn" class="ttt-rematch-btn">Nochmal!</button>
+        </div>
+      </div>
+    </div>
 
-    <div class="pbot"><span>Punkte: <b id="pts">0</b></span><button id="btn-again">Nochmal</button></div>
+    <div class="pbot"><span id="pbot-pts-wrap">Punkte: <b id="pts">0</b></span><button id="btn-again">Nochmal</button></div>
   </div>
 </div>
  
