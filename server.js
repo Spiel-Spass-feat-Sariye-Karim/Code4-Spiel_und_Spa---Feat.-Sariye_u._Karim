@@ -168,11 +168,7 @@ app.post('/api/save-score', async (req, res) => {
     const updates = {};
     if (game_type === 'reaction') {
       // Reaction: niedrigere ms = besser; 0 = noch kein Score
-      updates.reaction = (user.reaction === 0) ? score : Math.min(user.reaction, score);
-    } else if (game_type === 'bubble') {
-      updates.precision = Math.max(user.precision || 0, score);
-    } else if (game_type === 'tictactoe' || game_type === 'multiplayer_wins') {
-      // Kein eigenes User-Feld; nur highscores + games_played
+      updates[game_type] = (user[game_type] === 0) ? score : Math.min(user[game_type], score);
     } else {
       updates[game_type] = Math.max(user[game_type] || 0, score);
     }
@@ -263,7 +259,7 @@ app.get('/api/global-highscores', async (req, res) => {
         userMap[uid].reaction_ms = userMap[uid].reaction_ms === 0
           ? item.score
           : Math.min(userMap[uid].reaction_ms, item.score);
-      } else if (item.game_type === 'bubble' || item.game_type === 'precision') {
+      } else if (item.game_type === 'precision') {
         userMap[uid].precision = Math.max(userMap[uid].precision, item.score);
       } else if (item.game_type === 'guess') {
         userMap[uid].guess = Math.max(userMap[uid].guess, item.score);
@@ -304,6 +300,54 @@ app.get('/api/global-highscores', async (req, res) => {
       .slice(0, 10);
 
     res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+// ============= TÄGLICHE CHALLENGE (30 Mini-Spiele) =============
+
+function getDailyGameId() {
+  const dayIndex = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+  return dayIndex % 30;
+}
+
+app.get('/api/daily-challenge', (req, res) => {
+  const game_id = getDailyGameId();
+  res.json({ game_id, date: new Date().toISOString().split('T')[0] });
+});
+
+app.get('/api/daily-scores', async (req, res) => {
+  try {
+    const game_id = getDailyGameId();
+    const gameType = 'daily_' + game_id;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const { data: scores, error } = await db
+      .from('highscores')
+      .select('user_id, users!user_id(name, avatar_seed), score')
+      .eq('game_type', gameType)
+      .gte('created_at', today.toISOString())
+      .lt('created_at', tomorrow.toISOString());
+
+    if (error) return res.status(400).json({ error: 'Fehler beim Laden' });
+
+    // Pro User nur besten Score des Tages (höher = besser)
+    const userBest = {};
+    (scores || []).forEach(s => {
+      if (!s.users) return;
+      const key = s.user_id;
+      if (!userBest[key] || s.score > userBest[key].score) {
+        userBest[key] = { name: s.users.name, avatar_seed: s.users.avatar_seed, score: s.score };
+      }
+    });
+
+    const result = Object.values(userBest)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+
+    res.json({ game_id, scores: result });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }
@@ -461,212 +505,6 @@ app.delete('/api/friends/remove', async (req, res) => {
     await db.from('friendships').delete()
       .eq('sender_id', friend_id).eq('receiver_id', user_id);
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Server-Fehler' });
-  }
-});
-
-// ============= MULTIPLAYER LOBBY =============
-// WICHTIG: /invite/:user_id VOR /:id registrieren!
-
-app.post('/api/lobby/create', async (req, res) => {
-  const { host_id, game_type } = req.body;
-  if (!host_id) return res.status(400).json({ error: 'Fehlende Daten' });
-  try {
-    const { data, error } = await db.from('game_lobbies')
-      .insert({
-        host_id,
-        game_type: game_type || 'tictactoe',
-        status: 'waiting',
-        game_state: { board: Array(9).fill(''), currentTurn: 'X' }
-      })
-      .select().single();
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: 'Server-Fehler' });
-  }
-});
-
-app.post('/api/lobby/join', async (req, res) => {
-  const { lobby_id, guest_id } = req.body;
-  if (!lobby_id || !guest_id) return res.status(400).json({ error: 'Fehlende Daten' });
-  try {
-    const { data, error } = await db.from('game_lobbies')
-      .update({ guest_id, status: 'playing', updated_at: new Date().toISOString() })
-      .eq('id', lobby_id)
-      .eq('status', 'waiting')
-      .select().single();
-    if (error || !data) return res.status(400).json({ error: 'Lobby nicht verfügbar' });
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: 'Server-Fehler' });
-  }
-});
-
-app.post('/api/lobby/move', async (req, res) => {
-  const { lobby_id, user_id, move } = req.body;
-  if (!lobby_id || !user_id || move === undefined) return res.status(400).json({ error: 'Fehlende Daten' });
-  try {
-    const { data: lobby, error: e1 } = await db.from('game_lobbies').select('*').eq('id', lobby_id).single();
-    if (e1 || !lobby) return res.status(404).json({ error: 'Lobby nicht gefunden' });
-    const state = lobby.game_state || { board: Array(9).fill(''), currentTurn: 'X' };
-    const symbol = lobby.host_id === parseInt(user_id) ? 'X' : 'O';
-    if (state.currentTurn !== symbol) return res.status(400).json({ error: 'Nicht dein Zug' });
-    if (state.board[move]) return res.status(400).json({ error: 'Feld belegt' });
-    state.board[move] = symbol;
-    state.currentTurn = symbol === 'X' ? 'O' : 'X';
-    const { data, error: e2 } = await db.from('game_lobbies')
-      .update({ game_state: state, updated_at: new Date().toISOString() })
-      .eq('id', lobby_id).select().single();
-    if (e2) throw e2;
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: 'Server-Fehler' });
-  }
-});
-
-app.post('/api/lobby/invite', async (req, res) => {
-  const { lobby_id, from_id, to_id } = req.body;
-  if (!lobby_id || !from_id || !to_id) return res.status(400).json({ error: 'Fehlende Daten' });
-  try {
-    const { data, error } = await db.from('game_invites')
-      .insert({ lobby_id, from_id, to_id, status: 'pending' })
-      .select().single();
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: 'Server-Fehler' });
-  }
-});
-
-app.get('/api/lobby/invite/:user_id', async (req, res) => {
-  try {
-    const { data, error } = await db.from('game_invites')
-      .select('id, lobby_id, from_id, created_at, users!from_id(name, avatar_seed)')
-      .eq('to_id', req.params.user_id)
-      .eq('status', 'pending');
-    if (error) throw error;
-    const result = (data || []).map(inv => ({
-      id: inv.id,
-      lobby_id: inv.lobby_id,
-      from_id: inv.from_id,
-      from_name: inv.users?.name || 'Unbekannt',
-      avatar_seed: inv.users?.avatar_seed,
-      created_at: inv.created_at
-    }));
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: 'Server-Fehler' });
-  }
-});
-
-app.get('/api/lobby/:id', async (req, res) => {
-  try {
-    const { data, error } = await db.from('game_lobbies').select('*').eq('id', req.params.id).single();
-    if (error || !data) return res.status(404).json({ error: 'Nicht gefunden' });
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: 'Server-Fehler' });
-  }
-});
-
-// ============= PRIVATE CHAT =============
-
-app.get('/api/chat/private/:user_id/:friend_id', async (req, res) => {
-  try {
-    const userId = parseInt(req.params.user_id);
-    const friendId = parseInt(req.params.friend_id);
-    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
-    const { data, error } = await db
-      .from('private_chat')
-      .select('id, sender_id, receiver_id, message, is_read, created_at')
-      .or(`and(sender_id.eq.${userId},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${userId})`)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    if (error) throw error;
-    // Als gelesen markieren
-    await db.from('private_chat')
-      .update({ is_read: true })
-      .eq('receiver_id', userId)
-      .eq('sender_id', friendId)
-      .eq('is_read', false);
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: 'Server-Fehler' });
-  }
-});
-
-app.post('/api/chat/private', async (req, res) => {
-  try {
-    const { sender_id, receiver_id, message } = req.body;
-    if (!sender_id || !receiver_id || !message) return res.status(400).json({ error: 'Fehlende Felder' });
-    const trimmed = String(message).trim().slice(0, 200);
-    if (!trimmed) return res.status(400).json({ error: 'Leere Nachricht' });
-    const { data, error } = await db
-      .from('private_chat')
-      .insert({ sender_id, receiver_id, message: trimmed, is_read: false })
-      .select()
-      .single();
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: 'Server-Fehler' });
-  }
-});
-
-app.get('/api/chat/unread/:user_id', async (req, res) => {
-  try {
-    const userId = parseInt(req.params.user_id);
-    const { data, error } = await db
-      .from('private_chat')
-      .select('sender_id')
-      .eq('receiver_id', userId)
-      .eq('is_read', false);
-    if (error) throw error;
-    const counts = {};
-    (data || []).forEach(function(row) {
-      counts[row.sender_id] = (counts[row.sender_id] || 0) + 1;
-    });
-    const result = Object.entries(counts).map(function([friend_id, count]) {
-      return { friend_id: parseInt(friend_id), count };
-    });
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: 'Server-Fehler' });
-  }
-});
-
-// ============= GLOBAL CHAT =============
-
-app.get('/api/chat/global', async (req, res) => {
-  try {
-    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
-    const { data, error } = await db
-      .from('global_chat')
-      .select('id, user_id, user_name, avatar_seed, message, created_at')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: 'Server-Fehler' });
-  }
-});
-
-app.post('/api/chat/global', async (req, res) => {
-  try {
-    const { user_id, user_name, avatar_seed, message } = req.body;
-    if (!user_id || !user_name || !message) return res.status(400).json({ error: 'Fehlende Felder' });
-    const trimmed = String(message).trim().slice(0, 200);
-    if (!trimmed) return res.status(400).json({ error: 'Leere Nachricht' });
-    const { data, error } = await db
-      .from('global_chat')
-      .insert({ user_id, user_name, avatar_seed: avatar_seed || null, message: trimmed })
-      .select()
-      .single();
-    if (error) throw error;
-    res.json(data);
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }

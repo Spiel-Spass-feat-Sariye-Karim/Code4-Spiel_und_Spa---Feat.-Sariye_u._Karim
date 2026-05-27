@@ -1755,9 +1755,12 @@ function wordleGame() {
       if (idx !== -1) { result[i] = 'present'; sArr[idx] = null; }
     }
     // animate cells + update keyboard
+    // snapshot currentRow before increment so setTimeout closures colour
+    // the submitted row, not the next one (closes #2)
+    var animRow = currentRow;
     result.forEach(function(state, i) {
-      var letter = cells[currentRow][i].textContent;
-      setTimeout(function() { cells[currentRow][i].classList.add(state); }, i * 80);
+      var letter = cells[animRow][i].textContent;
+      setTimeout(function() { cells[animRow][i].classList.add(state); }, i * 80);
       var key = keyMap[letter];
       if (key) {
         var cur = key.dataset.state || '';
