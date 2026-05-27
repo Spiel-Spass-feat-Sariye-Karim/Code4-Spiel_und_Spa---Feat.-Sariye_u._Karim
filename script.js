@@ -1149,48 +1149,91 @@ function showHS() {
 
 /* ---- GLOBALES SCOREBOARD ---- */
 async function loadGlobalHS() {
-try {
-  var res = await fetch(API_URL + '/api/global-highscores');
+  try {
+    var res = await fetch(API_URL + '/api/global-highscores');
+    if (!res.ok) { document.getElementById('global-hs').innerHTML = '<p class="sb-empty">Fehler beim Laden</p>'; return; }
+    var scores = await res.json();
+    if (!scores || !Array.isArray(scores) || !scores.length) {
+      document.getElementById('global-hs').innerHTML = '<p class="sb-empty">Noch keine Scores</p>';
+      return;
+    }
 
-  if (!res.ok) {
-    document.getElementById("global-hs").innerHTML = "Fehler beim Laden";
-    return;
-  }
+    function avUrl(item) {
+      return 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(item.avatar_seed || item.name || 'x');
+    }
+    function isMeClass(item) { return (user && item.name === user.name) ? ' sb-me' : ''; }
+    function medal(i) {
+      if (i === 0) return '<span class="sb-m sb-gold">🥇</span>';
+      if (i === 1) return '<span class="sb-m sb-silver">🥈</span>';
+      if (i === 2) return '<span class="sb-m sb-bronze">🥉</span>';
+      return '<span class="sb-m sb-num">' + (i+1) + '</span>';
+    }
 
+    function sbRows(sorted, key, fmt, limit) {
+      var out = '';
+      var shown = 0;
+      for (var i = 0; i < sorted.length && shown < (limit||5); i++) {
+        var val = sorted[i][key];
+        if (!val || val === 0) continue;
+        out += '<div class="sb-row' + isMeClass(sorted[i]) + '">' +
+          medal(shown) +
+          '<img src="' + avUrl(sorted[i]) + '" class="sb-av" loading="lazy">' +
+          '<span class="sb-name">' + sorted[i].name + '</span>' +
+          '<span class="sb-score">' + fmt(val) + '</span>' +
+          '</div>';
+        shown++;
+      }
+      return out || '<div class="sb-empty-row">Noch keine Einträge</div>';
+    }
 
-  var scores = await res.json();
+    function sbSection(colorClass, emoji, title, sorted, key, fmt) {
+      return '<div class="sb-section">' +
+        '<div class="sb-head ' + colorClass + '">' + emoji + '<span>' + title + '</span></div>' +
+        '<div class="sb-body">' + sbRows(sorted, key, fmt, 5) + '</div>' +
+        '</div>';
+    }
 
-  if (!scores || !Array.isArray(scores)) return;
+    // Overall top 5
+    var overallHtml = '';
+    for (var i = 0; i < Math.min(5, scores.length); i++) {
+      var item = scores[i];
+      var total = (item.memory||0)+(item.stack||0)+(item.precision||0)+(item.guess||0)+(item.wordle||0);
+      overallHtml +=
+        '<div class="sb-row sb-row-overall' + isMeClass(item) + '">' +
+        medal(i) +
+        '<img src="' + avUrl(item) + '" class="sb-av" loading="lazy">' +
+        '<span class="sb-name">' + item.name +
+          '<span class="sb-rank-badge">' + getRank(total) + '</span>' +
+        '</span>' +
+        '<span class="sb-score sb-rp">' + (item.rank_points||0) + '<span class="sb-unit"> RP</span></span>' +
+        '</div>';
+    }
 
-  var html = "";
-  scores.forEach(function(item, i) {
-    var rankClass = "";
-    if (i === 0) rankClass = "top1";
-    else if (i === 1) rankClass = "top2";
-    else if (i === 2) rankClass = "top3";
+    // Per-game sorted lists (skip users with 0 score)
+    var memSort      = scores.slice().sort(function(a,b){ return (b.memory||0)-(a.memory||0); });
+    var stackSort    = scores.slice().sort(function(a,b){ return (b.stack||0)-(a.stack||0); });
+    var reactSort    = scores.filter(function(x){ return x.reaction_ms>0; }).sort(function(a,b){ return a.reaction_ms-b.reaction_ms; });
+    var bubbleSort   = scores.slice().sort(function(a,b){ return (b.precision||0)-(a.precision||0); });
+    var guessSort    = scores.slice().sort(function(a,b){ return (b.guess||0)-(a.guess||0); });
+    var wordleSort   = scores.slice().sort(function(a,b){ return (b.wordle||0)-(a.wordle||0); });
 
-    var meClass = (user && item.name === user.name) ? "me" : "";
-    var seed = item.avatar_seed || item.name || "unknown";
-    var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
-
-    var reactionDisplay = item.reaction_ms > 0 ? item.reaction_ms + 'ms' : '-';
-    html +=
-      '<div class="global-row ' + meClass + '">' +
-      '<div class="rank ' + rankClass + '">#' + (i+1) + '</div>' +
-      '<div style="display:flex;align-items:center;gap:8px;min-width:0;">' +
-      '<img src="' + av + '" style="width:24px;height:24px;border-radius:50%;flex-shrink:0">' +
-      '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + item.name + '</span>' +
-      '<span style="font-size:0.7rem;color:var(--dim);flex-shrink:0">' + getRank((item.memory||0)+(item.stack||0)+(item.precision||0)+(item.guess||0)+(item.wordle||0)) + '</span>' +
+    var html =
+      '<div class="sb-section">' +
+        '<div class="sb-head sb-overall">🏆<span>Gesamtwertung</span></div>' +
+        '<div class="sb-body">' + overallHtml + '</div>' +
       '</div>' +
-      '<div class="score" style="font-size:0.78rem">' + (item.memory||0) + '&nbsp;/&nbsp;' + (item.stack||0) + '&nbsp;/&nbsp;' + reactionDisplay + '</div>' +
-      '</div>';
-  });
+      sbSection('sb-memory',   '🧠', 'Farb-Gedächtnis', memSort,    'memory',      function(v){ return v+' Pkt'; }) +
+      sbSection('sb-stack',    '🧱', 'Turm-Stapler',    stackSort,  'stack',       function(v){ return v+' Etagen'; }) +
+      sbSection('sb-reaction', '⚡', 'Reaktionstest',   reactSort,  'reaction_ms', function(v){ return v+' ms'; }) +
+      sbSection('sb-bubble',   '🫧', 'Bubble Pop',      bubbleSort, 'precision',   function(v){ return v+' Pkt'; }) +
+      sbSection('sb-guess',    '🔢', 'Zahlen-Raten',    guessSort,  'guess',       function(v){ return v+' Pkt'; }) +
+      sbSection('sb-wordle',   '💻', 'Info-Wordle',     wordleSort, 'wordle',      function(v){ return v+' Pkt'; });
 
-  document.getElementById("global-hs").innerHTML = html || "Noch keine Scores";
-} catch (err) {
-  console.error('Fehler beim Laden der Highscores:', err);
-  document.getElementById("global-hs").innerHTML = "Fehler beim Laden";
-}
+    document.getElementById('global-hs').innerHTML = html;
+  } catch (err) {
+    console.error('Fehler beim Laden der Highscores:', err);
+    document.getElementById('global-hs').innerHTML = '<p class="sb-empty">Fehler beim Laden</p>';
+  }
 }
 
 async function loadStats() {

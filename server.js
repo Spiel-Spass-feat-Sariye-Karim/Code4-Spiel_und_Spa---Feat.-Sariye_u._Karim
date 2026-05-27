@@ -301,7 +301,7 @@ app.get('/api/global-highscores', async (req, res) => {
     const result = users
       .map(u => ({ ...u, rank_points: pts[u.name.toLowerCase()] }))
       .sort((a, b) => b.rank_points - a.rank_points)
-      .slice(0, 10);
+      .slice(0, 20);
 
     res.json(result);
   } catch (err) {
