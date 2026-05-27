@@ -125,12 +125,110 @@ border: 2px solid var(--c1);
 .hero p{color:var(--dim);margin-top:0.3rem;font-size:0.9rem}
  
 /* Karten */
-.cards{display:flex;gap:1rem;justify-content:center;padding:0.5rem 1rem 1rem;flex-wrap:wrap}
-.card{background:var(--s1);border:1px solid #282828;border-radius:var(--r);padding:1.5rem;width:240px;text-align:center;cursor:pointer;transition:transform 0.15s,border-color 0.15s}
-.card:hover{transform:translateY(-3px);border-color:#444}
-.card .em{font-size:2.8rem;margin-bottom:0.6rem}
-.card h3{font-size:1.05rem;font-weight:700;margin-bottom:0.15rem}
+/* ── Game Categories ────────────────────────────────────────── */
+.game-categories {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 1rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.game-category {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.07);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+/* Category header button */
+.cat-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 18px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: filter 0.15s;
+  text-align: left;
+}
+.cat-header:hover { filter: brightness(1.08); }
+#cat-single .cat-header {
+  background: linear-gradient(90deg, #1a1040, #2d1b6e, #1e3a5f);
+  color: #c4b5fd;
+}
+#cat-multi .cat-header {
+  background: linear-gradient(90deg, #3d0a0a, #7f1d1d, #431407);
+  color: #fca5a5;
+}
+.cat-icon  { font-size: 1.2rem; line-height:1; }
+.cat-title { flex: 1; color: #fff; }
+.cat-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.85);
+  letter-spacing: 0.03em;
+  text-transform: none;
+}
+.cat-chevron {
+  font-size: 1rem;
+  color: rgba(255,255,255,0.6);
+  transition: transform 0.28s ease;
+  line-height: 1;
+}
+.cat-header[aria-expanded="false"] .cat-chevron { transform: rotate(-90deg); }
+
+/* Collapsible body */
+.cat-body {
+  overflow: hidden;
+  max-height: 600px;
+  transition: max-height 0.35s cubic-bezier(.4,0,.2,1), opacity 0.25s;
+  opacity: 1;
+  background: #0e0e16;
+}
+.cat-body.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* Cards inside categories */
+.cards{display:flex;gap:0.9rem;justify-content:center;padding:1rem 1rem 1.1rem;flex-wrap:wrap}
+.card{background:var(--s1);border:1px solid #282828;border-radius:var(--r);padding:1.5rem;width:220px;text-align:center;cursor:pointer;transition:transform 0.18s,border-color 0.18s,box-shadow 0.18s}
+.card:hover{transform:translateY(-4px);border-color:#555;box-shadow:0 8px 24px rgba(0,0,0,0.4)}
+.card .em{font-size:2.6rem;margin-bottom:0.6rem}
+.card h3{font-size:1rem;font-weight:700;margin-bottom:0.2rem}
 .card p{font-size:0.78rem;color:var(--dim)}
+
+/* Featured card (Duell) — slightly larger & glowing */
+.cards-multi { justify-content: center; }
+.card-featured {
+  width: 280px;
+  border-color: #7f1d1d;
+  background: linear-gradient(145deg, #1a0a0a, #2d0f0f);
+  box-shadow: 0 0 0 1px rgba(239,68,68,0.2), 0 4px 20px rgba(239,68,68,0.1);
+}
+.card-featured:hover {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239,68,68,0.3), 0 8px 32px rgba(239,68,68,0.2);
+  transform: translateY(-4px);
+}
+.card-featured .em { font-size: 3.2rem; }
+
+/* light mode */
+body.light .game-category  { border-color: #ddd; }
+body.light .cat-body        { background: #f9f9f9; }
+body.light #cat-single .cat-header { background: linear-gradient(90deg,#ede9fe,#dbeafe); color: #4c1d95; }
+body.light #cat-multi  .cat-header { background: linear-gradient(90deg,#fee2e2,#fecaca); color: #7f1d1d; }
+body.light .cat-title  { color: inherit; }
+body.light .card-featured { background: #fff5f5; border-color: #fca5a5; box-shadow: none; }
  
 /* Highscores */
 .hs-section{max-width:500px;margin:1rem auto;padding:0 1rem 2rem}
@@ -455,8 +553,9 @@ animation: popIn 0.25s ease-out;
 @media (max-width: 768px) {
 .hero h1 { font-size: 1.5rem; }
 .cards { gap: 0.8rem; }
-.card { width: 200px; padding: 1.2rem; }
+.card { width: 185px; padding: 1.1rem; }
 .stats-grid { max-width: 100%; }
+.game-categories { padding: 0 0.5rem 0.5rem; }
 }
 /* Handy */
 @media (max-width: 500px) {
@@ -464,7 +563,8 @@ header { padding: 0.6rem 1rem; }
 .hero { padding: 2rem 1rem 1rem; }
 .hero h1 { font-size: 1.3rem; }
 .cards { flex-direction: column; align-items: center; }
-.card { width: 90%; max-width: 320px; }
+.card { width: 90%; max-width: 340px; }
+.card-featured { width: 90%; max-width: 340px; }
 .login-box { width: 90%; padding: 1.8rem; }
 .memory-pads { max-width: 240px; gap: 8px; }
 .sb-row { padding: 6px 10px; gap: 7px; }
@@ -1245,7 +1345,10 @@ body.light .chat-input-row input:focus { border-color: var(--c1); }
   background: #222;
   border-bottom: 1px solid #2a2a2a;
   flex-shrink: 0;
+  cursor: grab;
+  user-select: none;
 }
+.pc-header:active { cursor: grabbing; }
 .pc-header-info { display: flex; align-items: center; gap: 0.6rem; }
 .pc-avatar { width: 32px; height: 32px; border-radius: 50%; background: #333; }
 #pc-name { font-weight: 700; font-size: 0.9rem; }
@@ -1316,6 +1419,12 @@ body.light .pc-header { background: #e8e8e8; border-color: #ddd; }
 body.light .pc-input-row { border-color: #ddd; }
 body.light .pc-input-row input { background: #fff; border-color: #ccc; color: #111; }
 
+/* ── Draggable panels ────────────────────────────────────────── */
+.draggable-handle { cursor: grab; user-select: none; }
+.draggable-handle:active { cursor: grabbing; }
+body.is-dragging { user-select: none; cursor: grabbing !important; }
+body.is-dragging * { cursor: grabbing !important; }
+
 /* ── Global Chat floating button & panel ─────────────────────── */
 #global-chat-btn {
   position: fixed;
@@ -1374,7 +1483,10 @@ body.light .pc-input-row input { background: #fff; border-color: #ccc; color: #1
   color: #fff;
   flex-shrink: 0;
   letter-spacing: 0.03em;
+  cursor: grab;
+  user-select: none;
 }
+.gc-header:active { cursor: grabbing; }
 .gc-header button {
   background: none;
   border: none;

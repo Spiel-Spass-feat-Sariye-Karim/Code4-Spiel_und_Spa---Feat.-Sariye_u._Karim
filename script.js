@@ -609,7 +609,9 @@ function openPrivateChat(friend) {
 function closePrivateChat() {
   if (privateChatInterval) { clearInterval(privateChatInterval); privateChatInterval = null; }
   activeChatFriend = null;
-  document.getElementById('private-chat-modal').classList.remove('open');
+  var modal = document.getElementById('private-chat-modal');
+  modal.classList.remove('open');
+  if (modal._resetDragPosition) modal._resetDragPosition();
 }
 
 async function loadPrivateMessages() {
@@ -1322,17 +1324,23 @@ document.getElementById('sidebar-mobile-btn').addEventListener('click', function
 // Global chat floating button
 document.getElementById('global-chat-btn').addEventListener('click', function() {
   var panel = document.getElementById('global-chat-panel');
-  panel.classList.toggle('open');
-  if (panel.classList.contains('open')) {
-    loadGlobalChat();
-    setTimeout(function() {
-      var w = document.getElementById('chat-window');
-      if (w) w.scrollTop = w.scrollHeight;
-    }, 80);
+  var opening = !panel.classList.contains('open');
+  if (!opening) {
+    panel.classList.remove('open');
+    if (panel._resetDragPosition) panel._resetDragPosition();
+    return;
   }
+  panel.classList.add('open');
+  loadGlobalChat();
+  setTimeout(function() {
+    var w = document.getElementById('chat-window');
+    if (w) w.scrollTop = w.scrollHeight;
+  }, 80);
 });
 document.getElementById('gc-close').addEventListener('click', function() {
-  document.getElementById('global-chat-panel').classList.remove('open');
+  var panel = document.getElementById('global-chat-panel');
+  panel.classList.remove('open');
+  if (panel._resetDragPosition) panel._resetDragPosition();
 });
 // Rang-Legende Modal
 document.getElementById('rank-info-btn').addEventListener('click', function() {
@@ -1344,6 +1352,86 @@ document.getElementById('rank-legend-close').addEventListener('click', function(
 document.getElementById('rank-legend-overlay').addEventListener('click', function(e) {
   if (e.target === this) this.classList.remove('open');
 });
+// ── Kategorie-Collapse ────────────────────────────────────────
+document.querySelectorAll('.cat-header').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var expanded = this.getAttribute('aria-expanded') === 'true';
+    this.setAttribute('aria-expanded', String(!expanded));
+    var body = this.closest('.game-category').querySelector('.cat-body');
+    if (expanded) {
+      body.classList.add('collapsed');
+    } else {
+      body.classList.remove('collapsed');
+    }
+  });
+});
+
+// ── Draggable panels ──────────────────────────────────────────
+function makeDraggable(panel, handle) {
+  var dragging = false, ox = 0, oy = 0;
+
+  function pointerDown(e) {
+    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+    dragging = true;
+    var rect = panel.getBoundingClientRect();
+    // Switch from CSS-transition positioning to explicit left/top
+    panel.style.transition = 'none';
+    panel.style.right  = 'auto';
+    panel.style.bottom = 'auto';
+    panel.style.transform = 'none';
+    panel.style.left = rect.left + 'px';
+    panel.style.top  = rect.top  + 'px';
+    var cx = e.touches ? e.touches[0].clientX : e.clientX;
+    var cy = e.touches ? e.touches[0].clientY : e.clientY;
+    ox = cx - rect.left;
+    oy = cy - rect.top;
+    document.body.classList.add('is-dragging');
+    e.preventDefault();
+  }
+  function pointerMove(e) {
+    if (!dragging) return;
+    var cx = e.touches ? e.touches[0].clientX : e.clientX;
+    var cy = e.touches ? e.touches[0].clientY : e.clientY;
+    var nl = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  cx - ox));
+    var nt = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, cy - oy));
+    panel.style.left = nl + 'px';
+    panel.style.top  = nt + 'px';
+    e.preventDefault();
+  }
+  function pointerUp() {
+    if (!dragging) return;
+    dragging = false;
+    document.body.classList.remove('is-dragging');
+  }
+
+  handle.addEventListener('mousedown',  pointerDown);
+  handle.addEventListener('touchstart', pointerDown, { passive: false });
+  document.addEventListener('mousemove',  pointerMove);
+  document.addEventListener('touchmove',  pointerMove, { passive: false });
+  document.addEventListener('mouseup',  pointerUp);
+  document.addEventListener('touchend', pointerUp);
+
+  // Reset to CSS-default position when panel is closed
+  panel._resetDragPosition = function() {
+    panel.style.transition = '';
+    panel.style.left = '';
+    panel.style.top  = '';
+    panel.style.right  = '';
+    panel.style.bottom = '';
+    panel.style.transform = '';
+  };
+}
+
+// Wire up draggable panels
+makeDraggable(
+  document.getElementById('global-chat-panel'),
+  document.querySelector('#global-chat-panel .gc-header')
+);
+makeDraggable(
+  document.getElementById('private-chat-modal'),
+  document.querySelector('#private-chat-modal .pc-header')
+);
+
 document.getElementById('btn-vs-ai').addEventListener('click', function() { tttStart(lobbyAiDiff); });
 document.querySelectorAll('.diff-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {

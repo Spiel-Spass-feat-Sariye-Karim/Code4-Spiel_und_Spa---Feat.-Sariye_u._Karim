@@ -52,15 +52,45 @@
 <button class="btn-sm" id="btn-logout">Abmelden</button>
 </div>
   </header>
-  <div class="hero"><h1>Bereit zum <em>Zocken</em>?</h1><p>Sechs Spiele — Farb-Gedächtnis, Turm-Stapler, Reaktionstest, Bubble Pop, Zahlen-Raten & Info-Wordle. Dein Highscore wird gespeichert.</p></div>
-  <div class="cards">
-    <div class="card" id="card-memory"> <div class="em">🧠</div> <h3>Farb-Gedächtnis</h3> <p>Merke dir die Reihenfolge der Farben!</p> </div>
-    <div class="card" id="card-stack"><div class="em">🧱</div><h3>Turm-Stapler</h3><p>Staple perfekt — jeder Fehler kostet Breite!</p></div>
-    <div class="card" id="card-reaction"><div class="em">⚡</div><h3>Reaktionstest</h3><p>Wie schnell reagierst du?</p></div>
-    <div class="card" id="card-bubble"><div class="em">🫧</div><h3>Bubble Pop</h3><p>Triff die kleinen Blasen für mehr Punkte!</p></div>
-    <div class="card" id="card-guess"><div class="em">🔢</div><h3>Zahlen-Raten</h3><p>Finde die Zahl in so wenig Versuchen wie möglich!</p></div>
-    <div class="card" id="card-wordle"><div class="em">💻</div><h3>Info-Wordle</h3><p>Errate das Informatik-Wort!</p></div>
-    <div class="card" id="card-multiplayer"><div class="em">⚔️</div><h3>Duell</h3><p>Spiel gegen KI oder einen Freund!</p></div>
+  <div class="hero"><h1>Bereit zum <em>Zocken</em>?</h1><p>Sieben Spiele — solo oder im Duell. Dein Highscore wird gespeichert.</p></div>
+
+  <div class="game-categories">
+
+    <!-- SINGLEPLAYER -->
+    <div class="game-category" id="cat-single">
+      <button class="cat-header" data-cat="single" aria-expanded="true">
+        <span class="cat-icon">🎮</span>
+        <span class="cat-title">Singleplayer</span>
+        <span class="cat-badge">6 Spiele</span>
+        <span class="cat-chevron">▾</span>
+      </button>
+      <div class="cat-body">
+        <div class="cards">
+          <div class="card" id="card-memory"><div class="em">🧠</div><h3>Farb-Gedächtnis</h3><p>Merke dir die Reihenfolge der Farben!</p></div>
+          <div class="card" id="card-stack"><div class="em">🧱</div><h3>Turm-Stapler</h3><p>Staple perfekt — jeder Fehler kostet Breite!</p></div>
+          <div class="card" id="card-reaction"><div class="em">⚡</div><h3>Reaktionstest</h3><p>Wie schnell reagierst du?</p></div>
+          <div class="card" id="card-bubble"><div class="em">🫧</div><h3>Bubble Pop</h3><p>Triff die kleinen Blasen für mehr Punkte!</p></div>
+          <div class="card" id="card-guess"><div class="em">🔢</div><h3>Zahlen-Raten</h3><p>Finde die Zahl in so wenig Versuchen wie möglich!</p></div>
+          <div class="card" id="card-wordle"><div class="em">💻</div><h3>Info-Wordle</h3><p>Errate das Informatik-Wort!</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MULTIPLAYER -->
+    <div class="game-category" id="cat-multi">
+      <button class="cat-header" data-cat="multi" aria-expanded="true">
+        <span class="cat-icon">⚔️</span>
+        <span class="cat-title">Multiplayer</span>
+        <span class="cat-badge">1 Spiel</span>
+        <span class="cat-chevron">▾</span>
+      </button>
+      <div class="cat-body">
+        <div class="cards cards-multi">
+          <div class="card card-featured" id="card-multiplayer"><div class="em">⚔️</div><h3>Duell</h3><p>Spiel gegen KI oder fordere einen Freund heraus!</p></div>
+        </div>
+      </div>
+    </div>
+
   </div>
   
 
