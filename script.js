@@ -1690,6 +1690,43 @@ function guessGame() {
 /* ---- SPIEL 6: INFO-WORDLE ---- */
 var WORDLE_WORDS = ['PIXEL', 'BYTES', 'CLICK', 'DATEN', 'NETZT', 'VIRUS', 'CACHE', 'LOGIN', 'MAILS', 'CLOUD', 'CODES', 'INPUT', 'LINKS', 'MEDIA', 'SHARE', 'SCOUT', 'SMART', 'TASTE', 'WLANS', 'HANDY'];
 
+// Alle gültigen Ratewörter (Lösungen + erweitertes Vokabular)
+var WORDLE_VALID_WORDS = new Set(WORDLE_WORDS.concat([
+  // IT / Technik (Englisch)
+  'ADMIN','AGILE','ALERT','ALIAS','ALPHA','ARRAY','ASCII','ASYNC',
+  'AUDIT','AZURE','BADGE','BASIC','BATCH','BLOCK','BOARD','BOOST',
+  'BOOTS','BUILD','BURST','CHAIN','CHECK','CLASS','CLEAN','CLEAR',
+  'CLOCK','CLONE','CLOSE','COLOR','COUNT','CRASH','CRYPT','DEBUG',
+  'DELTA','DEPOT','DIGIT','DRAFT','DRIVE','EMAIL','EMOJI','EMPTY',
+  'ENTER','ERROR','EVENT','EXACT','EXTRA','FETCH','FIELD','FIXED',
+  'FLAME','FLASH','FLOAT','FLUSH','FOCUS','FORCE','FRAME','FRESH',
+  'FRONT','GHOST','GRANT','GRAPH','GROUP','GUARD','GUEST','GUIDE',
+  'INDEX','ISSUE','ITEMS','LAYER','LEARN','LOCAL','LOGIC','LOOPS',
+  'MACRO','MATCH','MICRO','MODEL','MODEM','MONGO','MYSQL','NEXUS',
+  'NODES','ORDER','OUTER','OWNER','PAGES','PANEL','PARSE','PATHS',
+  'PAUSE','PIPES','PLANE','POINT','POOLS','PORTS','PRINT','PROBE',
+  'PROTO','PROXY','QUERY','QUEUE','RANGE','REALM','REPLY','RESET',
+  'RETRY','ROLES','ROUND','ROUTE','RULES','SCALA','SCALE','SCOPE',
+  'SERVE','SETUP','SHELL','SHIFT','SLICE','SLOTS','SOLID','SOLVE',
+  'SPECS','SPLIT','STACK','STATE','STORE','SWIFT','SYNCS','TASKS',
+  'TERMS','TESTS','THROW','TIMER','TITLE','TOKEN','TRACE','TRACK',
+  'TRAIL','TYPES','UNION','UTILS','VALID','VALUE','VAULT','VIEWS',
+  'VOICE','WATCH','WHERE','WHILE','WRITE','LIGHT','RIGHT','POINT',
+  'BREAK','CHECK','CRUMB','FLUSH','FLAME','FIBER','GRANT','MERGE',
+  'QUEUE','SPAWN','YIELD','AWAIT','CONST','SUPER','TYPED','ASYNC',
+  // Deutsche Allgemeinwörter (5 Buchstaben, keine Umlaute)
+  'ABEND','ALTER','AMPEL','ANGEL','ANGST','ANKER','APFEL','ATLAS',
+  'BITTE','BLATT','BLECH','BLUME','BODEN','BRUST','BUCHE','DECKE',
+  'ESSEN','FEUER','FISCH','FLUSS','GRIFF','GRUND','HACKE','HILFE',
+  'KATZE','KEULE','KNALL','KREIS','KREUZ','KRONE','LICHT','LIEBE',
+  'MENGE','METER','MITTE','NACHT','OSTEN','PFEIL','PLATZ','PREIS',
+  'REISE','RUNDE','SEITE','STADT','STERN','STOFF','STROM','STUHL',
+  'TEICH','TISCH','TINTE','VOGEL','WOLKE','WURST','LEBEN','SPIEL',
+  'SCHUH','SCHAF','ARBEI','MARKT','FARBE','GUTER','GUTEN','TIEFE',
+  'EBENE','WOCHE','JAHRE','STUFE','WETTE','WILLE','KRAFT','KISTE',
+  'BREIT','STARK','TREFF','SCHON','SPORT','STUBE','TAGEN','OFFEN'
+]));
+
 function wordleGame() {
   var on = true;
   var secret = WORDLE_WORDS[Math.floor(Math.random() * WORDLE_WORDS.length)];
@@ -1750,6 +1787,17 @@ function wordleGame() {
     if (!on) return;
     if (k === 'ENTER') {
       if (currentGuess.length < wordLen) { statusEl.textContent = 'Noch ' + (wordLen - currentGuess.length) + ' Buchstaben fehlen!'; return; }
+      var guessWord = currentGuess.join('');
+      if (!WORDLE_VALID_WORDS.has(guessWord)) {
+        statusEl.textContent = '❌ Kein gültiges Wort!';
+        var rowEl = cells[currentRow][0].parentElement;
+        rowEl.classList.remove('shake');
+        // force reflow so re-adding the class re-triggers the animation
+        void rowEl.offsetWidth;
+        rowEl.classList.add('shake');
+        setTimeout(function() { rowEl.classList.remove('shake'); }, 500);
+        return;
+      }
       submitGuess();
     } else if (k === 'BACKSPACE') {
       if (currentCol > 0) { currentCol--; currentGuess.pop(); cells[currentRow][currentCol].textContent = ''; cells[currentRow][currentCol].classList.remove('filled'); }
