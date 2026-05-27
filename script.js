@@ -1695,11 +1695,30 @@ function wordleGame() {
   var secret = WORDLE_WORDS[Math.floor(Math.random() * WORDLE_WORDS.length)];
   var currentRow = 0, currentCol = 0, currentGuess = [];
   var maxRows = 6, wordLen = 5;
+  var hintsUsed = 0;
 
   var grid = document.getElementById('wordle-grid');
   var kbEl = document.getElementById('wordle-keyboard');
   var statusEl = document.getElementById('wordle-status');
+  var hintBtn = document.getElementById('wordle-hint-btn');
+  var hintDisplay = document.getElementById('wordle-hint-display');
   grid.innerHTML = ''; kbEl.innerHTML = ''; statusEl.textContent = '';
+  hintBtn.disabled = false;
+
+  function updateHintDisplay() {
+    hintDisplay.innerHTML = secret.split('').map(function(ch, i) {
+      return '<span class="hint-letter' + (i < hintsUsed ? ' revealed' : '') + '">' +
+             (i < hintsUsed ? ch : '_') + '</span>';
+    }).join('');
+  }
+  updateHintDisplay();
+
+  hintBtn.onclick = function() {
+    if (!on || hintsUsed >= wordLen) return;
+    hintsUsed++;
+    updateHintDisplay();
+    if (hintsUsed >= wordLen) hintBtn.disabled = true;
+  };
 
   // Build grid
   var cells = [];
@@ -1775,12 +1794,16 @@ function wordleGame() {
     setTimeout(function() {
       if (won) {
         on = false;
-        var score = Math.max(20, (maxRows - currentRow + 1) * 20);
-        statusEl.textContent = '🎉 ' + secret + '! +' + score + ' Punkte';
+        hintBtn.disabled = true;
+        var base = Math.max(20, (maxRows - currentRow + 1) * 20);
+        var score = Math.max(0, base - hintsUsed * 15);
+        var hintNote = hintsUsed > 0 ? ' (−' + (hintsUsed * 15) + ' Tipp)' : '';
+        statusEl.textContent = '🎉 ' + secret + '! +' + score + ' Punkte' + hintNote;
         document.getElementById('pts').textContent = score;
         sounds.highscore(); saveHS('wordle', score);
       } else if (currentRow >= maxRows) {
         on = false;
+        hintBtn.disabled = true;
         statusEl.textContent = '💀 Game Over! Das Wort war: ' + secret;
         saveHS('wordle', 0);
       }
@@ -1802,6 +1825,8 @@ function wordleGame() {
   return {
     stop: function() {
       on = false;
+      hintBtn.disabled = true;
+      hintBtn.onclick = null;
       kbEl.removeEventListener('click', kbClick);
       document.removeEventListener('keydown', physKey);
     }
