@@ -86,6 +86,7 @@
   <div class="board-tabs">
     <button class="board-tab active" data-board="global">🌍 Global</button>
     <button class="board-tab" data-board="friends">👥 Freunde<span id="friends-badge" class="badge" style="display:none">0</span></button>
+    <button id="rank-info-btn" class="rank-info-btn" title="Rang-System & Punkte erklären">❓</button>
   </div>
   <div id="board-global" class="board-panel active">
     <div id="global-hs">Lädt...</div>
@@ -103,6 +104,94 @@
   </div>
 </div>
 
+</div>
+
+<!-- RANG-LEGENDE MODAL -->
+<div id="rank-legend-overlay" class="rank-legend-overlay">
+  <div class="rank-legend-modal">
+    <div class="rl-header">
+      <span>📊 Rang-System & Punkte</span>
+      <button id="rank-legend-close">✕</button>
+    </div>
+    <div class="rl-body">
+
+      <div class="rl-section-title">🎖️ Dein persönlicher Rang</div>
+      <p class="rl-desc">Dein Rang basiert auf der <strong>Summe deiner besten Scores</strong> aus allen Spielen (außer Reaktionstest).</p>
+      <div class="rl-rank-table">
+        <div class="rl-rank-row rl-neuling">
+          <span class="rl-rank-icon">🌱</span>
+          <span class="rl-rank-name">Neuling</span>
+          <span class="rl-rank-range">0 – 9 Pkt</span>
+          <div class="rl-rank-bar" style="--w:3%"></div>
+        </div>
+        <div class="rl-rank-row rl-spieler">
+          <span class="rl-rank-icon">🎮</span>
+          <span class="rl-rank-name">Spieler</span>
+          <span class="rl-rank-range">10 – 49 Pkt</span>
+          <div class="rl-rank-bar" style="--w:16%"></div>
+        </div>
+        <div class="rl-rank-row rl-profi">
+          <span class="rl-rank-icon">🔥</span>
+          <span class="rl-rank-name">Profi</span>
+          <span class="rl-rank-range">50 – 149 Pkt</span>
+          <div class="rl-rank-bar" style="--w:40%"></div>
+        </div>
+        <div class="rl-rank-row rl-veteran">
+          <span class="rl-rank-icon">⭐</span>
+          <span class="rl-rank-name">Veteran</span>
+          <span class="rl-rank-range">150 – 299 Pkt</span>
+          <div class="rl-rank-bar" style="--w:70%"></div>
+        </div>
+        <div class="rl-rank-row rl-legende">
+          <span class="rl-rank-icon">👑</span>
+          <span class="rl-rank-name">Legende</span>
+          <span class="rl-rank-range">300+ Pkt</span>
+          <div class="rl-rank-bar" style="--w:100%"></div>
+        </div>
+      </div>
+
+      <div class="rl-games-row">
+        <div class="rl-game-chip">🧠 Farb-Gedächtnis</div>
+        <div class="rl-game-chip">🧱 Turm-Stapler</div>
+        <div class="rl-game-chip">🫧 Bubble Pop</div>
+        <div class="rl-game-chip">🔢 Zahlen-Raten</div>
+        <div class="rl-game-chip">💻 Info-Wordle</div>
+      </div>
+
+      <div class="rl-divider"></div>
+
+      <div class="rl-section-title">🌍 Globales Leaderboard (RP)</div>
+      <p class="rl-desc">Rang-Punkte (RP) messen deinen <strong>Platz im Vergleich zu allen anderen Spielern</strong> — pro Spiel separat.</p>
+      <div class="rl-rp-table">
+        <div class="rl-rp-row">
+          <span class="rl-rp-medal">🥇</span>
+          <span class="rl-rp-place">Platz 1</span>
+          <span class="rl-rp-pts">10 RP</span>
+          <div class="rl-rp-bar" style="--w:100%"></div>
+        </div>
+        <div class="rl-rp-row">
+          <span class="rl-rp-medal">🥈</span>
+          <span class="rl-rp-place">Platz 2</span>
+          <span class="rl-rp-pts">8 RP</span>
+          <div class="rl-rp-bar" style="--w:80%"></div>
+        </div>
+        <div class="rl-rp-row">
+          <span class="rl-rp-medal">🥉</span>
+          <span class="rl-rp-place">Platz 3 – 5</span>
+          <span class="rl-rp-pts">5 RP</span>
+          <div class="rl-rp-bar" style="--w:50%"></div>
+        </div>
+        <div class="rl-rp-row">
+          <span class="rl-rp-medal rl-rp-other">#</span>
+          <span class="rl-rp-place">Platz 6+</span>
+          <span class="rl-rp-pts">1 RP</span>
+          <div class="rl-rp-bar" style="--w:10%"></div>
+        </div>
+      </div>
+      <p class="rl-note">Maximale RP: 6 Spiele × 10 RP = <strong>60 RP</strong></p>
+
+    </div>
+  </div>
 </div>
 
 <!-- SIDEBAR -->

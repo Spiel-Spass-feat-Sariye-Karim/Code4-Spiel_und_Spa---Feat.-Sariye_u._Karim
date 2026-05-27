@@ -538,7 +538,26 @@ body.light .overlay-box { background: #fff; }
   background: var(--s2);
   padding: 4px;
   border-radius: 8px;
+  align-items: center;
 }
+.rank-info-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 50%;
+  color: var(--dim);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+.rank-info-btn:hover { background: var(--c1); color: #fff; border-color: transparent; }
 .board-tab {
   flex: 1;
   padding: 0.5rem;
@@ -1406,6 +1425,188 @@ body.light .gc-input-row input { background: #fff; border-color: #ccc; color: #1
     right: -100vw;
   }
   .global-chat-panel.open { right: 10px; }
+}
+
+/* ── Rang-Legende Modal ──────────────────────────────────────── */
+.rank-legend-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(4px);
+  z-index: 500;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.rank-legend-overlay.open { display: flex; }
+
+.rank-legend-modal {
+  background: #161616;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 18px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+  animation: rlPop 0.22s cubic-bezier(.4,0,.2,1);
+}
+@keyframes rlPop {
+  from { opacity:0; transform: scale(0.92) translateY(12px); }
+  to   { opacity:1; transform: scale(1)    translateY(0);    }
+}
+
+.rl-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.2rem 0.75rem;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--tx);
+  position: sticky;
+  top: 0;
+  background: #161616;
+  border-radius: 18px 18px 0 0;
+  z-index: 1;
+}
+.rl-header button {
+  background: none;
+  border: none;
+  color: var(--dim);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+.rl-header button:hover { color: var(--tx); background: rgba(255,255,255,0.07); }
+
+.rl-body { padding: 1.1rem 1.2rem 1.4rem; display: flex; flex-direction: column; gap: 0.75rem; }
+
+.rl-section-title {
+  font-weight: 800;
+  font-size: 0.88rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tx);
+  margin-top: 0.25rem;
+}
+.rl-desc {
+  font-size: 0.82rem;
+  color: var(--dim);
+  line-height: 1.55;
+  margin: 0;
+}
+.rl-desc strong { color: var(--tx); }
+
+/* Rank table */
+.rl-rank-table { display: flex; flex-direction: column; gap: 5px; }
+.rl-rank-row {
+  display: grid;
+  grid-template-columns: 28px 90px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  position: relative;
+  overflow: hidden;
+}
+.rl-rank-icon  { font-size: 1.05rem; text-align: center; }
+.rl-rank-name  { font-weight: 800; font-size: 0.85rem; }
+.rl-rank-range { font-size: 0.75rem; color: var(--dim); justify-self: end; white-space: nowrap; }
+.rl-rank-bar {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: var(--w, 0%);
+  border-radius: 9px;
+  opacity: 0.13;
+  z-index: 0;
+}
+.rl-rank-row > * { position: relative; z-index: 1; }
+
+.rl-neuling  { background: rgba(100,120,100,0.15); } .rl-neuling  .rl-rank-bar { background: #4ade80; } .rl-neuling  .rl-rank-name { color: #4ade80; }
+.rl-spieler  { background: rgba(80,130,200,0.15);  } .rl-spieler  .rl-rank-bar { background: #60a5fa; } .rl-spieler  .rl-rank-name { color: #60a5fa; }
+.rl-profi    { background: rgba(255,100,50,0.15);  } .rl-profi    .rl-rank-bar { background: #fb923c; } .rl-profi    .rl-rank-name { color: #fb923c; }
+.rl-veteran  { background: rgba(200,180,30,0.15);  } .rl-veteran  .rl-rank-bar { background: #facc15; } .rl-veteran  .rl-rank-name { color: #facc15; }
+.rl-legende  { background: rgba(200,80,200,0.15);  } .rl-legende  .rl-rank-bar { background: #e879f9; } .rl-legende  .rl-rank-name { color: #e879f9; }
+
+/* Game chips */
+.rl-games-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.rl-game-chip {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 0.76rem;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+/* Divider */
+.rl-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.07);
+  margin: 0.2rem 0;
+}
+
+/* RP table */
+.rl-rp-table { display: flex; flex-direction: column; gap: 5px; }
+.rl-rp-row {
+  display: grid;
+  grid-template-columns: 28px 90px 55px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: rgba(255,255,255,0.04);
+  position: relative;
+  overflow: hidden;
+}
+.rl-rp-medal  { font-size: 1rem; text-align: center; }
+.rl-rp-other  { font-size: 0.78rem; font-weight: 800; color: var(--dim); }
+.rl-rp-place  { font-size: 0.82rem; color: var(--tx); }
+.rl-rp-pts    { font-weight: 800; font-size: 0.85rem; color: #FFD200; text-align: right; }
+.rl-rp-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #FFD200, #FF8C00);
+  width: var(--w, 0%);
+  opacity: 0.6;
+}
+
+.rl-note {
+  font-size: 0.78rem;
+  color: var(--dim);
+  text-align: center;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255,200,0,0.06);
+  border: 1px solid rgba(255,200,0,0.15);
+  border-radius: 8px;
+}
+.rl-note strong { color: #FFD200; }
+
+/* Light mode */
+body.light .rank-legend-modal  { background: #fff; border-color: #ddd; }
+body.light .rl-header          { background: #fff; border-color: #eee; }
+body.light .rl-game-chip       { background: #f0f0f0; border-color: #ddd; color: #555; }
+body.light .rl-divider         { background: #eee; }
+body.light .rl-rp-row          { background: rgba(0,0,0,0.03); }
+body.light .rl-note            { background: rgba(200,150,0,0.07); }
+body.light .rank-info-btn      { background: #f0f0f0; border-color: #ddd; color: #555; }
+
+@media (max-width: 500px) {
+  .rank-legend-modal { border-radius: 14px; }
+  .rl-rank-row  { grid-template-columns: 24px 80px 1fr auto; }
+  .rl-rp-row    { grid-template-columns: 24px 80px 46px 1fr; }
 }
 
 /* ---- MULTIPLAYER LOBBY ---- */

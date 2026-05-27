@@ -1334,6 +1334,16 @@ document.getElementById('global-chat-btn').addEventListener('click', function() 
 document.getElementById('gc-close').addEventListener('click', function() {
   document.getElementById('global-chat-panel').classList.remove('open');
 });
+// Rang-Legende Modal
+document.getElementById('rank-info-btn').addEventListener('click', function() {
+  document.getElementById('rank-legend-overlay').classList.add('open');
+});
+document.getElementById('rank-legend-close').addEventListener('click', function() {
+  document.getElementById('rank-legend-overlay').classList.remove('open');
+});
+document.getElementById('rank-legend-overlay').addEventListener('click', function(e) {
+  if (e.target === this) this.classList.remove('open');
+});
 document.getElementById('btn-vs-ai').addEventListener('click', function() { tttStart(lobbyAiDiff); });
 document.querySelectorAll('.diff-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
