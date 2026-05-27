@@ -7,7 +7,7 @@ var lastChatCount=0;
 var allUsersCache=[],friendIdsSet=new Set(),sentRequestIds=new Set();
 var activeChatFriend=null,privateChatInterval=null,unreadInterval=null;
 var friendsList=[],unreadCounts={};
-var inviteInterval=null,seenInviteIds=new Set(),lobbyAiDiff='easy',hostWaitInterval=null;
+var inviteInterval=null,seenInviteIds=new Set(),inviteFirstCheck=true,lobbyAiDiff='easy',hostWaitInterval=null;
 var tttBoard=Array(9).fill(''),tttOn=false,tttIsAI=false,tttAiDiff='easy';
 var tttCurrentTurn='X',tttMySymbol='X',tttIsHost=true,tttLobbyId=null,tttPollInterval=null,tttLastPlaced=-1;
 
@@ -237,6 +237,13 @@ async function checkGameInvites() {
     if (!res.ok) return;
     var invites = await res.json();
     if (!Array.isArray(invites)) return;
+    // On the very first check after login, silently mark all existing
+    // invites as seen so stale notifications never appear.
+    if (inviteFirstCheck) {
+      invites.forEach(function(inv) { seenInviteIds.add(inv.id); });
+      inviteFirstCheck = false;
+      return;
+    }
     invites.forEach(function(inv) {
       if (seenInviteIds.has(inv.id)) return;
       seenInviteIds.add(inv.id);
@@ -1022,9 +1029,10 @@ document.getElementById("avatar").src =
   loadGlobalChat();
   if (chatInterval) clearInterval(chatInterval);
   chatInterval = setInterval(loadGlobalChat, 10000);
-  // Sidebar + Unread-Counts
+  // Sidebar + Global-Chat-Button sichtbar schalten
   document.getElementById('sidebar').classList.add('visible');
   document.getElementById('sidebar-mobile-btn').classList.add('visible');
+  document.getElementById('global-chat-btn').classList.add('visible');
   unreadCounts = {};
   loadUnreadCounts();
   if (unreadInterval) clearInterval(unreadInterval);
@@ -1038,8 +1046,9 @@ document.getElementById("avatar").src =
   // Anfragen periodisch prüfen
   if (requestsInterval) clearInterval(requestsInterval);
   requestsInterval = setInterval(function() { loadFriendRequests(); }, 60000);
-  // Spiel-Einladungen pollen
+  // Spiel-Einladungen pollen (firstCheck unterdrückt alte Einladungen beim Login)
   seenInviteIds = new Set();
+  inviteFirstCheck = true;
   if (inviteInterval) clearInterval(inviteInterval);
   inviteInterval = setInterval(checkGameInvites, 3000);
   // Theme-Button Emoji setzen
@@ -1062,6 +1071,8 @@ closePrivateChat();
 friendsList = []; unreadCounts = {}; seenInviteIds = new Set(); tttOn = false;
 document.getElementById('sidebar').classList.remove('visible', 'expanded');
 document.getElementById('sidebar-mobile-btn').classList.remove('visible');
+document.getElementById('global-chat-btn').classList.remove('visible');
+document.getElementById('global-chat-panel').classList.remove('open');
 // Online-Status setzen
 if (user) {
   try { await fetch(API_URL + '/api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id }) }); } catch(e) {}
@@ -1307,6 +1318,21 @@ document.getElementById('sidebar-toggle').addEventListener('click', function() {
 });
 document.getElementById('sidebar-mobile-btn').addEventListener('click', function() {
   document.getElementById('sidebar').classList.toggle('expanded');
+});
+// Global chat floating button
+document.getElementById('global-chat-btn').addEventListener('click', function() {
+  var panel = document.getElementById('global-chat-panel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) {
+    loadGlobalChat();
+    setTimeout(function() {
+      var w = document.getElementById('chat-window');
+      if (w) w.scrollTop = w.scrollHeight;
+    }, 80);
+  }
+});
+document.getElementById('gc-close').addEventListener('click', function() {
+  document.getElementById('global-chat-panel').classList.remove('open');
 });
 document.getElementById('btn-vs-ai').addEventListener('click', function() { tttStart(lobbyAiDiff); });
 document.querySelectorAll('.diff-btn').forEach(function(btn) {

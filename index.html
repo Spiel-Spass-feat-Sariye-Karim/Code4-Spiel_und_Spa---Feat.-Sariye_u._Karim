@@ -103,14 +103,6 @@
   </div>
 </div>
 
-  <div class="hs-section chat-section">
-    <h3>💬 Globaler Chat</h3>
-    <div id="chat-window" class="chat-window"></div>
-    <div class="chat-input-row">
-      <input id="chat-input" placeholder="Nachricht eingeben..." maxlength="200" autocomplete="off">
-      <button id="chat-send">Senden</button>
-    </div>
-  </div>
 </div>
 
 <!-- SIDEBAR -->
@@ -122,6 +114,20 @@
   <div id="sidebar-friends"></div>
 </div>
 <button id="sidebar-mobile-btn" class="sidebar-mobile-btn" title="Freunde-Chat">💬</button>
+
+<!-- GLOBAL CHAT BUTTON + PANEL -->
+<button id="global-chat-btn" class="global-chat-btn" title="Globaler Chat">🌍</button>
+<div id="global-chat-panel" class="global-chat-panel">
+  <div class="gc-header">
+    <span>🌍 Globaler Chat</span>
+    <button id="gc-close">✕</button>
+  </div>
+  <div id="chat-window" class="chat-window gc-window"></div>
+  <div class="gc-input-row">
+    <input id="chat-input" placeholder="Nachricht eingeben..." maxlength="200" autocomplete="off">
+    <button id="chat-send">Senden</button>
+  </div>
+</div>
 
 <!-- PRIVATE CHAT MODAL -->
 <div id="private-chat-modal" class="private-chat-modal">
