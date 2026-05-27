@@ -396,13 +396,7 @@ text-align: center;
 .avatar-arrow:active:not(:disabled) { transform: scale(0.94); }
 .avatar-arrow:disabled { opacity: 0.28; cursor: default; }
 
-.avatar-position {
-  font-size: 0.72rem;
-  color: var(--dim);
-  text-align: center;
-  margin-bottom: 0.4rem;
-  letter-spacing: 0.04em;
-}
+.avatar-position { display: none; }
 
 .avatar-lg {
   width: 90px;
