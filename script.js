@@ -1726,6 +1726,10 @@ var WORDLE_VALID_WORDS = new Set(WORDLE_WORDS.concat([
   'EBENE','WOCHE','JAHRE','STUFE','WETTE','WILLE','KRAFT','KISTE',
   'BREIT','STARK','TREFF','SCHON','SPORT','STUBE','TAGEN','OFFEN'
 ]));
+// Merge in the big external dictionary (loaded via wordle-dict.js)
+if (window.WORDLE_EXTRA_WORDS) {
+  window.WORDLE_EXTRA_WORDS.forEach(function(w) { WORDLE_VALID_WORDS.add(w); });
+}
 
 function wordleGame() {
   var on = true;
