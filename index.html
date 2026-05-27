@@ -268,62 +268,63 @@
 <div id="popup">
   <div class="pbox">
     <div class="ptop"><span id="gtitle">Spiel</span><button id="btn-x">✕</button></div>
-    <canvas id="c" width="380" height="420"></canvas>
+    <div class="pgame">
+      <canvas id="c" width="380" height="420"></canvas>
 
-    <div id="memory-pads" class="memory-pads"> <div class="pad" data-color="green" id="pad-green"></div> <div
-    class="pad" data-color="red" id="pad-red"></div> <div class="pad" data-color="blue" id="pad-blue"></div> <div
-    class="pad" data-color="yellow" id="pad-yellow"></div> </div> <div id="memory-status" class="memory-status"></div>
+      <div id="memory-pads" class="memory-pads"> <div class="pad" data-color="green" id="pad-green"></div> <div
+      class="pad" data-color="red" id="pad-red"></div> <div class="pad" data-color="blue" id="pad-blue"></div> <div
+      class="pad" data-color="yellow" id="pad-yellow"></div> </div> <div id="memory-status" class="memory-status"></div>
 
-    <div id="reaction-area" class="reaction-area">
-      <div id="reaction-status">Warte auf das Signal...</div>
-      <button id="reaction-btn">⏳</button>
-    </div>
-
-    <div id="guess-area" class="guess-area">
-      <div id="guess-status">Errate die Zahl zwischen 1 und 100!</div>
-      <div class="guess-input-row">
-        <input id="guess-input" type="number" min="1" max="100" placeholder="Zahl eingeben...">
-        <button id="guess-btn">Raten</button>
+      <div id="reaction-area" class="reaction-area">
+        <div id="reaction-status">Warte auf das Signal...</div>
+        <button id="reaction-btn">⏳</button>
       </div>
-      <div id="guess-history"></div>
-    </div>
 
-    <div id="wordle-area" class="wordle-area">
-      <div id="wordle-grid"></div>
-      <div id="wordle-status"></div>
-      <div id="wordle-hint-bar" class="wordle-hint-bar">
-        <button id="wordle-hint-btn">💡 Tipp</button>
-        <div id="wordle-hint-display" class="wordle-hint-display"></div>
+      <div id="guess-area" class="guess-area">
+        <div id="guess-status">Errate die Zahl zwischen 1 und 100!</div>
+        <div class="guess-input-row">
+          <input id="guess-input" type="number" min="1" max="100" placeholder="Zahl eingeben...">
+          <button id="guess-btn">Raten</button>
+        </div>
+        <div id="guess-history"></div>
       </div>
-      <div id="wordle-keyboard"></div>
-    </div>
 
-    <div id="lobby-area" class="lobby-area">
-      <div id="lobby-screen">
-        <div class="lobby-online-count"><span id="lobby-online-num">0</span> Spieler gerade online</div>
-        <div class="lobby-difficulty">
-          <span class="diff-label">Schwierigkeit:</span>
-          <div class="diff-btns">
-            <button class="diff-btn active" data-diff="easy">Leicht</button>
-            <button class="diff-btn" data-diff="medium">Mittel</button>
-            <button class="diff-btn" data-diff="hard">Schwer</button>
+      <div id="wordle-area" class="wordle-area">
+        <div id="wordle-grid"></div>
+        <div id="wordle-status"></div>
+        <div id="wordle-hint-bar" class="wordle-hint-bar">
+          <button id="wordle-hint-btn">💡 Tipp</button>
+          <div id="wordle-hint-display" class="wordle-hint-display"></div>
+        </div>
+        <div id="wordle-keyboard"></div>
+      </div>
+
+      <div id="lobby-area" class="lobby-area">
+        <div id="lobby-screen">
+          <div class="lobby-online-count"><span id="lobby-online-num">0</span> Spieler gerade online</div>
+          <div class="lobby-difficulty">
+            <span class="diff-label">Schwierigkeit:</span>
+            <div class="diff-btns">
+              <button class="diff-btn active" data-diff="easy">Leicht</button>
+              <button class="diff-btn" data-diff="medium">Mittel</button>
+              <button class="diff-btn" data-diff="hard">Schwer</button>
+            </div>
+          </div>
+          <button id="btn-vs-ai" class="btn-vs-ai">🤖 Gegen KI spielen</button>
+          <div class="lobby-divider">— oder Freund einladen —</div>
+          <div id="lobby-users-list" class="lobby-users-list"></div>
+        </div>
+        <div id="ttt-screen" class="ttt-screen">
+          <div id="ttt-player-info" class="ttt-player-info"></div>
+          <div id="ttt-status" class="ttt-status"></div>
+          <div id="ttt-board" class="ttt-board"></div>
+          <div id="ttt-overlay" class="ttt-overlay">
+            <div id="ttt-overlay-msg" class="ttt-overlay-msg"></div>
+            <button id="ttt-rematch-btn" class="ttt-rematch-btn">Nochmal!</button>
           </div>
         </div>
-        <button id="btn-vs-ai" class="btn-vs-ai">🤖 Gegen KI spielen</button>
-        <div class="lobby-divider">— oder Freund einladen —</div>
-        <div id="lobby-users-list" class="lobby-users-list"></div>
-      </div>
-      <div id="ttt-screen" class="ttt-screen">
-        <div id="ttt-player-info" class="ttt-player-info"></div>
-        <div id="ttt-status" class="ttt-status"></div>
-        <div id="ttt-board" class="ttt-board"></div>
-        <div id="ttt-overlay" class="ttt-overlay">
-          <div id="ttt-overlay-msg" class="ttt-overlay-msg"></div>
-          <button id="ttt-rematch-btn" class="ttt-rematch-btn">Nochmal!</button>
-        </div>
       </div>
     </div>
-
     <div class="pbot"><span id="pbot-pts-wrap">Punkte: <b id="pts">0</b></span><button id="btn-again">Nochmal</button></div>
   </div>
 </div>

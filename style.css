@@ -237,19 +237,22 @@ body.light .card-featured { background: #fff5f5; border-color: #fca5a5; box-shad
 .hs-row span:last-child{color:var(--c1);font-weight:700}
  
 /* Popup */
-#popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);align-items:center;justify-content:center;z-index:100;padding:1rem}
+#popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);align-items:center;justify-content:center;z-index:100;padding:0}
 #popup.on{display:flex}
 .pbox{
   background:var(--s1);
-  border-radius:16px;
+  border-radius:0;
   overflow:hidden;
-  width:min(640px, 96vw);
-  max-height:92vh;
+  width:100vw;
+  height:100dvh;
+  max-width:100vw;
+  max-height:100dvh;
   display:flex;
   flex-direction:column;
-  box-shadow:0 24px 80px rgba(0,0,0,0.7);
-  border:1px solid rgba(255,255,255,0.07);
+  box-shadow:none;
+  border:none;
 }
+.pgame{flex:1;overflow-y:auto;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0.5rem}
 .ptop,.pbot{display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1.1rem;flex-shrink:0}
 .ptop{border-bottom:1px solid #282828;font-weight:800;font-size:1rem}
 .pbot{border-top:1px solid #282828}
@@ -263,7 +266,7 @@ body.light .card-featured { background: #fff5f5; border-color: #fca5a5; box-shad
 .ptop button:hover{background:#ef4444;color:#fff;transform:scale(1.08) rotate(90deg)}
 .pbot b{color:var(--c1);font-size:1.1rem}
 .pbot button{background:var(--c1);color:#fff;border:none;padding:0.45rem 1rem;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit}
-canvas{display:block;width:100%;flex:1;min-height:0}
+canvas{display:block;width:auto;height:auto;max-width:min(520px,100%);max-height:calc(100dvh - 120px);}
 
 
 .memory-pads { display: none; grid-template-columns: 1fr 1fr; gap: 10px; padding: 20px; max-width: 300px; margin: 0

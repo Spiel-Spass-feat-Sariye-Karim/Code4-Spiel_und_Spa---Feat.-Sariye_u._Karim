@@ -323,7 +323,7 @@ function tttStartOnline(lobbyId, isHost) {
   document.getElementById('ttt-status').textContent = 'Du bist ' + sym + (isHost ? ' — Du fängst an!' : ' — Gegner fängt an...');
   renderTTTBoard();
   if (tttPollInterval) clearInterval(tttPollInterval);
-  tttPollInterval = setInterval(tttPollOnline, 800);
+  tttPollInterval = setInterval(tttPollOnline, 400);
 }
 
 async function tttPollOnline() {
@@ -601,7 +601,7 @@ function openPrivateChat(friend) {
   document.getElementById('private-chat-modal').classList.add('open');
   loadPrivateMessages();
   if (privateChatInterval) clearInterval(privateChatInterval);
-  privateChatInterval = setInterval(loadPrivateMessages, 1500);
+  privateChatInterval = setInterval(loadPrivateMessages, 500);
   if (unreadCounts[friend.id]) { unreadCounts[friend.id] = 0; updateSidebarBadges(); }
   if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('expanded');
 }
@@ -1028,7 +1028,7 @@ document.getElementById("avatar").src =
   lastChatCount = 0;
   loadGlobalChat();
   if (chatInterval) clearInterval(chatInterval);
-  chatInterval = setInterval(loadGlobalChat, 1500);
+  chatInterval = setInterval(loadGlobalChat, 500);
   // Sidebar + Global-Chat-Button sichtbar schalten
   document.getElementById('sidebar').classList.add('visible');
   document.getElementById('sidebar-mobile-btn').classList.add('visible');
@@ -1050,7 +1050,7 @@ document.getElementById("avatar").src =
   seenInviteIds = new Set();
   inviteFirstCheck = true;
   if (inviteInterval) clearInterval(inviteInterval);
-  inviteInterval = setInterval(checkGameInvites, 1500);
+  inviteInterval = setInterval(checkGameInvites, 500);
   // Theme-Button Emoji setzen
   var themeBtn = document.getElementById('btn-theme');
   if (themeBtn) themeBtn.textContent = document.body.classList.contains('light') ? '☀️' : '🌙';
