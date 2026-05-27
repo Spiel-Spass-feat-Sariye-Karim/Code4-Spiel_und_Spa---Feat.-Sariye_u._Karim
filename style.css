@@ -160,66 +160,113 @@ color: #3b82f6; } #pad-yellow { background: #eab308; color: #eab308; } .memory-s
 center; padding: 0.5rem; color: var(--dim); font-size: 0.85rem; } .memory-status.active { display: block; }
 
 
-.global-board { margin-top: 2rem; }
+.global-board {
+  margin-top: 2rem;
+  max-width: 960px !important;  /* wider than regular hs-section */
+  padding: 0 1rem 2rem;
+}
 
 /* ── Scoreboard redesign ─────────────────────────────────────── */
+
+/* Overall section: full-width spotlight card */
+.sb-overall-section {
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 1.1rem;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 4px 32px rgba(0,0,0,0.4);
+}
+.sb-overall-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  font-size: 0.83rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(90deg, #FF416C, #FF4B2B, #FF8C00);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+/* Grid for 6 game sections */
+.sb-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+/* Individual game card */
 .sb-section {
   background: var(--s1);
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
-  margin-bottom: 0.9rem;
   border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  transition: transform 0.18s, box-shadow 0.18s;
+}
+.sb-section:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.35);
 }
 .sb-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 14px;
-  font-size: 0.82rem;
+  padding: 10px 13px;
+  font-size: 0.78rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
-.sb-head span { font-size: 0.8rem; }
+.sb-head .sb-emoji { font-size: 1rem; line-height: 1; }
 
-/* per-game header colours */
-.sb-overall  { background: linear-gradient(90deg,#ff5733,#e83a9b); color:#fff; }
-.sb-memory   { background: linear-gradient(90deg,#7c3aed,#a78bfa); color:#fff; }
-.sb-stack    { background: linear-gradient(90deg,#d97706,#fbbf24); color:#111; }
-.sb-reaction { background: linear-gradient(90deg,#b45309,#fde68a); color:#111; }
-.sb-bubble   { background: linear-gradient(90deg,#0284c7,#67e8f9); color:#111; }
-.sb-guess    { background: linear-gradient(90deg,#059669,#6ee7b7); color:#111; }
-.sb-wordle   { background: linear-gradient(90deg,#1d4ed8,#93c5fd); color:#fff; }
+/* Vibrant per-game gradients */
+.sb-memory   { background: linear-gradient(135deg, #7B2FF7, #F107A3); color: #fff; }
+.sb-stack    { background: linear-gradient(135deg, #F7971E, #FFD200); color: #1a1200; }
+.sb-reaction { background: linear-gradient(135deg, #FF512F, #F09819); color: #fff; }
+.sb-bubble   { background: linear-gradient(135deg, #00B4DB, #0083B0); color: #fff; }
+.sb-guess    { background: linear-gradient(135deg, #11998E, #38EF7D); color: #072e22; }
+.sb-wordle   { background: linear-gradient(135deg, #4776E6, #8E54E9); color: #fff; }
 
 .sb-body { padding: 2px 0; }
 
+/* Rows — used in both overall and game sections */
 .sb-row {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 7px 14px;
-  font-size: 0.82rem;
+  gap: 8px;
+  padding: 7px 13px;
+  font-size: 0.8rem;
   border-bottom: 1px solid rgba(255,255,255,0.04);
-  transition: background 0.15s;
+  transition: background 0.12s;
 }
 .sb-row:last-child { border-bottom: none; }
-.sb-row:hover { background: rgba(255,255,255,0.03); }
+.sb-row:hover { background: rgba(255,255,255,0.04); }
 .sb-row.sb-me {
-  background: rgba(255,87,51,0.1);
+  background: rgba(255,87,51,0.12);
   border-left: 3px solid var(--c1);
 }
+
+/* Overall rows slightly taller */
+.sb-row-overall { padding: 8px 16px; }
+
 .sb-m {
-  font-size: 1rem;
-  width: 26px;
+  font-size: 0.95rem;
+  width: 24px;
   text-align: center;
   flex-shrink: 0;
+  line-height: 1;
 }
 .sb-num {
   display: inline-block;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 800;
   color: var(--dim);
-  width: 26px;
+  width: 24px;
   text-align: center;
 }
 .sb-av {
@@ -234,30 +281,41 @@ center; padding: 0.5rem; color: var(--dim); font-size: 0.85rem; } .memory-status
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: var(--tx);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  min-width: 0;
 }
 .sb-rank-badge {
-  font-size: 0.64rem;
+  font-size: 0.6rem;
   color: var(--dim);
   font-weight: 700;
   flex-shrink: 0;
 }
 .sb-score {
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--c1);
   flex-shrink: 0;
   white-space: nowrap;
+  text-align: right;
 }
-.sb-rp { color: #fbbf24; }
-.sb-unit { font-size: 0.65rem; font-weight: 400; color: var(--dim); margin-left: 2px; }
+.sb-rp { color: #FFD200; }
+.sb-unit { font-size: 0.62rem; font-weight: 400; color: var(--dim); margin-left: 2px; }
 
-.sb-empty { text-align:center; color:var(--dim); padding:1rem; font-size:0.82rem; }
-.sb-empty-row { padding:8px 14px; font-size:0.78rem; color:var(--dim); }
+.sb-empty { text-align:center; color:var(--dim); padding:1rem; font-size:0.8rem; }
+.sb-empty-row { padding:7px 13px; font-size:0.76rem; color:var(--dim); }
+
+/* Responsive grid */
+@media (max-width: 720px) {
+  .sb-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 440px) {
+  .sb-grid { grid-template-columns: 1fr; }
+  .global-board { max-width: 500px !important; }
+}
 
 .stats-grid {
 display: grid;
@@ -1339,6 +1397,7 @@ body.light .pc-input-row input { background: #fff; border-color: #ccc; color: #1
 body.light .ttt-cell { background: #f0f0f8; border-color: #ccc; }
 body.light .ttt-cell.hoverable:hover { background: #e0e0f0; }
 body.light .sb-section { background: #f5f5f5; border-color: #ddd; }
+body.light .sb-overall-section { background: linear-gradient(135deg,#e8eaf6,#fce4ec); border-color: #ddd; }
 body.light .sb-row { border-bottom-color: #e8e8e8; }
 body.light .sb-row:hover { background: rgba(0,0,0,0.03); }
 body.light .sb-row.sb-me { background: rgba(255,87,51,0.07); }

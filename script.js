@@ -1188,12 +1188,12 @@ async function loadGlobalHS() {
 
     function sbSection(colorClass, emoji, title, sorted, key, fmt) {
       return '<div class="sb-section">' +
-        '<div class="sb-head ' + colorClass + '">' + emoji + '<span>' + title + '</span></div>' +
+        '<div class="sb-head ' + colorClass + '"><span class="sb-emoji">' + emoji + '</span><span>' + title + '</span></div>' +
         '<div class="sb-body">' + sbRows(sorted, key, fmt, 5) + '</div>' +
         '</div>';
     }
 
-    // Overall top 5
+    // Overall top 5 — shown in its own spotlight card above the grid
     var overallHtml = '';
     for (var i = 0; i < Math.min(5, scores.length); i++) {
       var item = scores[i];
@@ -1210,24 +1210,28 @@ async function loadGlobalHS() {
     }
 
     // Per-game sorted lists (skip users with 0 score)
-    var memSort      = scores.slice().sort(function(a,b){ return (b.memory||0)-(a.memory||0); });
-    var stackSort    = scores.slice().sort(function(a,b){ return (b.stack||0)-(a.stack||0); });
-    var reactSort    = scores.filter(function(x){ return x.reaction_ms>0; }).sort(function(a,b){ return a.reaction_ms-b.reaction_ms; });
-    var bubbleSort   = scores.slice().sort(function(a,b){ return (b.precision||0)-(a.precision||0); });
-    var guessSort    = scores.slice().sort(function(a,b){ return (b.guess||0)-(a.guess||0); });
-    var wordleSort   = scores.slice().sort(function(a,b){ return (b.wordle||0)-(a.wordle||0); });
+    var memSort    = scores.slice().sort(function(a,b){ return (b.memory||0)-(a.memory||0); });
+    var stackSort  = scores.slice().sort(function(a,b){ return (b.stack||0)-(a.stack||0); });
+    var reactSort  = scores.filter(function(x){ return x.reaction_ms>0; }).sort(function(a,b){ return a.reaction_ms-b.reaction_ms; });
+    var bubbleSort = scores.slice().sort(function(a,b){ return (b.precision||0)-(a.precision||0); });
+    var guessSort  = scores.slice().sort(function(a,b){ return (b.guess||0)-(a.guess||0); });
+    var wordleSort = scores.slice().sort(function(a,b){ return (b.wordle||0)-(a.wordle||0); });
 
     var html =
-      '<div class="sb-section">' +
-        '<div class="sb-head sb-overall">🏆<span>Gesamtwertung</span></div>' +
+      // Full-width overall card
+      '<div class="sb-overall-section">' +
+        '<div class="sb-overall-head">🏆 Gesamtwertung</div>' +
         '<div class="sb-body">' + overallHtml + '</div>' +
       '</div>' +
-      sbSection('sb-memory',   '🧠', 'Farb-Gedächtnis', memSort,    'memory',      function(v){ return v+' Pkt'; }) +
-      sbSection('sb-stack',    '🧱', 'Turm-Stapler',    stackSort,  'stack',       function(v){ return v+' Etagen'; }) +
-      sbSection('sb-reaction', '⚡', 'Reaktionstest',   reactSort,  'reaction_ms', function(v){ return v+' ms'; }) +
-      sbSection('sb-bubble',   '🫧', 'Bubble Pop',      bubbleSort, 'precision',   function(v){ return v+' Pkt'; }) +
-      sbSection('sb-guess',    '🔢', 'Zahlen-Raten',    guessSort,  'guess',       function(v){ return v+' Pkt'; }) +
-      sbSection('sb-wordle',   '💻', 'Info-Wordle',     wordleSort, 'wordle',      function(v){ return v+' Pkt'; });
+      // 3-column grid of game sections
+      '<div class="sb-grid">' +
+        sbSection('sb-memory',   '🧠', 'Farb-Gedächtnis', memSort,    'memory',      function(v){ return v+' Pkt'; }) +
+        sbSection('sb-stack',    '🧱', 'Turm-Stapler',    stackSort,  'stack',       function(v){ return v+' Etagen'; }) +
+        sbSection('sb-reaction', '⚡', 'Reaktionstest',   reactSort,  'reaction_ms', function(v){ return v+' ms'; }) +
+        sbSection('sb-bubble',   '🫧', 'Bubble Pop',      bubbleSort, 'precision',   function(v){ return v+' Pkt'; }) +
+        sbSection('sb-guess',    '🔢', 'Zahlen-Raten',    guessSort,  'guess',       function(v){ return v+' Pkt'; }) +
+        sbSection('sb-wordle',   '💻', 'Info-Wordle',     wordleSort, 'wordle',      function(v){ return v+' Pkt'; }) +
+      '</div>';
 
     document.getElementById('global-hs').innerHTML = html;
   } catch (err) {
