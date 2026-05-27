@@ -305,12 +305,15 @@
 <button id="btn-close-profile">x</button>
 </div>
 <div class="overlay-body">
-<img id="profile-avatar" class="avatar-lg" src="">
-<div id="profile-name"></div>
-<div id="profile-info"></div>
-<button id="btn-new-avatar" class="btn-action">
-Neuer Avatar
-</button>
+  <div class="avatar-nav-wrap">
+    <button id="avatar-prev" class="avatar-arrow" disabled title="Vorheriger Avatar">&#8592;</button>
+    <img id="profile-avatar" class="avatar-lg" src="">
+    <button id="avatar-next" class="avatar-arrow" title="Nächster Avatar">&#8594;</button>
+  </div>
+  <div id="avatar-position" class="avatar-position">1 / 1</div>
+  <div id="profile-name"></div>
+  <div id="profile-info"></div>
+  <button id="btn-save-avatar" class="btn-action">✓ Übernehmen</button>
 </div>
 </div>
 </div>

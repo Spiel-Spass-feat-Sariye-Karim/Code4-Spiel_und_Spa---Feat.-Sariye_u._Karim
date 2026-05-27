@@ -1979,49 +1979,91 @@ function gg(ctx,W,H,s){
   ctx.font='16px Bricolage Grotesque,sans-serif';ctx.fillText(s+' Punkte',W/2,H/2+22);
 }
 
-document.getElementById("avatar").style.cursor = "pointer";
-document.getElementById("avatar").addEventListener("click",
-function() {
-var seed = user.avatar_seed || user.name;
-document.getElementById("profile-avatar").src =
-"https://api.dicebear.com/7.x/adventurer/svg?seed=" + seed;
-document.getElementById("profile-name").textContent = user.name;
-var created = user.created_at_
-  ? new Date(user.created_at_).toLocaleDateString("de-AT")
-  : "-";
+// ── Avatar-Pfeil-Navigation ───────────────────────────────────
+var avatarHistory = [];
+var avatarHistoryIdx = 0;
 
-var profileTotal = getScoreTotal(user);
-document.getElementById("profile-info").innerHTML =
-"Rang: " + getRank(profileTotal) + "<br>" +
-"Mitglied seit: " + created + "<br>" +
-"Spiele gespielt: " + (user.games_played || 0);
-document.getElementById("profile-overlay").classList.add("on");
+function avatarImgUrl(seed) {
+  return 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(seed);
 }
-);
-document.getElementById("btn-close-profile").addEventListener("click",
-function() {
-document.getElementById("profile-overlay").classList.remove("on");
-}
-);
-document.getElementById("btn-new-avatar").addEventListener("click",
-async function() {
-var newSeed = Math.random().toString(36).substring(2, 10);
-try {
-  var res = await fetch(API_URL + '/api/user/' + user.id, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ avatar_seed: newSeed })
-  });
 
-  if (res.ok) {
-    user.avatar_seed = newSeed;
-    var url = "https://api.dicebear.com/7.x/adventurer/svg?seed=" + newSeed;
-    document.getElementById("avatar").src = url;
-    document.getElementById("profile-avatar").src = url;
-    loadGlobalHS();
+function refreshAvatarPreview() {
+  var seed = avatarHistory[avatarHistoryIdx];
+  document.getElementById('profile-avatar').src = avatarImgUrl(seed);
+  document.getElementById('avatar-position').textContent =
+    (avatarHistoryIdx + 1) + ' / ' + avatarHistory.length;
+  document.getElementById('avatar-prev').disabled = (avatarHistoryIdx === 0);
+  // Highlight save button if current differs from saved
+  var saveBtn = document.getElementById('btn-save-avatar');
+  var changed = seed !== (user.avatar_seed || user.name);
+  saveBtn.classList.toggle('btn-action-changed', changed);
+}
+
+document.getElementById('avatar-next').addEventListener('click', function() {
+  if (avatarHistoryIdx < avatarHistory.length - 1) {
+    // Already have a future entry — just go forward
+    avatarHistoryIdx++;
+  } else {
+    // Generate a fresh seed and append to history
+    var newSeed = Math.random().toString(36).substring(2, 10);
+    avatarHistory.push(newSeed);
+    avatarHistoryIdx++;
   }
-} catch (err) {
-  console.error('Fehler beim Aktualisieren des Avatars:', err);
-}
-}
-);
+  refreshAvatarPreview();
+});
+
+document.getElementById('avatar-prev').addEventListener('click', function() {
+  if (avatarHistoryIdx > 0) {
+    avatarHistoryIdx--;
+    refreshAvatarPreview();
+  }
+});
+
+document.getElementById('btn-save-avatar').addEventListener('click', async function() {
+  var newSeed = avatarHistory[avatarHistoryIdx];
+  if (!newSeed || newSeed === (user.avatar_seed || user.name)) return;
+  try {
+    var res = await fetch(API_URL + '/api/user/' + user.id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ avatar_seed: newSeed })
+    });
+    if (res.ok) {
+      user.avatar_seed = newSeed;
+      var url = avatarImgUrl(newSeed);
+      document.getElementById('avatar').src = url;
+      // Flash "Gespeichert ✓"
+      var btn = document.getElementById('btn-save-avatar');
+      var prev = btn.textContent;
+      btn.textContent = '✓ Gespeichert!';
+      btn.classList.remove('btn-action-changed');
+      setTimeout(function() { btn.textContent = prev || '✓ Übernehmen'; }, 1600);
+      loadGlobalHS();
+    }
+  } catch (err) {
+    console.error('Fehler beim Speichern des Avatars:', err);
+  }
+});
+
+document.getElementById("avatar").style.cursor = "pointer";
+document.getElementById("avatar").addEventListener("click", function() {
+  // Reset history to current saved avatar each time the overlay opens
+  var seed = user.avatar_seed || user.name;
+  avatarHistory = [seed];
+  avatarHistoryIdx = 0;
+  refreshAvatarPreview();
+  document.getElementById("profile-name").textContent = user.name;
+  var created = user.created_at_
+    ? new Date(user.created_at_).toLocaleDateString("de-AT")
+    : "-";
+  var profileTotal = getScoreTotal(user);
+  document.getElementById("profile-info").innerHTML =
+    "Rang: " + getRank(profileTotal) + "<br>" +
+    "Mitglied seit: " + created + "<br>" +
+    "Spiele gespielt: " + (user.games_played || 0);
+  document.getElementById("profile-overlay").classList.add("on");
+});
+
+document.getElementById("btn-close-profile").addEventListener("click", function() {
+  document.getElementById("profile-overlay").classList.remove("on");
+});
