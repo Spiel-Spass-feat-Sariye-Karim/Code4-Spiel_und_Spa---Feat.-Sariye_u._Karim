@@ -510,17 +510,68 @@ app.post('/api/lobby/move', async (req, res) => {
   try {
     const { data: lobby, error: e1 } = await db.from('game_lobbies').select('*').eq('id', lobby_id).single();
     if (e1 || !lobby) return res.status(404).json({ error: 'Lobby nicht gefunden' });
-    const state = lobby.game_state || { board: Array(9).fill(''), currentTurn: 'X' };
-    const symbol = lobby.host_id === parseInt(user_id) ? 'X' : 'O';
-    if (state.currentTurn !== symbol) return res.status(400).json({ error: 'Nicht dein Zug' });
-    if (state.board[move]) return res.status(400).json({ error: 'Feld belegt' });
-    state.board[move] = symbol;
-    state.currentTurn = symbol === 'X' ? 'O' : 'X';
+    const gameType = lobby.game_type || 'tictactoe';
+    const state = lobby.game_state || {};
+    const isHost = lobby.host_id === parseInt(user_id);
+
+    if (gameType === 'tictactoe') {
+      if (!state.board) state.board = Array(9).fill('');
+      if (!state.currentTurn) state.currentTurn = 'X';
+      const symbol = isHost ? 'X' : 'O';
+      if (state.currentTurn !== symbol) return res.status(400).json({ error: 'Nicht dein Zug' });
+      if (state.board[move]) return res.status(400).json({ error: 'Feld belegt' });
+      state.board[move] = symbol;
+      state.currentTurn = symbol === 'X' ? 'O' : 'X';
+
+    } else if (gameType === 'connect4') {
+      const COLS = 7, ROWS = 6;
+      if (!state.board) state.board = Array(ROWS * COLS).fill('');
+      if (!state.currentTurn) state.currentTurn = 'R';
+      const symbol = isHost ? 'R' : 'Y';
+      if (state.currentTurn !== symbol) return res.status(400).json({ error: 'Nicht dein Zug' });
+      const col = parseInt(move);
+      if (col < 0 || col >= COLS) return res.status(400).json({ error: 'Ungültige Spalte' });
+      let row = -1;
+      for (let r = ROWS - 1; r >= 0; r--) {
+        if (!state.board[r * COLS + col]) { row = r; break; }
+      }
+      if (row === -1) return res.status(400).json({ error: 'Spalte voll' });
+      state.board[row * COLS + col] = symbol;
+      state.currentTurn = symbol === 'R' ? 'Y' : 'R';
+      state.lastMove = { row, col, symbol };
+
+    } else if (gameType === 'rps') {
+      const playerKey = isHost ? 'hostChoice' : 'guestChoice';
+      if (!state.round) state.round = 1;
+      state[playerKey] = move;
+
+    } else {
+      return res.status(400).json({ error: 'Unbekannter Spieltyp' });
+    }
+
     const { data, error: e2 } = await db.from('game_lobbies')
       .update({ game_state: state, updated_at: new Date().toISOString() })
       .eq('id', lobby_id).select().single();
     if (e2) throw e2;
     res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+// Generic state patch (used by Pong for ball/paddle sync and RPS for round progression)
+app.put('/api/lobby/state', async (req, res) => {
+  const { lobby_id, user_id, patch } = req.body;
+  if (!lobby_id || !user_id || !patch) return res.status(400).json({ error: 'Fehlende Daten' });
+  try {
+    const { data: lobby, error: e1 } = await db.from('game_lobbies').select('game_state').eq('id', lobby_id).single();
+    if (e1 || !lobby) return res.status(404).json({ error: 'Lobby nicht gefunden' });
+    const newState = Object.assign({}, lobby.game_state || {}, patch);
+    const { error: e2 } = await db.from('game_lobbies')
+      .update({ game_state: newState, updated_at: new Date().toISOString() })
+      .eq('id', lobby_id);
+    if (e2) throw e2;
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }
@@ -547,12 +598,20 @@ app.get('/api/lobby/invite/:user_id', async (req, res) => {
       .eq('to_id', req.params.user_id)
       .eq('status', 'pending');
     if (error) throw error;
+    // Fetch game_type for each lobby
+    const lobbyIds = (data || []).map(i => i.lobby_id).filter(Boolean);
+    let gameTypeMap = {};
+    if (lobbyIds.length > 0) {
+      const { data: lobbies } = await db.from('game_lobbies').select('id, game_type').in('id', lobbyIds);
+      (lobbies || []).forEach(l => { gameTypeMap[l.id] = l.game_type; });
+    }
     const result = (data || []).map(inv => ({
       id: inv.id,
       lobby_id: inv.lobby_id,
       from_id: inv.from_id,
       from_name: inv.users?.name || 'Unbekannt',
       avatar_seed: inv.users?.avatar_seed,
+      game_type: gameTypeMap[inv.lobby_id] || 'tictactoe',
       created_at: inv.created_at
     }));
     res.json(result);

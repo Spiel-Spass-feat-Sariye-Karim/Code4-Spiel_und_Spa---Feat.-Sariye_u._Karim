@@ -10,6 +10,12 @@ var friendsList=[],unreadCounts={};
 var inviteInterval=null,seenInviteIds=new Set(),inviteFirstCheck=true,lobbyAiDiff='easy',hostWaitInterval=null;
 var tttBoard=Array(9).fill(''),tttOn=false,tttIsAI=false,tttAiDiff='easy';
 var tttCurrentTurn='X',tttMySymbol='X',tttIsHost=true,tttLobbyId=null,tttPollInterval=null,tttLastPlaced=-1;
+// Connect 4
+var c4PollInterval=null,c4LobbyId=null,c4IsHost=false,c4IsAI=false,c4AiDiff='easy',c4MySymbol='R',c4On=false;
+// Pong
+var pongPollInterval=null,pongLobbyId=null,pongIsHost=false,pongIsAI=false,pongAiDiff='easy',pongOn=false;
+// RPS
+var rpsPollInterval=null,rpsLobbyId=null,rpsIsHost=false,rpsIsAI=false,rpsAiDiff='easy',rpsOn=false;
 
 /* ---- DARK/LIGHT MODE ---- */
 (function() {
@@ -194,13 +200,14 @@ async function loadLobbyScreen() {
   } catch (e) {}
 }
 
-async function sendGameInvite(toId, btn) {
+async function sendGameInvite(toId, btn, gameType) {
   if (!user) return;
+  gameType = gameType || 'tictactoe';
   if (btn) { btn.disabled = true; btn.textContent = '...'; }
   try {
     var lobRes = await fetch(API_URL + '/api/lobby/create', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ host_id: user.id, game_type: 'tictactoe' })
+      body: JSON.stringify({ host_id: user.id, game_type: gameType })
     });
     var lobby = await lobRes.json();
     if (!lobRes.ok || !lobby.id) { if (btn) { btn.disabled = false; btn.textContent = 'Einladen'; } return; }
@@ -209,9 +216,8 @@ async function sendGameInvite(toId, btn) {
       body: JSON.stringify({ lobby_id: lobby.id, from_id: user.id, to_id: toId })
     });
     if (btn) { btn.textContent = '✓ Gesendet'; }
-    showToast('⚔️ Einladung gesendet!');
-    tttLobbyId = lobby.id; tttIsHost = true; tttMySymbol = 'X';
-    // Poll until guest joins, then start game for host
+    var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', pong:'Pong', rps:'Schere Stein Papier' };
+    showToast('⚔️ Einladung zu ' + (gameNames[gameType]||gameType) + ' gesendet!');
     if (hostWaitInterval) clearInterval(hostWaitInterval);
     hostWaitInterval = setInterval(async function() {
       try {
@@ -220,11 +226,23 @@ async function sendGameInvite(toId, btn) {
         var lo = await r.json();
         if (lo.status === 'playing') {
           clearInterval(hostWaitInterval); hostWaitInterval = null;
-          openG('multiplayer');
-          setTimeout(function() { tttStartOnline(lobby.id, true); }, 80);
+          if (gameType === 'connect4') {
+            openG('connect4');
+            setTimeout(function() { c4StartOnline(lobby.id, true); }, 80);
+          } else if (gameType === 'pong') {
+            openG('pong');
+            setTimeout(function() { pongStartOnline(lobby.id, true); }, 80);
+          } else if (gameType === 'rps') {
+            openG('rps');
+            setTimeout(function() { rpsStartOnline(lobby.id, true); }, 80);
+          } else {
+            tttLobbyId = lobby.id; tttIsHost = true; tttMySymbol = 'X';
+            openG('multiplayer');
+            setTimeout(function() { tttStartOnline(lobby.id, true); }, 80);
+          }
         }
       } catch(e) {}
-    }, 2000);
+    }, 500);
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Einladen'; }
   }
@@ -257,8 +275,12 @@ function showInviteToast(inv) {
   t.className = 'toast toast-invite';
   var seed = inv.avatar_seed || inv.from_name || 'unknown';
   var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
+  var gameIcons = { tictactoe:'⚔️', connect4:'🔴', pong:'🏓', rps:'✊' };
+  var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', pong:'Pong', rps:'Schere Stein Papier' };
+  var icon = gameIcons[inv.game_type] || '⚔️';
+  var name = gameNames[inv.game_type] || 'Duell';
   t.innerHTML =
-    '<div class="toast-invite-top"><img class="toast-av" src="' + av + '" alt=""><span>⚔️ <b>' + escHtml(inv.from_name) + '</b> lädt dich ein!</span></div>' +
+    '<div class="toast-invite-top"><img class="toast-av" src="' + av + '" alt=""><span>' + icon + ' <b>' + escHtml(inv.from_name) + '</b> lädt ein zu <em>' + name + '</em>!</span></div>' +
     '<div class="toast-btns"><button class="toast-accept">Annehmen</button><button class="toast-decline">Ablehnen</button></div>';
   document.body.appendChild(t);
   t.querySelector('.toast-accept').addEventListener('click', function() {
@@ -278,8 +300,20 @@ async function acceptGameInvite(inv) {
       body: JSON.stringify({ lobby_id: inv.lobby_id, guest_id: user.id })
     });
     if (!res.ok) { showToast('Lobby nicht mehr verfügbar'); return; }
-    openG('multiplayer');
-    setTimeout(function() { tttStartOnline(inv.lobby_id, false); }, 80);
+    var gt = inv.game_type || 'tictactoe';
+    if (gt === 'connect4') {
+      openG('connect4');
+      setTimeout(function() { c4StartOnline(inv.lobby_id, false); }, 80);
+    } else if (gt === 'pong') {
+      openG('pong');
+      setTimeout(function() { pongStartOnline(inv.lobby_id, false); }, 80);
+    } else if (gt === 'rps') {
+      openG('rps');
+      setTimeout(function() { rpsStartOnline(inv.lobby_id, false); }, 80);
+    } else {
+      openG('multiplayer');
+      setTimeout(function() { tttStartOnline(inv.lobby_id, false); }, 80);
+    }
   } catch (e) {}
 }
 
@@ -1066,9 +1100,12 @@ if (chatInterval) { clearInterval(chatInterval); chatInterval = null; }
 if (unreadInterval) { clearInterval(unreadInterval); unreadInterval = null; }
 if (inviteInterval) { clearInterval(inviteInterval); inviteInterval = null; }
 if (tttPollInterval) { clearInterval(tttPollInterval); tttPollInterval = null; }
+if (c4PollInterval) { clearInterval(c4PollInterval); c4PollInterval = null; }
+if (pongPollInterval) { clearInterval(pongPollInterval); pongPollInterval = null; }
+if (rpsPollInterval) { clearInterval(rpsPollInterval); rpsPollInterval = null; }
 if (hostWaitInterval) { clearInterval(hostWaitInterval); hostWaitInterval = null; }
 closePrivateChat();
-friendsList = []; unreadCounts = {}; seenInviteIds = new Set(); tttOn = false;
+friendsList = []; unreadCounts = {}; seenInviteIds = new Set(); tttOn = false; c4On = false; pongOn = false; rpsOn = false;
 document.getElementById('sidebar').classList.remove('visible', 'expanded');
 document.getElementById('sidebar-mobile-btn').classList.remove('visible');
 document.getElementById('global-chat-btn').classList.remove('visible');
@@ -1308,6 +1345,9 @@ document.getElementById('card-bubble').addEventListener('click', function() { op
 document.getElementById('card-guess').addEventListener('click', function() { openG('guess'); });
 document.getElementById('card-wordle').addEventListener('click', function() { openG('wordle'); });
 document.getElementById('card-multiplayer').addEventListener('click', function() { openG('multiplayer'); });
+document.getElementById('card-connect4').addEventListener('click', function() { openG('connect4'); });
+document.getElementById('card-pong').addEventListener('click', function() { openG('pong'); });
+document.getElementById('card-rps').addEventListener('click', function() { openG('rps'); });
 document.getElementById('btn-x').addEventListener('click', closeG);
 document.getElementById('btn-again').addEventListener('click', resetG);
 document.getElementById('popup').addEventListener('click', function(e) { if (e.target === this) closeG(); });
@@ -1431,21 +1471,48 @@ makeDraggable(
 );
 
 document.getElementById('btn-vs-ai').addEventListener('click', function() { tttStart(lobbyAiDiff); });
-document.querySelectorAll('.diff-btn').forEach(function(btn) {
+document.getElementById('btn-c4-ai').addEventListener('click', function() { c4Start(c4AiDiff); });
+document.getElementById('btn-pong-ai').addEventListener('click', function() { pongStart(pongAiDiff); });
+document.getElementById('btn-rps-ai').addEventListener('click', function() { rpsStart(rpsAiDiff); });
+
+// TicTacToe diff buttons (only in #lobby-screen)
+document.querySelectorAll('#lobby-screen .diff-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    document.querySelectorAll('.diff-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('#lobby-screen .diff-btn').forEach(function(b) { b.classList.remove('active'); });
     this.classList.add('active');
     lobbyAiDiff = this.dataset.diff;
   });
 });
+document.querySelectorAll('.c4-diff').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.c4-diff').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    c4AiDiff = this.dataset.diff;
+  });
+});
+document.querySelectorAll('.pong-diff').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.pong-diff').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    pongAiDiff = this.dataset.diff;
+  });
+});
+document.querySelectorAll('.rps-diff').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.rps-diff').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    rpsAiDiff = this.dataset.diff;
+  });
+});
 document.getElementById('ttt-rematch-btn').addEventListener('click', tttRematch);
+document.getElementById('rps-rematch-btn').addEventListener('click', resetG);
 document.getElementById('pc-close').addEventListener('click', closePrivateChat);
 document.getElementById('pc-send').addEventListener('click', sendPrivateMessage);
 document.getElementById('pc-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') sendPrivateMessage(); });
 
 function openG(id) {
   which = id;
-  var titles = { memory: 'Farb-Gedächtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest', bubble: 'Bubble Pop', guess: 'Zahlen-Raten', wordle: 'Info-Wordle', multiplayer: '⚔️ Duell' };
+  var titles = { memory: 'Farb-Gedächtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest', bubble: 'Bubble Pop', guess: 'Zahlen-Raten', wordle: 'Info-Wordle', multiplayer: '⚔️ TicTacToe Duell', connect4: '🔴 4 Gewinnt', pong: '🏓 Pong', rps: '✊ Schere Stein Papier' };
   document.getElementById('gtitle').textContent = titles[id] || id;
   document.getElementById('pts').textContent = '0';
   var canvas = document.getElementById('c');
@@ -1455,6 +1522,10 @@ function openG(id) {
   var guessArea = document.getElementById('guess-area');
   var wordleArea = document.getElementById('wordle-area');
   var lobbyArea = document.getElementById('lobby-area');
+  var c4Area = document.getElementById('c4-area');
+  var pongArea = document.getElementById('pong-area');
+  var rpsArea = document.getElementById('rps-area');
+  // Hide all
   canvas.style.display = 'none';
   pads.classList.remove('active');
   memStatus.classList.remove('active');
@@ -1462,6 +1533,9 @@ function openG(id) {
   guessArea.classList.remove('active');
   wordleArea.classList.remove('active');
   lobbyArea.classList.remove('active');
+  c4Area.classList.remove('active');
+  pongArea.classList.remove('active');
+  rpsArea.classList.remove('active');
   document.getElementById('pbot-pts-wrap').style.display = '';
   document.getElementById('btn-again').style.display = 'inline-block';
   if (id === 'memory') {
@@ -1469,6 +1543,7 @@ function openG(id) {
     memStatus.classList.add('active');
   } else if (id === 'stack' || id === 'bubble') {
     canvas.style.display = 'block';
+    fitCanvas(canvas, 380, 420);
   } else if (id === 'reaction') {
     reactionArea.classList.add('active');
   } else if (id === 'guess') {
@@ -1477,6 +1552,12 @@ function openG(id) {
     wordleArea.classList.add('active');
   } else if (id === 'multiplayer') {
     lobbyArea.classList.add('active');
+  } else if (id === 'connect4') {
+    c4Area.classList.add('active');
+  } else if (id === 'pong') {
+    pongArea.classList.add('active');
+  } else if (id === 'rps') {
+    rpsArea.classList.add('active');
   }
   document.getElementById('popup').classList.add('on');
   runG();
@@ -1485,8 +1566,11 @@ function openG(id) {
 function closeG() {
   if (game) { game.stop(); game = null; }
   if (tttPollInterval) { clearInterval(tttPollInterval); tttPollInterval = null; }
+  if (c4PollInterval) { clearInterval(c4PollInterval); c4PollInterval = null; }
+  if (pongPollInterval) { clearInterval(pongPollInterval); pongPollInterval = null; }
+  if (rpsPollInterval) { clearInterval(rpsPollInterval); rpsPollInterval = null; }
   if (hostWaitInterval) { clearInterval(hostWaitInterval); hostWaitInterval = null; }
-  tttOn = false;
+  tttOn = false; c4On = false; pongOn = false; rpsOn = false;
   document.getElementById('popup').classList.remove('on');
   document.getElementById('memory-pads').classList.remove('active');
   document.getElementById('memory-status').classList.remove('active');
@@ -1494,6 +1578,11 @@ function closeG() {
   document.getElementById('guess-area').classList.remove('active');
   document.getElementById('wordle-area').classList.remove('active');
   document.getElementById('lobby-area').classList.remove('active');
+  document.getElementById('c4-area').classList.remove('active');
+  document.getElementById('pong-area').classList.remove('active');
+  document.getElementById('rps-area').classList.remove('active');
+  var cv = document.getElementById('c');
+  cv.style.width = ''; cv.style.height = '';
 }
 
 function resetG() {
@@ -1504,6 +1593,38 @@ function resetG() {
     var overlay = document.getElementById('ttt-overlay');
     if (overlay) overlay.classList.remove('show');
     loadLobbyScreen();
+    return;
+  }
+  if (which === 'connect4') {
+    if (c4PollInterval) { clearInterval(c4PollInterval); c4PollInterval = null; }
+    c4On = false; c4LobbyId = null;
+    if (game) { game.stop(); game = null; }
+    var cv = document.getElementById('c');
+    cv.style.display = 'none'; cv.style.width = ''; cv.style.height = '';
+    document.getElementById('ttt-overlay').classList.remove('show');
+    document.getElementById('c4-area').classList.add('active');
+    loadC4LobbyScreen();
+    return;
+  }
+  if (which === 'pong') {
+    if (pongPollInterval) { clearInterval(pongPollInterval); pongPollInterval = null; }
+    pongOn = false; pongLobbyId = null;
+    if (game) { game.stop(); game = null; }
+    var cv = document.getElementById('c');
+    cv.style.display = 'none'; cv.style.width = ''; cv.style.height = '';
+    document.getElementById('ttt-overlay').classList.remove('show');
+    document.getElementById('pong-area').classList.add('active');
+    loadPongLobbyScreen();
+    return;
+  }
+  if (which === 'rps') {
+    if (rpsPollInterval) { clearInterval(rpsPollInterval); rpsPollInterval = null; }
+    rpsOn = false; rpsLobbyId = null;
+    if (game) { game.stop(); game = null; }
+    document.getElementById('rps-game-screen').style.display = 'none';
+    document.getElementById('rps-overlay').style.display = 'none';
+    document.getElementById('rps-area').classList.add('active');
+    loadRpsLobbyScreen();
     return;
   }
   if (game) { game.stop(); game = null; }
@@ -1518,7 +1639,7 @@ function runG() {
   } else if (which === 'reaction') {
     game = reaction();
   } else if (which === 'bubble') {
-    c.width = 380; c.height = 420;
+    fitCanvas(c, 380, 420);
     game = bubblePop(c);
   } else if (which === 'guess') {
     game = guessGame();
@@ -1526,10 +1647,32 @@ function runG() {
     game = wordleGame();
   } else if (which === 'multiplayer') {
     loadLobbyScreen();
+  } else if (which === 'connect4') {
+    loadC4LobbyScreen();
+  } else if (which === 'pong') {
+    loadPongLobbyScreen();
+  } else if (which === 'rps') {
+    loadRpsLobbyScreen();
   } else {
-    c.width = 380; c.height = 420;
+    fitCanvas(c, 380, 420);
     game = stack(c);
   }
+}
+
+/* ---- fitCanvas helper ---- */
+function fitCanvas(cv, logW, logH) {
+  var pgame = document.querySelector('.pgame');
+  if (!pgame) { cv.width = logW; cv.height = logH; return; }
+  var availW = pgame.clientWidth - 16;
+  var availH = pgame.clientHeight - 16;
+  var ratio = logW / logH;
+  var cssW, cssH;
+  if (availW / availH > ratio) { cssH = availH; cssW = availH * ratio; }
+  else { cssW = availW; cssH = availW / ratio; }
+  cv.style.width = Math.floor(cssW) + 'px';
+  cv.style.height = Math.floor(cssH) + 'px';
+  cv.width = logW;
+  cv.height = logH;
 }
 
 /* ---- SPIEL: FARB-GEDAECHTNIS ---- */
@@ -2153,3 +2296,620 @@ document.getElementById("avatar").addEventListener("click", function() {
 document.getElementById("btn-close-profile").addEventListener("click", function() {
   document.getElementById("profile-overlay").classList.remove("on");
 });
+
+/* ================================================================
+   NEUE MULTIPLAYER-SPIELE: CONNECT 4 / PONG / SCHERE STEIN PAPIER
+   ================================================================ */
+
+/* ---- CONNECT 4 ---- */
+async function loadC4LobbyScreen() {
+  document.getElementById('c4-lobby-screen').style.display = 'block';
+  try {
+    var res = await fetch(API_URL + '/api/users/online');
+    var users = await res.json();
+    var num = (users||[]).filter(function(u){return u.id!==user.id;}).length;
+    document.getElementById('c4-online-num').textContent = num;
+    var container = document.getElementById('c4-users-list');
+    var html = '';
+    (users||[]).forEach(function(u) {
+      if (u.id === user.id) return;
+      var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed='+(u.avatar_seed||u.name);
+      html += '<div class="lobby-user-row"><img class="lobby-av" src="'+av+'"><span class="lobby-uname">'+escHtml(u.name)+'</span><button class="btn-invite btn-c4-invite" data-id="'+u.id+'">Einladen</button></div>';
+    });
+    if (!html) html = '<div style="color:var(--dim);text-align:center;padding:1rem">Keine Spieler online</div>';
+    container.innerHTML = html;
+    container.querySelectorAll('.btn-c4-invite').forEach(function(btn) {
+      btn.addEventListener('click', function() { sendGameInvite(parseInt(this.dataset.id), this, 'connect4'); });
+    });
+  } catch(e) {}
+}
+
+function c4Start(diff) {
+  c4IsAI = true; c4AiDiff = diff || c4AiDiff; c4IsHost = true; c4MySymbol = 'R'; c4On = true;
+  document.getElementById('c4-area').classList.remove('active');
+  var cv = document.getElementById('c');
+  cv.style.display = 'block';
+  fitCanvas(cv, 420, 400);
+  if (game) { game.stop(); game = null; }
+  game = connect4Game(cv, true, c4AiDiff, true, null);
+}
+
+function c4StartOnline(lobbyId, isHost) {
+  c4LobbyId = lobbyId; c4IsHost = isHost; c4IsAI = false;
+  c4MySymbol = isHost ? 'R' : 'Y'; c4On = true;
+  document.getElementById('c4-area').classList.remove('active');
+  var cv = document.getElementById('c');
+  cv.style.display = 'block';
+  fitCanvas(cv, 420, 400);
+  if (game) { game.stop(); game = null; }
+  game = connect4Game(cv, false, null, isHost, lobbyId);
+  if (c4PollInterval) clearInterval(c4PollInterval);
+  c4PollInterval = setInterval(c4PollOnline, 400);
+}
+
+async function c4PollOnline() {
+  if (!c4On || !c4LobbyId) return;
+  try {
+    var res = await fetch(API_URL + '/api/lobby/' + c4LobbyId);
+    if (!res.ok) return;
+    var lobby = await res.json();
+    if (game && game.applyState) game.applyState(lobby.game_state);
+  } catch(e) {}
+}
+
+function connect4Game(cv, isAI, diff, isHost, lobbyId) {
+  var COLS = 7, ROWS = 6;
+  var W = cv.width, H = cv.height;
+  var CELL = Math.floor(Math.min(W / COLS, (H - 46) / ROWS));
+  var bW = COLS * CELL, bH = ROWS * CELL;
+  var oX = Math.floor((W - bW) / 2);
+  var oY = 46;
+  var ctx = cv.getContext('2d');
+  var board = Array(ROWS * COLS).fill('');
+  var on = true, myTurn = isHost;
+  var mySym = isHost ? 'R' : 'Y';
+  var hoverCol = -1;
+
+  function dropRow(b, col) {
+    for (var r = ROWS-1; r >= 0; r--) { if (!b[r*COLS+col]) return r; }
+    return -1;
+  }
+
+  function checkWin(b, lr, lc, sym) {
+    var dirs = [[0,1],[1,0],[1,1],[1,-1]];
+    for (var d = 0; d < dirs.length; d++) {
+      var cnt = 1;
+      for (var s = -1; s <= 1; s += 2) {
+        for (var i = 1; i <= 3; i++) {
+          var r = lr + dirs[d][0]*i*s, c = lc + dirs[d][1]*i*s;
+          if (r>=0&&r<ROWS&&c>=0&&c<COLS&&b[r*COLS+c]===sym) cnt++;
+          else break;
+        }
+      }
+      if (cnt >= 4) return true;
+    }
+    return false;
+  }
+
+  function isDraw(b) {
+    for (var c = 0; c < COLS; c++) { if (!b[c]) return false; }
+    return true;
+  }
+
+  function rrect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+    ctx.arcTo(x+w,y,x+w,y+r,r); ctx.lineTo(x+w,y+h-r);
+    ctx.arcTo(x+w,y+h,x+w-r,y+h,r); ctx.lineTo(x+r,y+h);
+    ctx.arcTo(x,y+h,x,y+h-r,r); ctx.lineTo(x,y+r);
+    ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#080818'; ctx.fillRect(0,0,W,H);
+    // Board bg
+    ctx.fillStyle = '#1a3a8f';
+    rrect(ctx, oX-6, oY-6, bW+12, bH+12, 10); ctx.fill();
+    // Cells
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        var cell = board[r*COLS+c];
+        var cx = oX + c*CELL + CELL/2, cy = oY + r*CELL + CELL/2;
+        var rad = CELL/2 - 4;
+        ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI*2);
+        if (cell === 'R') { ctx.fillStyle='#ef4444'; ctx.shadowColor='#ef4444'; ctx.shadowBlur=12; }
+        else if (cell === 'Y') { ctx.fillStyle='#fbbf24'; ctx.shadowColor='#fbbf24'; ctx.shadowBlur=12; }
+        else { ctx.fillStyle='#0c1830'; ctx.shadowBlur=0; }
+        ctx.fill(); ctx.shadowBlur=0;
+      }
+    }
+    // Hover
+    if (myTurn && on && hoverCol >= 0) {
+      var hx = oX + hoverCol*CELL + CELL/2;
+      ctx.beginPath(); ctx.arc(hx, 22, 14, 0, Math.PI*2);
+      ctx.fillStyle = mySym==='R' ? 'rgba(239,68,68,0.85)' : 'rgba(251,191,36,0.85)';
+      ctx.fill();
+      ctx.setLineDash([5,5]);
+      ctx.strokeStyle = mySym==='R' ? 'rgba(239,68,68,0.3)' : 'rgba(251,191,36,0.3)';
+      ctx.lineWidth=1.5; ctx.beginPath();
+      ctx.moveTo(hx,36); ctx.lineTo(hx,oY); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // Status
+    if (on) {
+      ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center';
+      ctx.fillText(myTurn ? '👆 Dein Zug!' : '⏳ Gegner...', W/2, H-6);
+    }
+  }
+
+  function doPlace(col) {
+    if (!on || !myTurn) return;
+    var row = dropRow(board, col);
+    if (row === -1) return;
+    board[row*COLS+col] = mySym;
+    draw();
+    if (checkWin(board, row, col, mySym)) {
+      on = false; c4On = false;
+      if (c4PollInterval) { clearInterval(c4PollInterval); c4PollInterval = null; }
+      sounds.highscore();
+      setTimeout(function() { c4GameOver('win'); }, 400);
+      return;
+    }
+    if (isDraw(board)) { on=false; c4On=false; setTimeout(function(){c4GameOver('draw');},400); return; }
+    myTurn = false;
+    if (isAI) {
+      setTimeout(function() {
+        var aiSym = mySym==='R'?'Y':'R';
+        var aiCol = c4AiMove(board, aiSym, diff);
+        var aiRow = dropRow(board, aiCol);
+        board[aiRow*COLS+aiCol] = aiSym;
+        draw();
+        if (checkWin(board, aiRow, aiCol, aiSym)) {
+          on=false; c4On=false; setTimeout(function(){c4GameOver('lose');},400); return;
+        }
+        if (isDraw(board)) { on=false; c4On=false; setTimeout(function(){c4GameOver('draw');},400); return; }
+        myTurn = true; draw();
+      }, diff==='easy'?400:diff==='medium'?600:800);
+    } else {
+      fetch(API_URL+'/api/lobby/move', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({lobby_id:lobbyId, user_id:user.id, move:col})
+      });
+    }
+  }
+
+  function onClick(e) {
+    if (!on || !myTurn) return;
+    var rect = cv.getBoundingClientRect();
+    var sx = cv.width/rect.width;
+    var cx2 = ((e.clientX||(e.changedTouches&&e.changedTouches[0].clientX)||0) - rect.left)*sx;
+    var col = Math.floor((cx2-oX)/CELL);
+    if (col>=0&&col<COLS) doPlace(col);
+  }
+  function onMove(e) {
+    var rect=cv.getBoundingClientRect(), sx=cv.width/rect.width;
+    var cx2=((e.clientX||(e.touches&&e.touches[0].clientX)||0)-rect.left)*sx;
+    var col=Math.floor((cx2-oX)/CELL);
+    hoverCol=(col>=0&&col<COLS)?col:-1; draw();
+  }
+
+  cv.addEventListener('click', onClick);
+  cv.addEventListener('touchend', onClick);
+  cv.addEventListener('mousemove', onMove);
+  cv.addEventListener('mouseleave', function(){hoverCol=-1;draw();});
+  draw();
+
+  function applyState(state) {
+    if (!state||!state.board||!on) return;
+    var nb = state.board;
+    var changed=false;
+    for (var i=0;i<nb.length;i++){if(nb[i]!==board[i]){changed=true;break;}}
+    if (!changed) return;
+    var lr=-1,lc=-1,ls='';
+    for (var i=0;i<nb.length;i++){if(nb[i]&&!board[i]){lr=Math.floor(i/COLS);lc=i%COLS;ls=nb[i];break;}}
+    board=nb.slice(); draw();
+    if (lr>=0&&checkWin(board,lr,lc,ls)) {
+      on=false; c4On=false;
+      if (c4PollInterval){clearInterval(c4PollInterval);c4PollInterval=null;}
+      var result=ls===mySym?'win':'lose';
+      setTimeout(function(){c4GameOver(result);},400); return;
+    }
+    if (isDraw(board)){on=false;c4On=false;setTimeout(function(){c4GameOver('draw');},400);return;}
+    if (ls&&ls!==mySym) myTurn=true;
+    draw();
+  }
+
+  return {
+    stop:function(){on=false;cv.removeEventListener('click',onClick);cv.removeEventListener('touchend',onClick);cv.removeEventListener('mousemove',onMove);},
+    applyState:applyState
+  };
+}
+
+function c4AiMove(board, aiSym, diff) {
+  var COLS=7,ROWS=6;
+  var humSym=aiSym==='R'?'Y':'R';
+  function validCols(){var c=[];for(var i=0;i<COLS;i++){if(!board[i])c.push(i);}return c;}
+  function dropRow(b,col){for(var r=ROWS-1;r>=0;r--){if(!b[r*COLS+col])return r;}return -1;}
+  function win(b,lr,lc,s){
+    var dirs=[[0,1],[1,0],[1,1],[1,-1]];
+    for(var d=0;d<dirs.length;d++){
+      var cnt=1;
+      for(var sg=-1;sg<=1;sg+=2){for(var i=1;i<=3;i++){var r=lr+dirs[d][0]*i*sg,c=lc+dirs[d][1]*i*sg;if(r>=0&&r<ROWS&&c>=0&&c<COLS&&b[r*COLS+c]===s)cnt++;else break;}}
+      if(cnt>=4)return true;
+    }return false;
+  }
+  function tryWin(b,sym){
+    for(var c=0;c<COLS;c++){if(b[c])continue;var r=dropRow(b,c);if(r<0)continue;var tb=b.slice();tb[r*COLS+c]=sym;if(win(tb,r,c,sym))return c;}return -1;
+  }
+  var valid=validCols();
+  if(!valid.length)return 3;
+  if(diff==='easy')return valid[Math.floor(Math.random()*valid.length)];
+  var w=tryWin(board,aiSym); if(w>=0)return w;
+  var bl=tryWin(board,humSym); if(bl>=0)return bl;
+  if(diff==='medium'){var pref=[3,2,4,1,5,0,6];for(var i=0;i<pref.length;i++){if(valid.indexOf(pref[i])>=0)return pref[i];}return valid[0];}
+  // Hard: avoid giving opponent top of our column
+  var safe=valid.filter(function(c){
+    var r=dropRow(board,c);if(r<=0)return true;
+    var tb=board.slice();tb[r*COLS+c]=aiSym;
+    var tb2=tb.slice();tb2[(r-1)*COLS+c]=humSym;
+    return !win(tb2,r-1,c,humSym);
+  });
+  var choices=safe.length?safe:valid;
+  var ctr=[3,2,4,1,5,0,6];
+  for(var i=0;i<ctr.length;i++){if(choices.indexOf(ctr[i])>=0)return ctr[i];}
+  return choices[0];
+}
+
+function c4GameOver(result) {
+  var overlay=document.getElementById('ttt-overlay');
+  var msg=document.getElementById('ttt-overlay-msg');
+  if(result==='win'){msg.textContent='🏆 Du hast gewonnen!';sounds.highscore();}
+  else if(result==='lose'){msg.textContent='😔 Du hast verloren.';}
+  else{msg.textContent='🤝 Unentschieden!';}
+  overlay.classList.add('show');
+}
+
+/* ---- PONG ---- */
+async function loadPongLobbyScreen() {
+  try {
+    var res = await fetch(API_URL+'/api/users/online');
+    var users = await res.json();
+    var num=(users||[]).filter(function(u){return u.id!==user.id;}).length;
+    document.getElementById('pong-online-num').textContent=num;
+    var container=document.getElementById('pong-users-list');
+    var html='';
+    (users||[]).forEach(function(u){
+      if(u.id===user.id)return;
+      var av='https://api.dicebear.com/7.x/adventurer/svg?seed='+(u.avatar_seed||u.name);
+      html+='<div class="lobby-user-row"><img class="lobby-av" src="'+av+'"><span class="lobby-uname">'+escHtml(u.name)+'</span><button class="btn-invite btn-pong-invite" data-id="'+u.id+'">Einladen</button></div>';
+    });
+    if(!html)html='<div style="color:var(--dim);text-align:center;padding:1rem">Keine Spieler online</div>';
+    container.innerHTML=html;
+    container.querySelectorAll('.btn-pong-invite').forEach(function(btn){
+      btn.addEventListener('click',function(){sendGameInvite(parseInt(this.dataset.id),this,'pong');});
+    });
+  }catch(e){}
+}
+
+function pongStart(diff) {
+  pongIsAI=true; pongAiDiff=diff||pongAiDiff; pongIsHost=true; pongOn=true;
+  document.getElementById('pong-area').classList.remove('active');
+  var cv=document.getElementById('c');
+  cv.style.display='block';
+  fitCanvas(cv,400,520);
+  if(game){game.stop();game=null;}
+  game=pongGame(cv,true,diff,true,null);
+}
+
+function pongStartOnline(lobbyId,isHost) {
+  pongLobbyId=lobbyId; pongIsHost=isHost; pongIsAI=false; pongOn=true;
+  document.getElementById('pong-area').classList.remove('active');
+  var cv=document.getElementById('c');
+  cv.style.display='block';
+  fitCanvas(cv,400,520);
+  if(game){game.stop();game=null;}
+  game=pongGame(cv,false,null,isHost,lobbyId);
+  if(pongPollInterval)clearInterval(pongPollInterval);
+  pongPollInterval=setInterval(pongPollOnline, isHost?50:80);
+}
+
+async function pongPollOnline() {
+  if(!pongOn||!pongLobbyId)return;
+  try{
+    var res=await fetch(API_URL+'/api/lobby/'+pongLobbyId);
+    if(!res.ok)return;
+    var lobby=await res.json();
+    if(game&&game.applyState)game.applyState(lobby.game_state);
+  }catch(e){}
+}
+
+function pongGame(cv, isAI, diff, isHost, lobbyId) {
+  var W=cv.width, H=cv.height;
+  var ctx=cv.getContext('2d');
+  var PW=12, PH=80, BR=8, MAX=5;
+  var on=true, raf=null;
+  var lastPush=0;
+  var ball={x:W/2,y:H/2,vx:(isHost||isAI)?3.5:0,vy:2.2};
+  var padL={x:20,y:H/2-PH/2};   // left = host
+  var padR={x:W-20-PW,y:H/2-PH/2}; // right = guest
+  var sc={l:0,r:0};
+  var myPad=isHost?padL:padR;
+  var srvState=null;
+
+  function rrect(ctx,x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
+    ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+    ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);
+    ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#030310'; ctx.fillRect(0,0,W,H);
+    // Center line
+    ctx.setLineDash([8,10]); ctx.strokeStyle='rgba(255,255,255,0.12)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke();
+    ctx.setLineDash([]);
+    // Scores
+    ctx.fillStyle='rgba(255,255,255,0.75)'; ctx.font='bold 36px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(sc.l, W/4, 50);
+    ctx.fillText(sc.r, 3*W/4, 50);
+    ctx.font='11px sans-serif'; ctx.fillStyle='rgba(255,255,255,0.3)';
+    ctx.fillText(isHost?'← Du':'← Gegner', W/4, 65);
+    ctx.fillText(isHost?'Gegner →':'Du →', 3*W/4, 65);
+    // Paddles
+    ctx.fillStyle='#818cf8'; rrect(ctx,padL.x,padL.y,PW,PH,5); ctx.fill();
+    ctx.fillStyle='#34d399'; rrect(ctx,padR.x,padR.y,PW,PH,5); ctx.fill();
+    // Ball
+    ctx.beginPath(); ctx.arc(ball.x,ball.y,BR,0,Math.PI*2);
+    ctx.fillStyle='#fff'; ctx.shadowColor='#fff'; ctx.shadowBlur=20;
+    ctx.fill(); ctx.shadowBlur=0;
+  }
+
+  function reset(dir) {
+    ball.x=W/2; ball.y=H/2+(Math.random()-0.5)*120;
+    ball.vx=dir*(3+Math.random()); ball.vy=(Math.random()-0.5)*4;
+  }
+
+  function physics() {
+    ball.x+=ball.vx; ball.y+=ball.vy;
+    if(ball.y-BR<=0){ball.y=BR;ball.vy=Math.abs(ball.vy);}
+    if(ball.y+BR>=H){ball.y=H-BR;ball.vy=-Math.abs(ball.vy);}
+    // Left paddle
+    if(ball.vx<0&&ball.x-BR<=padL.x+PW&&ball.x-BR>=padL.x&&ball.y>=padL.y&&ball.y<=padL.y+PH){
+      ball.x=padL.x+PW+BR; ball.vx=Math.min(Math.abs(ball.vx)*1.05,12);
+      ball.vy+=(ball.y-(padL.y+PH/2))*0.12;
+    }
+    // Right paddle
+    if(ball.vx>0&&ball.x+BR>=padR.x&&ball.x+BR<=padR.x+PW&&ball.y>=padR.y&&ball.y<=padR.y+PH){
+      ball.x=padR.x-BR; ball.vx=-Math.min(Math.abs(ball.vx)*1.05,12);
+      ball.vy+=(ball.y-(padR.y+PH/2))*0.12;
+    }
+    if(ball.x-BR<=0){sc.r++; document.getElementById('pts').textContent=isHost?sc.l:sc.r; reset(1);}
+    if(ball.x+BR>=W){sc.l++; document.getElementById('pts').textContent=isHost?sc.l:sc.r; reset(-1);}
+  }
+
+  function loop() {
+    if(!on)return;
+    if(isHost||isAI){
+      physics();
+      if(isAI){
+        var spd=diff==='easy'?2:diff==='medium'?3.5:5.5;
+        var tgt=ball.y-PH/2;
+        padR.y+=Math.sign(tgt-padR.y)*Math.min(spd,Math.abs(tgt-padR.y));
+        padR.y=Math.max(0,Math.min(H-PH,padR.y));
+      }
+      if(!isAI&&lobbyId){
+        var now=Date.now();
+        if(now-lastPush>45){
+          lastPush=now;
+          fetch(API_URL+'/api/lobby/state',{
+            method:'PUT',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:{bx:Math.round(ball.x),by:Math.round(ball.y),bvx:ball.vx,bvy:ball.vy,lpy:Math.round(padL.y),rpy:Math.round(padR.y),sl:sc.l,sr:sc.r}})
+          });
+        }
+      }
+      if(sc.l>=MAX||sc.r>=MAX){
+        on=false; pongOn=false;
+        if(pongPollInterval){clearInterval(pongPollInterval);pongPollInterval=null;}
+        var win=(sc.l>=MAX&&isHost)||(sc.r>=MAX&&!isHost);
+        if(raf)cancelAnimationFrame(raf);
+        draw(); setTimeout(function(){pongGameOver(win?'win':'lose');},400); return;
+      }
+    } else if(!isAI&&srvState){
+      if(srvState.bx!==undefined)ball.x=srvState.bx;
+      if(srvState.by!==undefined)ball.y=srvState.by;
+      if(srvState.lpy!==undefined)padL.y=srvState.lpy;
+      if(srvState.sl!==undefined)sc.l=srvState.sl;
+      if(srvState.sr!==undefined)sc.r=srvState.sr;
+      document.getElementById('pts').textContent=sc.r;
+      if(sc.l>=MAX||sc.r>=MAX){
+        on=false;pongOn=false;
+        if(pongPollInterval){clearInterval(pongPollInterval);pongPollInterval=null;}
+        if(raf)cancelAnimationFrame(raf);
+        draw(); setTimeout(function(){pongGameOver(sc.r>=MAX?'win':'lose');},400); return;
+      }
+    }
+    draw();
+    raf=requestAnimationFrame(loop);
+  }
+
+  function movePad(e) {
+    e.preventDefault();
+    var rect=cv.getBoundingClientRect(), sY=cv.height/rect.height;
+    var cY=e.touches?e.touches[0].clientY:e.clientY;
+    myPad.y=Math.max(0,Math.min(H-PH,(cY-rect.top)*sY-PH/2));
+    if(!isAI&&!isHost&&lobbyId){
+      fetch(API_URL+'/api/lobby/state',{
+        method:'PUT',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:{rpy:Math.round(padR.y)}})
+      });
+    }
+  }
+
+  cv.addEventListener('mousemove',movePad);
+  cv.addEventListener('touchmove',movePad,{passive:false});
+  loop();
+
+  return {
+    stop:function(){on=false;if(raf)cancelAnimationFrame(raf);cv.removeEventListener('mousemove',movePad);cv.removeEventListener('touchmove',movePad);},
+    applyState:function(state){
+      if(!state||isHost)return;
+      srvState=state;
+      if(state.rpy!==undefined)padR.y=state.rpy;
+    }
+  };
+}
+
+function pongGameOver(result) {
+  var overlay=document.getElementById('ttt-overlay');
+  var msg=document.getElementById('ttt-overlay-msg');
+  if(result==='win'){msg.textContent='🏆 Du hast gewonnen!';sounds.highscore();}
+  else{msg.textContent='😔 Du hast verloren.';}
+  overlay.classList.add('show');
+}
+
+/* ---- SCHERE STEIN PAPIER ---- */
+async function loadRpsLobbyScreen() {
+  document.getElementById('rps-lobby-screen').style.display='block';
+  document.getElementById('rps-game-screen').style.display='none';
+  try {
+    var res=await fetch(API_URL+'/api/users/online');
+    var users=await res.json();
+    var num=(users||[]).filter(function(u){return u.id!==user.id;}).length;
+    document.getElementById('rps-online-num').textContent=num;
+    var container=document.getElementById('rps-users-list');
+    var html='';
+    (users||[]).forEach(function(u){
+      if(u.id===user.id)return;
+      var av='https://api.dicebear.com/7.x/adventurer/svg?seed='+(u.avatar_seed||u.name);
+      html+='<div class="lobby-user-row"><img class="lobby-av" src="'+av+'"><span class="lobby-uname">'+escHtml(u.name)+'</span><button class="btn-invite btn-rps-invite" data-id="'+u.id+'">Einladen</button></div>';
+    });
+    if(!html)html='<div style="color:var(--dim);text-align:center;padding:1rem">Keine Spieler online</div>';
+    container.innerHTML=html;
+    container.querySelectorAll('.btn-rps-invite').forEach(function(btn){
+      btn.addEventListener('click',function(){sendGameInvite(parseInt(this.dataset.id),this,'rps');});
+    });
+  }catch(e){}
+}
+
+function rpsStart(diff) {
+  rpsIsAI=true; rpsAiDiff=diff||rpsAiDiff; rpsIsHost=true; rpsOn=true;
+  rpsStartGame(true, rpsAiDiff, null, true);
+}
+
+function rpsStartOnline(lobbyId, isHost) {
+  rpsLobbyId=lobbyId; rpsIsHost=isHost; rpsIsAI=false; rpsOn=true;
+  rpsStartGame(false, null, lobbyId, isHost);
+  if(rpsPollInterval)clearInterval(rpsPollInterval);
+  rpsPollInterval=setInterval(rpsPollOnline, 500);
+}
+
+function rpsStartGame(isAI, diff, lobbyId, isHost) {
+  document.getElementById('rps-lobby-screen').style.display='none';
+  var gs=document.getElementById('rps-game-screen');
+  gs.style.display='block';
+  document.getElementById('rps-round-info').textContent='Runde 1';
+  document.getElementById('rps-my-score').textContent='0';
+  document.getElementById('rps-opp-score').textContent='0';
+  document.getElementById('rps-result-area').style.display='none';
+  document.getElementById('rps-overlay').style.display='none';
+  document.getElementById('rps-choices').style.display='flex';
+
+  var mySc=0, oppSc=0, round=1, MAX=3;
+  var myChoice=null, roundActive=true;
+  var icons={rock:'🪨',paper:'📄',scissors:'✂️'};
+  function beats(a,b){return(a==='rock'&&b==='scissors')||(a==='paper'&&b==='rock')||(a==='scissors'&&b==='paper');}
+
+  var btns=document.querySelectorAll('.rps-btn');
+  btns.forEach(function(b){b.disabled=false;b.classList.remove('chosen');});
+
+  function resolve(mine, opp) {
+    roundActive=false;
+    btns.forEach(function(b){b.disabled=true;});
+    var ra=document.getElementById('rps-result-area');
+    var rev=document.getElementById('rps-reveal');
+    var rr=document.getElementById('rps-round-result');
+    ra.style.display='block';
+    rev.innerHTML=icons[mine]+' &nbsp;vs&nbsp; '+icons[opp];
+    var result;
+    if(mine===opp){rr.textContent='🤝 Unentschieden!';rr.style.color='var(--dim)';result='draw';}
+    else if(beats(mine,opp)){rr.textContent='✅ Runde gewonnen!';rr.style.color='#22c55e';mySc++;result='win';}
+    else{rr.textContent='❌ Runde verloren!';rr.style.color='#ef4444';oppSc++;result='lose';}
+    document.getElementById('rps-my-score').textContent=mySc;
+    document.getElementById('rps-opp-score').textContent=oppSc;
+    if(mySc>=MAX||oppSc>=MAX){
+      rpsOn=false;
+      if(rpsPollInterval){clearInterval(rpsPollInterval);rpsPollInterval=null;}
+      setTimeout(function(){rpsGameOver(mySc>=MAX?'win':'lose');},1200);
+    } else {
+      round++;
+      document.getElementById('rps-round-info').textContent='Runde '+round;
+      setTimeout(function(){
+        ra.style.display='none';
+        myChoice=null; roundActive=true;
+        btns.forEach(function(b){b.disabled=false;b.classList.remove('chosen');});
+        // Reset server round state
+        if(!isAI&&lobbyId){
+          var patch={round:round};
+          patch[isHost?'hostChoice':'guestChoice']=null;
+          fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:patch})});
+        }
+      },1600);
+    }
+  }
+
+  function pick(choice) {
+    if(!roundActive||myChoice)return;
+    myChoice=choice;
+    btns.forEach(function(b){b.classList.toggle('chosen',b.dataset.choice===choice);});
+    if(isAI){
+      var aiChoices=['rock','paper','scissors'];
+      var opp;
+      if(diff==='easy'){opp=aiChoices[Math.floor(Math.random()*3)];}
+      else if(diff==='medium'){var counter={rock:'paper',paper:'scissors',scissors:'rock'};opp=Math.random()<0.45?counter[choice]:aiChoices[Math.floor(Math.random()*3)];}
+      else{var counter2={rock:'paper',paper:'scissors',scissors:'rock'};opp=Math.random()<0.72?counter2[choice]:aiChoices[Math.floor(Math.random()*3)];}
+      setTimeout(function(){resolve(choice,opp);},600);
+    } else {
+      var playerKey=isHost?'hostChoice':'guestChoice';
+      var patch={};patch[playerKey]=choice;
+      fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:patch})});
+      btns.forEach(function(b){if(b.dataset.choice!==choice)b.disabled=true;});
+    }
+  }
+
+  btns.forEach(function(btn){btn.addEventListener('click',function(){pick(this.dataset.choice);});});
+
+  function checkServerState(state) {
+    if(!state||!roundActive||!myChoice)return;
+    var oppKey=isHost?'guestChoice':'hostChoice';
+    var myKey=isHost?'hostChoice':'guestChoice';
+    var oppChoice=state[oppKey];
+    if(oppChoice&&state[myKey]===myChoice){
+      resolve(myChoice,oppChoice);
+    }
+  }
+
+  game={stop:function(){roundActive=false;},applyState:checkServerState};
+}
+
+async function rpsPollOnline() {
+  if(!rpsOn||!rpsLobbyId)return;
+  try{
+    var res=await fetch(API_URL+'/api/lobby/'+rpsLobbyId);
+    if(!res.ok)return;
+    var lobby=await res.json();
+    if(game&&game.applyState)game.applyState(lobby.game_state);
+  }catch(e){}
+}
+
+function rpsGameOver(result) {
+  var overlay=document.getElementById('rps-overlay');
+  var msg=document.getElementById('rps-overlay-msg');
+  if(result==='win'){msg.textContent='🏆 Du hast gewonnen!';sounds.highscore();}
+  else{msg.textContent='😔 Du hast verloren.';}
+  overlay.style.display='flex';
+  document.getElementById('rps-choices').style.display='none';
+}

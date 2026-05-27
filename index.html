@@ -20,8 +20,25 @@
 <!-- Backend Server statt Supabase -->
  
 <div id="login">
+  <!-- Animated background shapes -->
+  <div class="login-bg-shapes" aria-hidden="true">
+    <div class="lbs lbs1"></div>
+    <div class="lbs lbs2"></div>
+    <div class="lbs lbs3"></div>
+    <div class="lbs lbs4"></div>
+    <div class="lbs lbs5"></div>
+  </div>
+  <!-- Scrolling ticker text -->
+  <div class="login-ticker" aria-hidden="true">
+    <span>⚔️ ARCADEBOX &nbsp;&nbsp; 🎮 SPIELEN &nbsp;&nbsp; 🏆 HIGHSCORES &nbsp;&nbsp; 👥 FREUNDE &nbsp;&nbsp; 🔴 CONNECT4 &nbsp;&nbsp; 🏓 PONG &nbsp;&nbsp; ✊ SSP &nbsp;&nbsp; 🧠 MEMORY &nbsp;&nbsp; 🧱 STACK &nbsp;&nbsp; 🫧 BUBBLE &nbsp;&nbsp; 💻 WORDLE &nbsp;&nbsp;</span>
+    <span>⚔️ ARCADEBOX &nbsp;&nbsp; 🎮 SPIELEN &nbsp;&nbsp; 🏆 HIGHSCORES &nbsp;&nbsp; 👥 FREUNDE &nbsp;&nbsp; 🔴 CONNECT4 &nbsp;&nbsp; 🏓 PONG &nbsp;&nbsp; ✊ SSP &nbsp;&nbsp; 🧠 MEMORY &nbsp;&nbsp; 🧱 STACK &nbsp;&nbsp; 🫧 BUBBLE &nbsp;&nbsp; 💻 WORDLE &nbsp;&nbsp;</span>
+  </div>
   <div class="login-box">
-    <h1>Arcade<span>Box</span></h1>
+    <div class="login-logo-wrap">
+      <div class="login-logo-icon">🎮</div>
+      <h1>Arcade<span>Box</span></h1>
+      <p class="login-tagline">10 Spiele. Deine Highscores. Jetzt spielen.</p>
+    </div>
     <div class="auth-tabs">
       <button class="tab active" data-tab="login">Anmelden</button>
       <button class="tab" data-tab="register">Registrieren</button>
@@ -52,7 +69,7 @@
 <button class="btn-sm" id="btn-logout">Abmelden</button>
 </div>
   </header>
-  <div class="hero"><h1>Bereit zum <em>Zocken</em>?</h1><p>Sieben Spiele — solo oder im Duell. Dein Highscore wird gespeichert.</p></div>
+  <div class="hero hero-enhanced"><h1>Bereit zum <em>Zocken</em>?</h1><p>Zehn Spiele — solo oder im Duell. Dein Highscore wird gespeichert.</p></div>
 
   <div class="game-categories">
 
@@ -81,12 +98,15 @@
       <button class="cat-header" data-cat="multi" aria-expanded="true">
         <span class="cat-icon">⚔️</span>
         <span class="cat-title">Multiplayer</span>
-        <span class="cat-badge">1 Spiel</span>
+        <span class="cat-badge">4 Spiele</span>
         <span class="cat-chevron">▾</span>
       </button>
       <div class="cat-body">
         <div class="cards cards-multi">
-          <div class="card card-featured" id="card-multiplayer"><div class="em">⚔️</div><h3>Duell</h3><p>Spiel gegen KI oder fordere einen Freund heraus!</p></div>
+          <div class="card card-featured" id="card-multiplayer"><div class="em">⚔️</div><h3>TicTacToe Duell</h3><p>Klassisches TicTacToe gegen KI oder Freunde</p></div>
+          <div class="card" id="card-connect4"><div class="em">🔴</div><h3>4 Gewinnt</h3><p>Verbinde als Erster 4 Steine in einer Reihe</p></div>
+          <div class="card" id="card-pong"><div class="em">🏓</div><h3>Pong</h3><p>Schlage den Ball — zuerst 5 Punkte gewinnt</p></div>
+          <div class="card" id="card-rps"><div class="em">✊</div><h3>Schere Stein Papier</h3><p>Best of 5 Runden — wer zuerst 3 gewinnt</p></div>
         </div>
       </div>
     </div>
@@ -324,6 +344,82 @@
           </div>
         </div>
       </div>
+
+      <!-- Connect 4 Lobby -->
+      <div id="c4-area" class="c4-area">
+        <div id="c4-lobby-screen">
+          <div class="lobby-online-count"><span id="c4-online-num">0</span> Spieler gerade online</div>
+          <div class="lobby-difficulty">
+            <span class="diff-label">Schwierigkeit:</span>
+            <div class="diff-btns">
+              <button class="diff-btn c4-diff active" data-diff="easy">Leicht</button>
+              <button class="diff-btn c4-diff" data-diff="medium">Mittel</button>
+              <button class="diff-btn c4-diff" data-diff="hard">Schwer</button>
+            </div>
+          </div>
+          <button id="btn-c4-ai" class="btn-vs-ai">🤖 Gegen KI spielen</button>
+          <div class="lobby-divider">— oder Freund einladen —</div>
+          <div id="c4-users-list" class="lobby-users-list"></div>
+        </div>
+      </div>
+
+      <!-- Pong Lobby -->
+      <div id="pong-area" class="pong-area">
+        <div id="pong-lobby-screen">
+          <div class="lobby-online-count"><span id="pong-online-num">0</span> Spieler gerade online</div>
+          <div class="lobby-difficulty">
+            <span class="diff-label">Schwierigkeit:</span>
+            <div class="diff-btns">
+              <button class="diff-btn pong-diff active" data-diff="easy">Leicht</button>
+              <button class="diff-btn pong-diff" data-diff="medium">Mittel</button>
+              <button class="diff-btn pong-diff" data-diff="hard">Schwer</button>
+            </div>
+          </div>
+          <button id="btn-pong-ai" class="btn-vs-ai">🤖 Gegen KI spielen</button>
+          <div class="lobby-divider">— oder Freund einladen —</div>
+          <div id="pong-users-list" class="lobby-users-list"></div>
+        </div>
+      </div>
+
+      <!-- Schere Stein Papier -->
+      <div id="rps-area" class="rps-area">
+        <div id="rps-lobby-screen">
+          <div class="lobby-online-count"><span id="rps-online-num">0</span> Spieler gerade online</div>
+          <div class="lobby-difficulty">
+            <span class="diff-label">Schwierigkeit:</span>
+            <div class="diff-btns">
+              <button class="diff-btn rps-diff active" data-diff="easy">Leicht</button>
+              <button class="diff-btn rps-diff" data-diff="medium">Mittel</button>
+              <button class="diff-btn rps-diff" data-diff="hard">Schwer</button>
+            </div>
+          </div>
+          <button id="btn-rps-ai" class="btn-vs-ai">🤖 Gegen KI spielen</button>
+          <div class="lobby-divider">— oder Freund einladen —</div>
+          <div id="rps-users-list" class="lobby-users-list"></div>
+        </div>
+        <div id="rps-game-screen" style="display:none">
+          <div id="rps-round-info" class="rps-round-info">Runde 1</div>
+          <div id="rps-score-display" class="rps-score-display">
+            <div class="rps-score-box"><span id="rps-my-score">0</span><span class="rps-score-lbl">Du</span></div>
+            <span class="rps-colon">:</span>
+            <div class="rps-score-box"><span id="rps-opp-score">0</span><span class="rps-score-lbl">Gegner</span></div>
+          </div>
+          <div id="rps-choices" class="rps-choices">
+            <button class="rps-btn" data-choice="rock">🪨<span>Stein</span></button>
+            <button class="rps-btn" data-choice="paper">📄<span>Papier</span></button>
+            <button class="rps-btn" data-choice="scissors">✂️<span>Schere</span></button>
+          </div>
+          <div id="rps-result-area" class="rps-result-area" style="display:none">
+            <div id="rps-reveal" class="rps-reveal"></div>
+            <div id="rps-round-result" class="rps-round-result"></div>
+          </div>
+          <div id="rps-overlay" class="rps-overlay" style="display:none">
+            <div id="rps-overlay-msg" class="rps-overlay-msg"></div>
+            <button id="rps-rematch-btn" class="ttt-rematch-btn">Nochmal!</button>
+          </div>
+        </div>
+      </div>
+
     </div>
     <div class="pbot"><span id="pbot-pts-wrap">Punkte: <b id="pts">0</b></span><button id="btn-again">Nochmal</button></div>
   </div>

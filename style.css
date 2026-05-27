@@ -90,18 +90,127 @@ body::after {
   display: block;
 }
  
-/* new Login new*/
-#login{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem}
-#login.hide{display:none}
-.login-box{background:var(--s1);border:1px solid #333;border-radius:var(--r);padding:2.5rem;width:320px;text-align:center}
-.login-box h1{font-size:1.8rem;font-weight:800;margin-bottom:0.3rem}
-.login-box h1 span{color:var(--c1)}
-.login-box p{color:var(--dim);font-size:0.85rem;margin-bottom:1.5rem}
-.login-box input{width:100%;padding:0.7rem 1rem;margin-bottom:0.8rem;border:1px solid #333;border-radius:8px;background:var(--s2);color:var(--tx);font-family:inherit;font-size:0.9rem;outline:none}
-.login-box input:focus{border-color:var(--c1)}
-.login-box button{width:100%;padding:0.7rem;background:var(--c1);color:#fff;border:none;border-radius:8px;font-family:inherit;font-weight:700;font-size:0.95rem;cursor:pointer;margin-top:0.3rem}
-.login-box button:hover{opacity:0.85}
-#login-err{color:#ff4444;font-size:0.8rem;margin-top:0.5rem;min-height:1.2em}
+/* ── Login Redesign ──────────────────────────────────────── */
+@keyframes loginBgShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes loginBoxIn {
+  from { opacity:0; transform:translateY(28px) scale(0.97); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+@keyframes lbsFloat1 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(40px,-50px) scale(1.1)} }
+@keyframes lbsFloat2 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-30px,60px) scale(0.9)} }
+@keyframes lbsFloat3 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(60px,30px) scale(1.05)} }
+@keyframes tickerScroll { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+
+#login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0a0010, #0d001a, #050820, #000a1a, #0a0010);
+  background-size: 400% 400%;
+  animation: loginBgShift 12s ease infinite;
+}
+#login.hide { display: none; }
+
+/* Floating background blobs */
+.login-bg-shapes { position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:0; }
+.lbs {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.18;
+}
+.lbs1 { width:380px;height:380px;background:#7c3aed;top:-80px;left:-80px; animation:lbsFloat1 9s ease-in-out infinite; }
+.lbs2 { width:300px;height:300px;background:#2563eb;bottom:-60px;right:-60px; animation:lbsFloat2 11s ease-in-out infinite; }
+.lbs3 { width:250px;height:250px;background:#db2777;top:40%;left:60%; animation:lbsFloat3 8s ease-in-out infinite; }
+.lbs4 { width:200px;height:200px;background:#0891b2;top:20%;right:15%; animation:lbsFloat1 13s ease-in-out infinite reverse; }
+.lbs5 { width:180px;height:180px;background:#f59e0b;bottom:25%;left:10%; animation:lbsFloat2 10s ease-in-out infinite reverse; }
+
+/* Scrolling ticker */
+.login-ticker {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 36px;
+  background: rgba(255,255,255,0.04);
+  border-top: 1px solid rgba(255,255,255,0.07);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  z-index: 1;
+  pointer-events: none;
+}
+.login-ticker span {
+  display: inline-block;
+  animation: tickerScroll 22s linear infinite;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.3);
+  letter-spacing: 0.1em;
+}
+
+/* Login box */
+.login-box {
+  position: relative;
+  z-index: 2;
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  padding: 2.5rem 2rem;
+  width: min(360px, 94vw);
+  text-align: center;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
+  animation: loginBoxIn 0.55s cubic-bezier(0.22,1,0.36,1) both;
+}
+.login-logo-wrap { margin-bottom: 1.5rem; }
+.login-logo-icon { font-size: 2.8rem; margin-bottom: 0.3rem; }
+.login-box h1 { font-size: 2rem; font-weight: 800; margin-bottom: 0.2rem; color:#fff; }
+.login-box h1 span { background:linear-gradient(90deg,#ff5733,#f97316); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.login-tagline { color:rgba(255,255,255,0.4); font-size:0.78rem; margin-bottom:0; }
+.login-box input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.7rem;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.07);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.login-box input::placeholder { color: rgba(255,255,255,0.35); }
+.login-box input:focus { border-color: rgba(255,87,51,0.7); background: rgba(255,255,255,0.1); }
+.login-box button {
+  width: 100%;
+  padding: 0.8rem;
+  background: linear-gradient(135deg, #ff5733, #f97316);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  margin-top: 0.4rem;
+  transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 4px 20px rgba(255,87,51,0.35);
+}
+.login-box button:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 6px 28px rgba(255,87,51,0.5); }
+.login-box button:active { transform: translateY(0); }
+#login-err { color: #ff7b6b; font-size: 0.8rem; margin-top: 0.5rem; min-height: 1.2em; }
  
 /* App */
 #app{display:none}
@@ -2146,3 +2255,112 @@ body.light .sb-empty-row { color: #888; }
   transition: opacity 0.2s;
 }
 .toast-decline:hover { opacity: 0.85; }
+
+/* ── Hero animation ──────────────────────────────────────── */
+@keyframes heroFadeUp {
+  from { opacity:0; transform:translateY(20px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.hero-enhanced h1 { animation: heroFadeUp 0.7s ease both; }
+.hero-enhanced p  { animation: heroFadeUp 0.7s 0.15s ease both; }
+
+/* ── Card shimmer on hover ───────────────────────────────── */
+.card { position:relative; overflow:hidden; }
+.card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.06) 50%, transparent 70%);
+  background-size: 200% 100%;
+  background-position: 200% 0;
+  transition: background-position 0.5s ease;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.card:hover::after { background-position: -200% 0; }
+
+/* ── New multiplayer game areas ──────────────────────────── */
+.c4-area, .pong-area, .rps-area {
+  display: none;
+  width: min(500px, 100%);
+  box-sizing: border-box;
+  padding: 0.5rem;
+}
+.c4-area.active, .pong-area.active, .rps-area.active { display: block; }
+
+/* RPS game screen */
+.rps-round-info {
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+.rps-score-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+.rps-score-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+.rps-score-box span:first-child {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--c1);
+  line-height: 1;
+}
+.rps-score-lbl { font-size: 0.7rem; color: var(--dim); font-weight: 700; text-transform: uppercase; }
+.rps-colon { font-size: 2rem; font-weight: 800; color: var(--dim); }
+.rps-choices {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin: 0.5rem 0 1rem;
+  flex-wrap: wrap;
+}
+.rps-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--s1);
+  border: 2px solid var(--s2);
+  border-radius: 16px;
+  padding: 1rem 1.2rem;
+  font-size: 2.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  color: var(--tx);
+  min-width: 80px;
+}
+.rps-btn span { font-size: 0.75rem; font-weight: 700; }
+.rps-btn:hover:not(:disabled) { border-color: var(--c1); background: var(--s2); transform: scale(1.06) translateY(-3px); box-shadow: 0 8px 24px rgba(255,87,51,0.2); }
+.rps-btn.chosen { border-color: var(--c1); background: rgba(255,87,51,0.12); transform: scale(1.06); }
+.rps-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.rps-result-area { text-align: center; padding: 0.8rem 0; }
+.rps-reveal { font-size: 2.5rem; letter-spacing: 0.3em; margin-bottom: 0.4rem; }
+.rps-round-result { font-size: 1.1rem; font-weight: 800; }
+.rps-overlay {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  background: rgba(0,0,0,0.6);
+  border-radius: 16px;
+  margin-top: 1rem;
+}
+.rps-overlay-msg { font-size: 1.6rem; font-weight: 800; color: #fff; text-align: center; }
+
+/* Pong canvas overlay status */
+.pong-status { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); color:rgba(255,255,255,0.5); font-size:0.8rem; font-weight:700; pointer-events:none; }
