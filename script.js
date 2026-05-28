@@ -1406,9 +1406,13 @@ document.querySelectorAll('.cat-header').forEach(function(btn) {
 
 // ── Vertical edge draggable (for chat button) ─────────────────
 function makeVerticalEdgeDraggable(btn, storageKey) {
-  // Restore saved position
+  // Restore saved position (convert from bottom-based CSS to top-based)
   var saved = localStorage.getItem(storageKey);
-  if (saved) { btn.style.top = saved + 'px'; btn.style.transform = 'none'; }
+  if (saved) {
+    btn.style.top = saved + 'px';
+    btn.style.bottom = 'auto';
+    btn.style.transform = 'none';
+  }
 
   var longPressTimer = null;
   var dragging = false;
@@ -1416,25 +1420,29 @@ function makeVerticalEdgeDraggable(btn, storageKey) {
 
   function onDown(e) {
     if (e.target !== btn && e.target.parentElement !== btn) return;
-    var cy = e.touches ? e.touches[0].clientY : e.clientY;
+    var cy = e.clientY;
+    if (e.touches) cy = e.touches[0].clientY;
     startY = cy;
     longPressTimer = setTimeout(function() {
-      // Get actual visual position BEFORE changing transform
+      // Get actual visual top position right now
       var rect = btn.getBoundingClientRect();
       startTop = rect.top;
-      startY = cy; // re-anchor to current touch
+      startY = cy;
       dragging = true;
       btn.style.transition = 'none';
-      btn.style.transform = 'none'; // remove translateY(-50%) so top=rect.top is accurate
+      btn.style.transform = 'none';   // clear translateY(-50%) if present
+      btn.style.bottom = 'auto';       // override any CSS bottom:
       btn.style.top = startTop + 'px';
-      btn.style.outline = '2px solid rgba(255,255,255,0.5)';
+      btn.style.outline = '2px solid rgba(255,255,255,0.6)';
+      btn.style.boxShadow = '0 0 0 4px rgba(255,255,255,0.18)';
     }, 480);
   }
 
   function onMove(e) {
     if (!dragging) return;
     e.preventDefault();
-    var cy = e.touches ? e.touches[0].clientY : e.clientY;
+    var cy = e.clientY;
+    if (e.touches) cy = e.touches[0].clientY;
     var newTop = startTop + (cy - startY);
     var maxTop = window.innerHeight - btn.offsetHeight - 10;
     newTop = Math.max(10, Math.min(maxTop, newTop));
@@ -1446,6 +1454,7 @@ function makeVerticalEdgeDraggable(btn, storageKey) {
     if (!dragging) return;
     dragging = false;
     btn.style.outline = '';
+    btn.style.boxShadow = '';
     btn.style.transition = '';
     var finalTop = parseInt(btn.style.top, 10);
     localStorage.setItem(storageKey, finalTop);
@@ -1461,6 +1470,11 @@ function makeVerticalEdgeDraggable(btn, storageKey) {
 makeVerticalEdgeDraggable(
   document.getElementById('global-chat-btn'),
   'chatBtnTopGlobal'
+);
+// Apply to private chat (friends) button
+makeVerticalEdgeDraggable(
+  document.getElementById('sidebar-mobile-btn'),
+  'chatBtnTopPrivate'
 );
 
 // ── Draggable panels ──────────────────────────────────────────
@@ -2571,15 +2585,16 @@ async function loadC4LobbyScreen() {
     var online = (users||[]).filter(function(u){ return u.is_online && u.id !== user.id; });
     document.getElementById('c4-online-num').textContent = online.length;
     var container = document.getElementById('c4-users-list');
+    if (!online.length) { container.innerHTML = '<div class="lobby-empty">Keine Freunde online</div>'; return; }
     var html = '';
     online.forEach(function(u) {
-      var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed='+(u.avatar_seed||u.name);
-      html += '<div class="lobby-user-row"><img class="lobby-av" src="'+av+'"><span class="lobby-uname">'+escHtml(u.name)+'</span><button class="btn-invite btn-c4-invite" data-id="'+u.id+'">Einladen</button></div>';
+      var seed = u.avatar_seed || u.name || 'unknown';
+      var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(seed);
+      html += '<div class="lobby-user-row"><img class="lobby-user-av" src="'+av+'" alt=""><span class="lobby-user-name">'+escHtml(u.name)+'</span><button class="btn-invite" data-id="'+u.id+'" data-game="connect4">Einladen</button></div>';
     });
-    if (!html) html = '<div style="color:var(--dim);text-align:center;padding:1rem">Keine Freunde online</div>';
     container.innerHTML = html;
-    container.querySelectorAll('.btn-c4-invite').forEach(function(btn) {
-      btn.addEventListener('click', function() { sendGameInvite(parseInt(this.dataset.id), this, 'connect4'); });
+    container.querySelectorAll('.btn-invite').forEach(function(btn) {
+      btn.addEventListener('click', function() { sendGameInvite(parseInt(this.dataset.id), this, this.dataset.game || 'connect4'); });
     });
   } catch(e) {}
 }
@@ -2927,15 +2942,16 @@ async function loadPongLobbyScreen() {
     var online=(users||[]).filter(function(u){return u.is_online && u.id!==user.id;});
     document.getElementById('pong-online-num').textContent=online.length;
     var container=document.getElementById('pong-users-list');
+    if(!online.length){container.innerHTML='<div class="lobby-empty">Keine Freunde online</div>';return;}
     var html='';
     online.forEach(function(u){
-      var av='https://api.dicebear.com/7.x/adventurer/svg?seed='+(u.avatar_seed||u.name);
-      html+='<div class="lobby-user-row"><img class="lobby-av" src="'+av+'"><span class="lobby-uname">'+escHtml(u.name)+'</span><button class="btn-invite btn-pong-invite" data-id="'+u.id+'">Einladen</button></div>';
+      var seed=u.avatar_seed||u.name||'unknown';
+      var av='https://api.dicebear.com/7.x/adventurer/svg?seed='+encodeURIComponent(seed);
+      html+='<div class="lobby-user-row"><img class="lobby-user-av" src="'+av+'" alt=""><span class="lobby-user-name">'+escHtml(u.name)+'</span><button class="btn-invite" data-id="'+u.id+'" data-game="pong">Einladen</button></div>';
     });
-    if(!html)html='<div style="color:var(--dim);text-align:center;padding:1rem">Keine Freunde online</div>';
     container.innerHTML=html;
-    container.querySelectorAll('.btn-pong-invite').forEach(function(btn){
-      btn.addEventListener('click',function(){sendGameInvite(parseInt(this.dataset.id),this,'pong');});
+    container.querySelectorAll('.btn-invite').forEach(function(btn){
+      btn.addEventListener('click',function(){sendGameInvite(parseInt(this.dataset.id),this,this.dataset.game||'pong');});
     });
   }catch(e){}
 }
@@ -2945,9 +2961,9 @@ function pongStart(diff) {
   document.getElementById('pong-area').classList.remove('active');
   var cv=document.getElementById('c');
   cv.style.display='block';
-  fitCanvas(cv,400,520);
+  fitCanvas(cv,520,420);
   if(game){game.stop();game=null;}
-  game=pongGame(cv,true,diff,true,null);
+  game=pongGame(cv,true,pongAiDiff,true,null);
 }
 
 function pongStartOnline(lobbyId,isHost) {
@@ -2955,9 +2971,9 @@ function pongStartOnline(lobbyId,isHost) {
   document.getElementById('pong-area').classList.remove('active');
   var cv=document.getElementById('c');
   cv.style.display='block';
-  fitCanvas(cv,400,520);
+  fitCanvas(cv,520,420);
   if(game){game.stop();game=null;}
-  game=pongGame(cv,false,null,isHost,lobbyId);
+  game=pongGame(cv,false,pongAiDiff,isHost,lobbyId);
   if(pongPollInterval)clearInterval(pongPollInterval);
   pongPollInterval=setInterval(pongPollOnline, isHost?50:80);
 }
@@ -2978,7 +2994,10 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
   var PW=12, PH=80, BR=8, MAX=5;
   var on=true, raf=null;
   var lastPush=0;
-  var ball={x:W/2,y:H/2,vx:(isHost||isAI)?3.5:0,vy:2.2};
+  // Ball speed by difficulty
+  var speedMap={easy:2.0, medium:3.2, hard:5.0};
+  var baseSpeed=speedMap[diff]||3.2;
+  var ball={x:W/2,y:H/2,vx:(isHost||isAI)?baseSpeed:0,vy:baseSpeed*0.6};
   var padL={x:20,y:H/2-PH/2};   // left = host
   var padR={x:W-20-PW,y:H/2-PH/2}; // right = guest
   var sc={l:0,r:0};
@@ -3017,22 +3036,24 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
   }
 
   function reset(dir) {
-    ball.x=W/2; ball.y=H/2+(Math.random()-0.5)*120;
-    ball.vx=dir*(3+Math.random()); ball.vy=(Math.random()-0.5)*4;
+    ball.x=W/2; ball.y=H/2+(Math.random()-0.5)*100;
+    ball.vx=dir*(baseSpeed*0.9+Math.random()*baseSpeed*0.2);
+    ball.vy=(Math.random()-0.5)*baseSpeed*1.2;
   }
 
   function physics() {
     ball.x+=ball.vx; ball.y+=ball.vy;
     if(ball.y-BR<=0){ball.y=BR;ball.vy=Math.abs(ball.vy);}
     if(ball.y+BR>=H){ball.y=H-BR;ball.vy=-Math.abs(ball.vy);}
+    var maxSpd=baseSpeed*2.5;
     // Left paddle
     if(ball.vx<0&&ball.x-BR<=padL.x+PW&&ball.x-BR>=padL.x&&ball.y>=padL.y&&ball.y<=padL.y+PH){
-      ball.x=padL.x+PW+BR; ball.vx=Math.min(Math.abs(ball.vx)*1.05,12);
+      ball.x=padL.x+PW+BR; ball.vx=Math.min(Math.abs(ball.vx)*1.05,maxSpd);
       ball.vy+=(ball.y-(padL.y+PH/2))*0.12;
     }
     // Right paddle
     if(ball.vx>0&&ball.x+BR>=padR.x&&ball.x+BR<=padR.x+PW&&ball.y>=padR.y&&ball.y<=padR.y+PH){
-      ball.x=padR.x-BR; ball.vx=-Math.min(Math.abs(ball.vx)*1.05,12);
+      ball.x=padR.x-BR; ball.vx=-Math.min(Math.abs(ball.vx)*1.05,maxSpd);
       ball.vy+=(ball.y-(padR.y+PH/2))*0.12;
     }
     if(ball.x-BR<=0){sc.r++; document.getElementById('pts').textContent=isHost?sc.l:sc.r; reset(1);}
@@ -3130,15 +3151,16 @@ async function loadRpsLobbyScreen() {
     var online=(users||[]).filter(function(u){return u.is_online && u.id!==user.id;});
     document.getElementById('rps-online-num').textContent=online.length;
     var container=document.getElementById('rps-users-list');
+    if(!online.length){container.innerHTML='<div class="lobby-empty">Keine Freunde online</div>';return;}
     var html='';
     online.forEach(function(u){
-      var av='https://api.dicebear.com/7.x/adventurer/svg?seed='+(u.avatar_seed||u.name);
-      html+='<div class="lobby-user-row"><img class="lobby-av" src="'+av+'"><span class="lobby-uname">'+escHtml(u.name)+'</span><button class="btn-invite btn-rps-invite" data-id="'+u.id+'">Einladen</button></div>';
+      var seed=u.avatar_seed||u.name||'unknown';
+      var av='https://api.dicebear.com/7.x/adventurer/svg?seed='+encodeURIComponent(seed);
+      html+='<div class="lobby-user-row"><img class="lobby-user-av" src="'+av+'" alt=""><span class="lobby-user-name">'+escHtml(u.name)+'</span><button class="btn-invite" data-id="'+u.id+'" data-game="rps">Einladen</button></div>';
     });
-    if(!html)html='<div style="color:var(--dim);text-align:center;padding:1rem">Keine Freunde online</div>';
     container.innerHTML=html;
-    container.querySelectorAll('.btn-rps-invite').forEach(function(btn){
-      btn.addEventListener('click',function(){sendGameInvite(parseInt(this.dataset.id),this,'rps');});
+    container.querySelectorAll('.btn-invite').forEach(function(btn){
+      btn.addEventListener('click',function(){sendGameInvite(parseInt(this.dataset.id),this,this.dataset.game||'rps');});
     });
   }catch(e){}
 }
@@ -3170,11 +3192,19 @@ function rpsStartGame(isAI, diff, lobbyId, isHost) {
   document.getElementById('rps-waiting').style.display = 'none';
 
   var mySc=0, oppSc=0, round=1, MAX=3;
-  var myChoice=null, roundActive=true;
-  var icons={rock:'🪨',paper:'📄',scissors:'✂️'};
+  var myChoice=null, roundActive=true, gameOn=true;
+  // Hand emojis for battle display — show real gestures not symbols
+  var handIcons={rock:'✊', paper:'🖐️', scissors:'✌️'};
+  var choiceIcons={rock:'🪨', paper:'📄', scissors:'✂️'};
   function beats(a,b){return(a==='rock'&&b==='scissors')||(a==='paper'&&b==='rock')||(a==='scissors'&&b==='paper');}
 
-  var btns=document.querySelectorAll('.rps-btn');
+  // Clear old event listeners by replacing buttons with fresh clones
+  var choicesEl = document.getElementById('rps-choices');
+  choicesEl.querySelectorAll('.rps-btn').forEach(function(btn) {
+    var fresh = btn.cloneNode(true);
+    btn.parentNode.replaceChild(fresh, btn);
+  });
+  var btns = choicesEl.querySelectorAll('.rps-btn');
   btns.forEach(function(b){b.disabled=false;b.classList.remove('chosen');});
 
   function showBattle(mine, opp) {
@@ -3183,40 +3213,39 @@ function rpsStartGame(isAI, diff, lobbyId, isHost) {
     var oppLbl = document.getElementById('rps-opp-label');
     if (oppLbl) oppLbl.textContent = isAI ? 'KI' : 'Gegner';
 
-    // Re-trigger animations by cloning sides
+    // Re-trigger fly-in animations by cloning the sides (preserves CSS animation restart)
     var mine2 = document.getElementById('rps-mine-side');
     var opp2  = document.getElementById('rps-opp-side');
     if (mine2) { var m2 = mine2.cloneNode(true); mine2.parentNode.replaceChild(m2, mine2); }
     if (opp2)  { var o2 = opp2.cloneNode(true);  opp2.parentNode.replaceChild(o2, opp2); }
-    // Re-fetch after clone
+    // Re-fetch elements after clone
     var mineIconEl = document.getElementById('rps-mine-icon');
     var oppIconEl  = document.getElementById('rps-opp-icon');
-    if (mineIconEl) mineIconEl.textContent = icons[mine];
-    if (oppIconEl)  oppIconEl.textContent  = icons[opp];
+    if (mineIconEl) mineIconEl.textContent = handIcons[mine] || choiceIcons[mine] || mine;
+    if (oppIconEl)  oppIconEl.textContent  = handIcons[opp]  || choiceIcons[opp]  || opp;
     if (arena) arena.style.display = 'flex';
 
-    // Determine winner, apply visual
-    var result, txt, col;
+    // Determine winner and apply visuals
+    var txt, col;
     if (mine === opp) {
-      result = 'draw'; txt = '🤝 Unentschieden!'; col = 'var(--dim)';
+      txt = '🤝 Unentschieden!'; col = 'var(--dim)';
       if (mineIconEl) mineIconEl.classList.add('draw');
       if (oppIconEl)  oppIconEl.classList.add('draw');
     } else if (beats(mine, opp)) {
-      result = 'win';  txt = '✅ Runde gewonnen!'; col = '#22c55e'; mySc++;
+      txt = '✅ Runde gewonnen!'; col = '#22c55e'; mySc++;
       setTimeout(function() {
         if (mineIconEl) mineIconEl.classList.add('winner');
         if (oppIconEl)  oppIconEl.classList.add('loser');
-      }, 350);
+      }, 300);
     } else {
-      result = 'lose'; txt = '❌ Runde verloren!'; col = '#ef4444'; oppSc++;
+      txt = '❌ Runde verloren!'; col = '#ef4444'; oppSc++;
       setTimeout(function() {
         if (oppIconEl)  oppIconEl.classList.add('winner');
         if (mineIconEl) mineIconEl.classList.add('loser');
-      }, 350);
+      }, 300);
     }
     document.getElementById('rps-my-score').textContent  = mySc;
     document.getElementById('rps-opp-score').textContent = oppSc;
-
     if (rrEl) { rrEl.textContent = txt; rrEl.style.color = col; rrEl.style.display = 'block'; }
 
     if (mySc >= MAX || oppSc >= MAX) {
@@ -3227,6 +3256,7 @@ function rpsStartGame(isAI, diff, lobbyId, isHost) {
       round++;
       document.getElementById('rps-round-info').textContent = 'Runde ' + round;
       setTimeout(function() {
+        if (!gameOn) return;
         if (arena) arena.style.display = 'none';
         if (rrEl) rrEl.style.display = 'none';
         myChoice = null; roundActive = true;
@@ -3244,15 +3274,16 @@ function rpsStartGame(isAI, diff, lobbyId, isHost) {
     }
   }
 
+  // ── Countdown: fist pumps 3× while words count "Schere → Stein → Papier!" ──
   function runCountdown(onDone) {
-    var cd = document.getElementById('rps-countdown');
+    var cd   = document.getElementById('rps-countdown');
     var hand = document.getElementById('rps-pump-hand');
     var word = document.getElementById('rps-pump-word');
     var words = ['Schere', 'Stein', 'Papier!'];
     if (cd) cd.style.display = 'flex';
     var idx = 0;
     function doPump() {
-      if (!roundActive && idx < 3) { /* aborted */ return; }
+      if (!gameOn) return; // only abort if whole game stopped
       if (idx >= 3) {
         if (cd) cd.style.display = 'none';
         onDone(); return;
@@ -3260,7 +3291,7 @@ function rpsStartGame(isAI, diff, lobbyId, isHost) {
       if (word) word.textContent = words[idx];
       if (hand) {
         hand.classList.remove('pumping');
-        void hand.offsetWidth; // reflow to restart CSS animation
+        void hand.offsetWidth; // force reflow to restart animation
         hand.classList.add('pumping');
       }
       idx++;
@@ -3270,12 +3301,13 @@ function rpsStartGame(isAI, diff, lobbyId, isHost) {
   }
 
   function resolve(mine, opp) {
-    roundActive = false;
+    // NOTE: do NOT set roundActive=false here — that would abort the countdown!
     btns.forEach(function(b) { b.disabled = true; });
     document.getElementById('rps-choices').style.display = 'none';
     var waiting = document.getElementById('rps-waiting');
     if (waiting) waiting.style.display = 'none';
     runCountdown(function() {
+      roundActive = false; // now safe to mark round inactive (after countdown)
       showBattle(mine, opp);
     });
   }
@@ -3287,9 +3319,15 @@ function rpsStartGame(isAI, diff, lobbyId, isHost) {
     if (isAI) {
       var aiChoices = ['rock', 'paper', 'scissors'];
       var opp;
-      if (diff === 'easy') { opp = aiChoices[Math.floor(Math.random() * 3)]; }
-      else if (diff === 'medium') { var c1 = {rock:'paper',paper:'scissors',scissors:'rock'}; opp = Math.random()<0.45 ? c1[choice] : aiChoices[Math.floor(Math.random()*3)]; }
-      else { var c2 = {rock:'paper',paper:'scissors',scissors:'rock'}; opp = Math.random()<0.72 ? c2[choice] : aiChoices[Math.floor(Math.random()*3)]; }
+      if (diff === 'easy') {
+        opp = aiChoices[Math.floor(Math.random() * 3)];
+      } else if (diff === 'medium') {
+        var wins = {rock:'paper',paper:'scissors',scissors:'rock'};
+        opp = Math.random() < 0.45 ? wins[choice] : aiChoices[Math.floor(Math.random()*3)];
+      } else {
+        var winsH = {rock:'paper',paper:'scissors',scissors:'rock'};
+        opp = Math.random() < 0.72 ? winsH[choice] : aiChoices[Math.floor(Math.random()*3)];
+      }
       resolve(choice, opp);
     } else {
       var waiting = document.getElementById('rps-waiting');
@@ -3304,19 +3342,19 @@ function rpsStartGame(isAI, diff, lobbyId, isHost) {
     }
   }
 
-  btns.forEach(function(btn){btn.addEventListener('click',function(){pick(this.dataset.choice);});});
+  btns.forEach(function(btn){ btn.addEventListener('click', function(){ pick(this.dataset.choice); }); });
 
   function checkServerState(state) {
-    if(!state||!roundActive||!myChoice)return;
-    var oppKey=isHost?'guestChoice':'hostChoice';
-    var myKey=isHost?'hostChoice':'guestChoice';
-    var oppChoice=state[oppKey];
-    if(oppChoice&&state[myKey]===myChoice){
-      resolve(myChoice,oppChoice);
+    if(!state || !roundActive || !myChoice) return;
+    var oppKey = isHost ? 'guestChoice' : 'hostChoice';
+    var myKey  = isHost ? 'hostChoice'  : 'guestChoice';
+    var oppChoice = state[oppKey];
+    if(oppChoice && state[myKey] === myChoice){
+      resolve(myChoice, oppChoice);
     }
   }
 
-  game={stop:function(){roundActive=false;},applyState:checkServerState};
+  game = { stop: function(){ gameOn=false; roundActive=false; }, applyState: checkServerState };
 }
 
 async function rpsPollOnline() {

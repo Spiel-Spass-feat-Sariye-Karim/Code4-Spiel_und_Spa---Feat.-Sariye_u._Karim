@@ -1822,6 +1822,9 @@ body.light .chat-input-row input:focus { border-color: var(--c1); }
   box-shadow: 0 4px 14px rgba(0,0,0,0.5);
   align-items: center;
   justify-content: center;
+  touch-action: none; /* allow pointer events for drag */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* ---- PRIVATE CHAT MODAL ---- */
@@ -1950,6 +1953,9 @@ body.is-dragging * { cursor: grabbing !important; }
   justify-content: center;
   transition: width 0.2s ease, box-shadow 0.2s;
   line-height: 1;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 #global-chat-btn.visible { display: flex; }
 #global-chat-btn:hover {
