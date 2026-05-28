@@ -1404,6 +1404,69 @@ document.querySelectorAll('.cat-header').forEach(function(btn) {
   });
 });
 
+// ── Vertical edge draggable (for chat button) ─────────────────
+function makeVerticalEdgeDraggable(btn, storageKey) {
+  // Restore saved position
+  var saved = localStorage.getItem(storageKey);
+  if (saved) { btn.style.top = saved + 'px'; btn.style.transform = 'none'; }
+
+  var longPressTimer = null;
+  var dragging = false;
+  var startY = 0, startTop = 0;
+
+  function getBtnTop() {
+    return parseInt(btn.style.top || btn.getBoundingClientRect().top, 10);
+  }
+
+  function onDown(e) {
+    if (e.target !== btn) return;
+    var cy = e.touches ? e.touches[0].clientY : e.clientY;
+    startY = cy;
+    startTop = getBtnTop();
+    longPressTimer = setTimeout(function() {
+      dragging = true;
+      btn.style.transition = 'none';
+      btn.style.transform = 'scale(1.15)';
+      btn.style.outline = '2px solid rgba(255,255,255,0.5)';
+      btn.style.top = startTop + 'px';
+    }, 480);
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    var cy = e.touches ? e.touches[0].clientY : e.clientY;
+    var newTop = startTop + (cy - startY);
+    var maxTop = window.innerHeight - btn.offsetHeight - 10;
+    newTop = Math.max(10, Math.min(maxTop, newTop));
+    btn.style.top = newTop + 'px';
+  }
+
+  function onUp(e) {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    if (!dragging) return;
+    dragging = false;
+    btn.style.transform = '';
+    btn.style.outline = '';
+    btn.style.transition = '';
+    var finalTop = parseInt(btn.style.top, 10);
+    localStorage.setItem(storageKey, finalTop);
+  }
+
+  btn.addEventListener('mousedown', onDown);
+  btn.addEventListener('touchstart', onDown, { passive: true });
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('touchmove', onMove, { passive: false });
+  document.addEventListener('mouseup', onUp);
+  document.addEventListener('touchend', onUp);
+}
+
+// Apply to global chat button
+makeVerticalEdgeDraggable(
+  document.getElementById('global-chat-btn'),
+  'chatBtnTopGlobal'
+);
+
 // ── Draggable panels ──────────────────────────────────────────
 function makeDraggable(panel, handle) {
   var dragging = false, ox = 0, oy = 0;
@@ -1802,11 +1865,6 @@ function reaction() {
   var goTimer = null;
   var top3 = [];
 
-  /* Position on track: lower ms = further right (better) */
-  function reactionPos(ms) {
-    return Math.max(7, Math.min(88, 88 - (ms - 80) * 0.135));
-  }
-
   function getBulb(n) { return document.getElementById('fl' + n); }
   function getWrap(i) { return document.getElementById('f1-wrap-' + i); }
   function getLabel(i){ return document.getElementById('f1-label-' + i); }
@@ -1849,6 +1907,10 @@ function reaction() {
     initLabels();
     status.textContent = '🏁 Ampel beachten...';
     btn.className = 'waiting';
+    var wheel = document.getElementById('f1-wheel');
+    if (wheel) { wheel.classList.remove('show'); }
+    var podium = document.getElementById('f1-podium');
+    if (podium) podium.classList.remove('show');
 
     for (var i = 1; i <= 5; i++) {
       (function(idx) {
@@ -1868,6 +1930,8 @@ function reaction() {
               btn.className = 'active';
               area.classList.add('f1-go');
               setTimeout(function() { area.classList.remove('f1-go'); }, 500);
+              var wheel = document.getElementById('f1-wheel');
+              if (wheel) wheel.classList.add('show');
             }, wait);
           }
         }, 650 * idx);
@@ -1892,18 +1956,35 @@ function reaction() {
       var ms = Date.now() - startTime;
       phase = 'done';
       btn.className = '';
+      var wheel = document.getElementById('f1-wheel');
+      if (wheel) wheel.classList.remove('show');
 
-      /* Animate ghost cars */
+      // Build all 4 times (3 ghosts + player)
+      var allTimes = top3.map(function(g) { return g ? g.reaction_ms : null; });
+      allTimes.push(ms);
+
+      // Compute min/max for relative scaling
+      var validTimes = allTimes.filter(function(t) { return t && t > 0; });
+      var bestT = Math.min.apply(null, validTimes);
+      var worstT = Math.max.apply(null, validTimes);
+      var spread = Math.max(worstT - bestT, 60);
+
+      function dynPos(t) {
+        if (!t || t <= 0) return 10;
+        return Math.round(10 + (worstT - t) / spread * 76); // 10% = worst, 86% = best
+      }
+
+      // Animate ghost cars
       for (var i = 0; i < 3; i++) {
         var w = getWrap(i); var lbl = getLabel(i);
         if (w && top3[i]) {
-          w.style.left = reactionPos(top3[i].reaction_ms) + '%';
+          w.style.left = dynPos(top3[i].reaction_ms) + '%';
           if (lbl) lbl.textContent = top3[i].name + ' ' + top3[i].reaction_ms + 'ms';
         }
       }
-      /* Animate player car */
+      // Animate player car
       var pw = getWrap(3); var pl = getLabel(3);
-      if (pw) pw.style.left = reactionPos(ms) + '%';
+      if (pw) pw.style.left = dynPos(ms) + '%';
       if (pl) pl.textContent = (user && user.name ? user.name : 'Du') + ' ' + ms + 'ms';
 
       var grade = ms < 180 ? '⚡ Weltklasse!' : ms < 250 ? '⚡ Blitz-Reflex!' : ms < 320 ? '🟢 Exzellent!' : ms < 420 ? '🟢 Gut!' : ms < 550 ? '🟡 OK' : '🔴 Langsam';
@@ -1911,6 +1992,30 @@ function reaction() {
       document.getElementById('pts').textContent = ms + 'ms';
       sounds.highscore();
       saveHS('reaction', ms);
+
+      // Show podium after cars arrive
+      setTimeout(function() {
+        if (!on) return;
+        var podium = document.getElementById('f1-podium');
+        if (!podium) return;
+        // Order: 2nd place, 1st place, 3rd place
+        for (var i = 0; i < 3; i++) {
+          var av = document.getElementById('f1-pod-av-' + i);
+          var nm = document.getElementById('f1-pod-name-' + i);
+          var tm = document.getElementById('f1-pod-time-' + i);
+          if (top3[i]) {
+            var seed = top3[i].avatar_seed || top3[i].name;
+            if (av) av.src = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(seed);
+            if (nm) nm.textContent = top3[i].name;
+            if (tm) tm.textContent = top3[i].reaction_ms + 'ms';
+          } else {
+            if (av) av.src = '';
+            if (nm) nm.textContent = '—';
+            if (tm) tm.textContent = '';
+          }
+        }
+        podium.classList.add('show');
+      }, 1200);
 
       setTimeout(function() {
         if (!on) return;
@@ -1925,6 +2030,8 @@ function reaction() {
   }
 
   btn.addEventListener('click', handleClick);
+  var hubBtn = document.getElementById('f1-hub-btn');
+  if (hubBtn) hubBtn.addEventListener('click', function() { handleClick(); });
 
   /* Fetch top3 from global highscores, then start */
   (async function() {
@@ -1944,6 +2051,10 @@ function reaction() {
       on = false; clearTimers(); resetLights();
       btn.removeEventListener('click', handleClick);
       btn.className = '';
+      var wheel = document.getElementById('f1-wheel');
+      if (wheel) wheel.classList.remove('show');
+      var podium = document.getElementById('f1-podium');
+      if (podium) podium.classList.remove('show');
     }
   };
 }
@@ -2530,48 +2641,85 @@ function connect4Game(cv, isAI, diff, isHost, lobbyId) {
 
   function draw() {
     ctx.clearRect(0,0,W,H);
-    ctx.fillStyle = '#080818'; ctx.fillRect(0,0,W,H);
-    // Board bg
-    ctx.fillStyle = '#1a3a8f';
-    rrect(ctx, oX-6, oY-6, bW+12, bH+12, 10); ctx.fill();
+    // background
+    var bg = ctx.createRadialGradient(W/2,H/2,10,W/2,H/2,W*0.8);
+    bg.addColorStop(0,'#0a0a1a'); bg.addColorStop(1,'#060610');
+    ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+    // Board shadow
+    ctx.shadowColor='rgba(0,0,200,0.35)'; ctx.shadowBlur=24;
+    ctx.fillStyle='#1a3a9f';
+    rrect(ctx,oX-8,oY-8,bW+16,bH+16,12); ctx.fill();
+    ctx.shadowBlur=0;
+    // Inner board
+    ctx.fillStyle='#1535a0';
+    rrect(ctx,oX-6,oY-6,bW+12,bH+12,10); ctx.fill();
     // Cells
-    for (var r = 0; r < ROWS; r++) {
-      for (var c = 0; c < COLS; c++) {
-        var cell = board[r*COLS+c];
-        var cx = oX + c*CELL + CELL/2, cy = oY + r*CELL + CELL/2;
-        var rad = CELL/2 - 4;
-        ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI*2);
-        if (cell === 'R') { ctx.fillStyle='#ef4444'; ctx.shadowColor='#ef4444'; ctx.shadowBlur=12; }
-        else if (cell === 'Y') { ctx.fillStyle='#fbbf24'; ctx.shadowColor='#fbbf24'; ctx.shadowBlur=12; }
-        else { ctx.fillStyle='#0c1830'; ctx.shadowBlur=0; }
+    for(var r=0;r<ROWS;r++){
+      for(var c2=0;c2<COLS;c2++){
+        var cell=board[r*COLS+c2];
+        var cxc=oX+c2*CELL+CELL/2, cyc=oY+r*CELL+CELL/2;
+        var rad=CELL/2-3;
+        // Cell hole
+        ctx.beginPath(); ctx.arc(cxc,cyc,rad,0,Math.PI*2);
+        if(cell==='R'){
+          var gr=ctx.createRadialGradient(cxc-rad*0.25,cyc-rad*0.25,2,cxc,cyc,rad);
+          gr.addColorStop(0,'#ff7766'); gr.addColorStop(0.5,'#ef4444'); gr.addColorStop(1,'#991b1b');
+          ctx.fillStyle=gr; ctx.shadowColor='#ef4444'; ctx.shadowBlur=18;
+        } else if(cell==='Y'){
+          var gy=ctx.createRadialGradient(cxc-rad*0.25,cyc-rad*0.25,2,cxc,cyc,rad);
+          gy.addColorStop(0,'#fde68a'); gy.addColorStop(0.5,'#fbbf24'); gy.addColorStop(1,'#d97706');
+          ctx.fillStyle=gy; ctx.shadowColor='#fbbf24'; ctx.shadowBlur=18;
+        } else {
+          var gh=ctx.createRadialGradient(cxc-rad*0.3,cyc-rad*0.3,1,cxc,cyc,rad);
+          gh.addColorStop(0,'#162248'); gh.addColorStop(1,'#0a1630');
+          ctx.fillStyle=gh; ctx.shadowBlur=0;
+        }
         ctx.fill(); ctx.shadowBlur=0;
+        // Highlight arc for depth
+        if(!cell){
+          ctx.beginPath(); ctx.arc(cxc,cyc-rad*0.15,rad*0.82,Math.PI*1.1,Math.PI*1.9);
+          ctx.strokeStyle='rgba(255,255,255,0.07)'; ctx.lineWidth=2; ctx.stroke();
+        }
       }
     }
     // Animated falling piece
-    if (animPiece) {
-      var ax = oX + animPiece.col * CELL + CELL/2;
-      var rad2 = CELL/2 - 4;
-      ctx.beginPath(); ctx.arc(ax, animPiece.y, rad2, 0, Math.PI*2);
-      ctx.fillStyle = animPiece.sym === 'R' ? '#ef4444' : '#fbbf24';
-      ctx.shadowColor = animPiece.sym === 'R' ? '#ef4444' : '#fbbf24';
-      ctx.shadowBlur = 18; ctx.fill(); ctx.shadowBlur = 0;
+    if(animPiece){
+      var ax=oX+animPiece.col*CELL+CELL/2;
+      var rad2=CELL/2-3;
+      ctx.beginPath(); ctx.arc(ax,animPiece.y,rad2,0,Math.PI*2);
+      if(animPiece.sym==='R'){
+        var ga=ctx.createRadialGradient(ax-rad2*0.25,animPiece.y-rad2*0.25,2,ax,animPiece.y,rad2);
+        ga.addColorStop(0,'#ff7766'); ga.addColorStop(0.5,'#ef4444'); ga.addColorStop(1,'#991b1b');
+        ctx.fillStyle=ga;
+      } else {
+        var gb=ctx.createRadialGradient(ax-rad2*0.25,animPiece.y-rad2*0.25,2,ax,animPiece.y,rad2);
+        gb.addColorStop(0,'#fde68a'); gb.addColorStop(0.5,'#fbbf24'); gb.addColorStop(1,'#d97706');
+        ctx.fillStyle=gb;
+      }
+      ctx.shadowColor=animPiece.sym==='R'?'#ef4444':'#fbbf24'; ctx.shadowBlur=22;
+      ctx.fill(); ctx.shadowBlur=0;
     }
     // Hover
-    if (myTurn && on && hoverCol >= 0 && !animPiece) {
-      var hx = oX + hoverCol*CELL + CELL/2;
-      ctx.beginPath(); ctx.arc(hx, 22, 14, 0, Math.PI*2);
-      ctx.fillStyle = mySym==='R' ? 'rgba(239,68,68,0.85)' : 'rgba(251,191,36,0.85)';
-      ctx.fill();
-      ctx.setLineDash([5,5]);
-      ctx.strokeStyle = mySym==='R' ? 'rgba(239,68,68,0.3)' : 'rgba(251,191,36,0.3)';
-      ctx.lineWidth=1.5; ctx.beginPath();
-      ctx.moveTo(hx,36); ctx.lineTo(hx,oY); ctx.stroke();
+    if(myTurn&&on&&hoverCol>=0&&!animPiece){
+      var hx=oX+hoverCol*CELL+CELL/2;
+      ctx.beginPath(); ctx.arc(hx,20,13,0,Math.PI*2);
+      ctx.fillStyle=mySym==='R'?'rgba(239,68,68,0.9)':'rgba(251,191,36,0.9)';
+      ctx.shadowColor=mySym==='R'?'#ef4444':'#fbbf24'; ctx.shadowBlur=16;
+      ctx.fill(); ctx.shadowBlur=0;
+      ctx.setLineDash([4,4]);
+      ctx.strokeStyle=mySym==='R'?'rgba(239,68,68,0.25)':'rgba(251,191,36,0.25)';
+      ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(hx,34); ctx.lineTo(hx,oY); ctx.stroke();
       ctx.setLineDash([]);
     }
-    // Status
-    if (on) {
-      ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center';
-      ctx.fillText(myTurn && !animPiece ? '👆 Dein Zug!' : animPiece ? '' : '⏳ Gegner...', W/2, H-6);
+    // Status bar
+    if(on&&!animPiece){
+      var statusTxt=myTurn?'👆 Dein Zug!':'⏳ Gegner am Zug...';
+      ctx.font='bold 13px sans-serif'; ctx.textAlign='center';
+      var tw=ctx.measureText(statusTxt).width;
+      ctx.fillStyle='rgba(0,0,0,0.55)';
+      rrect(ctx,W/2-tw/2-10,H-26,tw+20,20,6); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,0.75)';
+      ctx.fillText(statusTxt,W/2,H-11);
     }
   }
 
@@ -2586,7 +2734,7 @@ function connect4Game(cv, isAI, diff, isHost, lobbyId) {
   function animateDrop(col, row, sym, onDone) {
     var startY = oY - CELL/2 + 4; // just above the board
     var targetY = oY + row * CELL + CELL/2;
-    var dur = Math.min(280 + row * 65, 700); // satisfying drop speed
+    var dur = Math.min(380 + row * 90, 950); // satisfying drop speed
     var t0 = null;
     animPiece = { col: col, y: startY, sym: sym };
     function step(ts) {
@@ -2989,9 +3137,12 @@ function rpsStartGame(isAI, diff, lobbyId, isHost) {
   document.getElementById('rps-round-info').textContent='Runde 1';
   document.getElementById('rps-my-score').textContent='0';
   document.getElementById('rps-opp-score').textContent='0';
-  document.getElementById('rps-result-area').style.display='none';
   document.getElementById('rps-overlay').style.display='none';
   document.getElementById('rps-choices').style.display='flex';
+  document.getElementById('rps-countdown').style.display = 'none';
+  document.getElementById('rps-battle-arena').style.display = 'none';
+  document.getElementById('rps-round-result').style.display = 'none';
+  document.getElementById('rps-waiting').style.display = 'none';
 
   var mySc=0, oppSc=0, round=1, MAX=3;
   var myChoice=null, roundActive=true;
@@ -3001,57 +3152,130 @@ function rpsStartGame(isAI, diff, lobbyId, isHost) {
   var btns=document.querySelectorAll('.rps-btn');
   btns.forEach(function(b){b.disabled=false;b.classList.remove('chosen');});
 
-  function resolve(mine, opp) {
-    roundActive=false;
-    btns.forEach(function(b){b.disabled=true;});
-    var ra=document.getElementById('rps-result-area');
-    var rev=document.getElementById('rps-reveal');
-    var rr=document.getElementById('rps-round-result');
-    ra.style.display='block';
-    rev.innerHTML=icons[mine]+' &nbsp;vs&nbsp; '+icons[opp];
-    var result;
-    if(mine===opp){rr.textContent='🤝 Unentschieden!';rr.style.color='var(--dim)';result='draw';}
-    else if(beats(mine,opp)){rr.textContent='✅ Runde gewonnen!';rr.style.color='#22c55e';mySc++;result='win';}
-    else{rr.textContent='❌ Runde verloren!';rr.style.color='#ef4444';oppSc++;result='lose';}
-    document.getElementById('rps-my-score').textContent=mySc;
-    document.getElementById('rps-opp-score').textContent=oppSc;
-    if(mySc>=MAX||oppSc>=MAX){
-      rpsOn=false;
-      if(rpsPollInterval){clearInterval(rpsPollInterval);rpsPollInterval=null;}
-      setTimeout(function(){rpsGameOver(mySc>=MAX?'win':'lose');},1200);
+  function showBattle(mine, opp) {
+    var arena = document.getElementById('rps-battle-arena');
+    var rrEl = document.getElementById('rps-round-result');
+    var oppLbl = document.getElementById('rps-opp-label');
+    if (oppLbl) oppLbl.textContent = isAI ? 'KI' : 'Gegner';
+
+    // Re-trigger animations by cloning sides
+    var mine2 = document.getElementById('rps-mine-side');
+    var opp2  = document.getElementById('rps-opp-side');
+    if (mine2) { var m2 = mine2.cloneNode(true); mine2.parentNode.replaceChild(m2, mine2); }
+    if (opp2)  { var o2 = opp2.cloneNode(true);  opp2.parentNode.replaceChild(o2, opp2); }
+    // Re-fetch after clone
+    var mineIconEl = document.getElementById('rps-mine-icon');
+    var oppIconEl  = document.getElementById('rps-opp-icon');
+    if (mineIconEl) mineIconEl.textContent = icons[mine];
+    if (oppIconEl)  oppIconEl.textContent  = icons[opp];
+    if (arena) arena.style.display = 'flex';
+
+    // Determine winner, apply visual
+    var result, txt, col;
+    if (mine === opp) {
+      result = 'draw'; txt = '🤝 Unentschieden!'; col = 'var(--dim)';
+      if (mineIconEl) mineIconEl.classList.add('draw');
+      if (oppIconEl)  oppIconEl.classList.add('draw');
+    } else if (beats(mine, opp)) {
+      result = 'win';  txt = '✅ Runde gewonnen!'; col = '#22c55e'; mySc++;
+      setTimeout(function() {
+        if (mineIconEl) mineIconEl.classList.add('winner');
+        if (oppIconEl)  oppIconEl.classList.add('loser');
+      }, 350);
+    } else {
+      result = 'lose'; txt = '❌ Runde verloren!'; col = '#ef4444'; oppSc++;
+      setTimeout(function() {
+        if (oppIconEl)  oppIconEl.classList.add('winner');
+        if (mineIconEl) mineIconEl.classList.add('loser');
+      }, 350);
+    }
+    document.getElementById('rps-my-score').textContent  = mySc;
+    document.getElementById('rps-opp-score').textContent = oppSc;
+
+    if (rrEl) { rrEl.textContent = txt; rrEl.style.color = col; rrEl.style.display = 'block'; }
+
+    if (mySc >= MAX || oppSc >= MAX) {
+      rpsOn = false;
+      if (rpsPollInterval) { clearInterval(rpsPollInterval); rpsPollInterval = null; }
+      setTimeout(function() { rpsGameOver(mySc >= MAX ? 'win' : 'lose'); }, 1400);
     } else {
       round++;
-      document.getElementById('rps-round-info').textContent='Runde '+round;
-      setTimeout(function(){
-        ra.style.display='none';
-        myChoice=null; roundActive=true;
-        btns.forEach(function(b){b.disabled=false;b.classList.remove('chosen');});
-        // Reset server round state
-        if(!isAI&&lobbyId){
-          var patch={round:round};
-          patch[isHost?'hostChoice':'guestChoice']=null;
-          fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:patch})});
+      document.getElementById('rps-round-info').textContent = 'Runde ' + round;
+      setTimeout(function() {
+        if (arena) arena.style.display = 'none';
+        if (rrEl) rrEl.style.display = 'none';
+        myChoice = null; roundActive = true;
+        document.getElementById('rps-choices').style.display = 'flex';
+        btns.forEach(function(b) { b.disabled = false; b.classList.remove('chosen'); });
+        if (!isAI && lobbyId) {
+          var patch = { round: round };
+          patch[isHost ? 'hostChoice' : 'guestChoice'] = null;
+          fetch(API_URL + '/api/lobby/state', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lobby_id: lobbyId, user_id: user.id, patch: patch })
+          });
         }
-      },1600);
+      }, 1800);
     }
   }
 
+  function runCountdown(onDone) {
+    var cd = document.getElementById('rps-countdown');
+    var hand = document.getElementById('rps-pump-hand');
+    var word = document.getElementById('rps-pump-word');
+    var words = ['Schere', 'Stein', 'Papier!'];
+    if (cd) cd.style.display = 'flex';
+    var idx = 0;
+    function doPump() {
+      if (!roundActive && idx < 3) { /* aborted */ return; }
+      if (idx >= 3) {
+        if (cd) cd.style.display = 'none';
+        onDone(); return;
+      }
+      if (word) word.textContent = words[idx];
+      if (hand) {
+        hand.classList.remove('pumping');
+        void hand.offsetWidth; // reflow to restart CSS animation
+        hand.classList.add('pumping');
+      }
+      idx++;
+      setTimeout(doPump, 430);
+    }
+    doPump();
+  }
+
+  function resolve(mine, opp) {
+    roundActive = false;
+    btns.forEach(function(b) { b.disabled = true; });
+    document.getElementById('rps-choices').style.display = 'none';
+    var waiting = document.getElementById('rps-waiting');
+    if (waiting) waiting.style.display = 'none';
+    runCountdown(function() {
+      showBattle(mine, opp);
+    });
+  }
+
   function pick(choice) {
-    if(!roundActive||myChoice)return;
-    myChoice=choice;
-    btns.forEach(function(b){b.classList.toggle('chosen',b.dataset.choice===choice);});
-    if(isAI){
-      var aiChoices=['rock','paper','scissors'];
+    if (!roundActive || myChoice) return;
+    myChoice = choice;
+    btns.forEach(function(b) { b.classList.toggle('chosen', b.dataset.choice === choice); });
+    if (isAI) {
+      var aiChoices = ['rock', 'paper', 'scissors'];
       var opp;
-      if(diff==='easy'){opp=aiChoices[Math.floor(Math.random()*3)];}
-      else if(diff==='medium'){var counter={rock:'paper',paper:'scissors',scissors:'rock'};opp=Math.random()<0.45?counter[choice]:aiChoices[Math.floor(Math.random()*3)];}
-      else{var counter2={rock:'paper',paper:'scissors',scissors:'rock'};opp=Math.random()<0.72?counter2[choice]:aiChoices[Math.floor(Math.random()*3)];}
-      setTimeout(function(){resolve(choice,opp);},600);
+      if (diff === 'easy') { opp = aiChoices[Math.floor(Math.random() * 3)]; }
+      else if (diff === 'medium') { var c1 = {rock:'paper',paper:'scissors',scissors:'rock'}; opp = Math.random()<0.45 ? c1[choice] : aiChoices[Math.floor(Math.random()*3)]; }
+      else { var c2 = {rock:'paper',paper:'scissors',scissors:'rock'}; opp = Math.random()<0.72 ? c2[choice] : aiChoices[Math.floor(Math.random()*3)]; }
+      resolve(choice, opp);
     } else {
-      var playerKey=isHost?'hostChoice':'guestChoice';
-      var patch={};patch[playerKey]=choice;
-      fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:patch})});
-      btns.forEach(function(b){if(b.dataset.choice!==choice)b.disabled=true;});
+      var waiting = document.getElementById('rps-waiting');
+      if (waiting) waiting.style.display = 'block';
+      btns.forEach(function(b) { if (b.dataset.choice !== choice) b.disabled = true; });
+      var playerKey = isHost ? 'hostChoice' : 'guestChoice';
+      var patch = {}; patch[playerKey] = choice;
+      fetch(API_URL + '/api/lobby/state', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lobby_id: lobbyId, user_id: user.id, patch: patch })
+      });
     }
   }
 
