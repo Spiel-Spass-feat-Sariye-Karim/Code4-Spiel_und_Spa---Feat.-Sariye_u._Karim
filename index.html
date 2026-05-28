@@ -323,19 +323,22 @@
             <div class="f1-car-wrap" id="f1-wrap-3"><span class="f1-car-icon f1-player-car">🏎️</span><span class="f1-car-label f1-player-label" id="f1-label-3">Du</span></div>
           </div>
         </div>
-        <!-- F1 Lenkrad (erscheint wenn GO) -->
+        <!-- F1 Lenkrad (immer sichtbar) -->
         <div id="f1-wheel" class="f1-wheel">
           <div class="f1-wheel-left-grip"></div>
           <div class="f1-wheel-right-grip"></div>
           <div class="f1-wheel-rim">
             <div class="f1-wheel-hub">
               <div class="f1-hub-btn" id="f1-hub-btn">
-                <span class="f1-hub-label">KLICK!</span>
+                <span class="f1-hub-label" id="f1-hub-label">START</span>
               </div>
             </div>
           </div>
         </div>
+        <div class="f1-instruction">Drücke den Startknopf so schnell wie möglich um einen möglichst guten Start zu haben</div>
         <div id="reaction-status" class="f1-status">Bereit machen...</div>
+        <!-- Zeitdifferenz nach Rennen -->
+        <div id="f1-diff-display" class="f1-diff-display"></div>
         <!-- Siegertreppchen -->
         <div id="f1-podium" class="f1-podium">
           <div class="f1-pod-col" id="f1-pod-col-1">

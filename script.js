@@ -280,7 +280,7 @@ function showInviteToast(inv) {
   var icon = gameIcons[inv.game_type] || '⚔️';
   var name = gameNames[inv.game_type] || 'Duell';
   t.innerHTML =
-    '<div class="toast-invite-top"><img class="toast-av" src="' + av + '" alt=""><span>' + icon + ' <b>' + escHtml(inv.from_name) + '</b> lädt ein zu <em>' + name + '</em>!</span></div>' +
+    '<div class="toast-invite-top"><img class="toast-av" src="' + av + '" alt=""><span><b>' + escHtml(inv.from_name) + '</b> lädt dich zu einem ' + icon + ' <em>' + name + '</em>-Duell ein!</span></div>' +
     '<div class="toast-btns"><button class="toast-accept">Annehmen</button><button class="toast-decline">Ablehnen</button></div>';
   document.body.appendChild(t);
   t.querySelector('.toast-accept').addEventListener('click', function() {
@@ -1414,21 +1414,20 @@ function makeVerticalEdgeDraggable(btn, storageKey) {
   var dragging = false;
   var startY = 0, startTop = 0;
 
-  function getBtnTop() {
-    return parseInt(btn.style.top || btn.getBoundingClientRect().top, 10);
-  }
-
   function onDown(e) {
-    if (e.target !== btn) return;
+    if (e.target !== btn && e.target.parentElement !== btn) return;
     var cy = e.touches ? e.touches[0].clientY : e.clientY;
     startY = cy;
-    startTop = getBtnTop();
     longPressTimer = setTimeout(function() {
+      // Get actual visual position BEFORE changing transform
+      var rect = btn.getBoundingClientRect();
+      startTop = rect.top;
+      startY = cy; // re-anchor to current touch
       dragging = true;
       btn.style.transition = 'none';
-      btn.style.transform = 'scale(1.15)';
-      btn.style.outline = '2px solid rgba(255,255,255,0.5)';
+      btn.style.transform = 'none'; // remove translateY(-50%) so top=rect.top is accurate
       btn.style.top = startTop + 'px';
+      btn.style.outline = '2px solid rgba(255,255,255,0.5)';
     }, 480);
   }
 
@@ -1442,23 +1441,20 @@ function makeVerticalEdgeDraggable(btn, storageKey) {
     btn.style.top = newTop + 'px';
   }
 
-  function onUp(e) {
+  function onUp() {
     if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     if (!dragging) return;
     dragging = false;
-    btn.style.transform = '';
     btn.style.outline = '';
     btn.style.transition = '';
     var finalTop = parseInt(btn.style.top, 10);
     localStorage.setItem(storageKey, finalTop);
   }
 
-  btn.addEventListener('mousedown', onDown);
-  btn.addEventListener('touchstart', onDown, { passive: true });
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('touchmove', onMove, { passive: false });
-  document.addEventListener('mouseup', onUp);
-  document.addEventListener('touchend', onUp);
+  btn.addEventListener('pointerdown', onDown);
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+  document.addEventListener('pointercancel', onUp);
 }
 
 // Apply to global chat button
@@ -1471,46 +1467,45 @@ makeVerticalEdgeDraggable(
 function makeDraggable(panel, handle) {
   var dragging = false, ox = 0, oy = 0;
 
-  function pointerDown(e) {
-    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
-    dragging = true;
+  handle.addEventListener('pointerdown', function(e) {
+    var tgt = e.target;
+    if (tgt.tagName === 'BUTTON' || tgt.tagName === 'INPUT') return;
+    // On mobile when the panel is fullscreen, skip drag
+    if (window.innerWidth <= 768 && panel.classList.contains('open')) return;
     var rect = panel.getBoundingClientRect();
-    // Switch from CSS-transition positioning to explicit left/top
+    dragging = true;
+    handle.setPointerCapture(e.pointerId);
     panel.style.transition = 'none';
     panel.style.right  = 'auto';
     panel.style.bottom = 'auto';
     panel.style.transform = 'none';
     panel.style.left = rect.left + 'px';
     panel.style.top  = rect.top  + 'px';
-    var cx = e.touches ? e.touches[0].clientX : e.clientX;
-    var cy = e.touches ? e.touches[0].clientY : e.clientY;
-    ox = cx - rect.left;
-    oy = cy - rect.top;
+    ox = e.clientX - rect.left;
+    oy = e.clientY - rect.top;
     document.body.classList.add('is-dragging');
     e.preventDefault();
-  }
-  function pointerMove(e) {
+  });
+
+  handle.addEventListener('pointermove', function(e) {
     if (!dragging) return;
-    var cx = e.touches ? e.touches[0].clientX : e.clientX;
-    var cy = e.touches ? e.touches[0].clientY : e.clientY;
-    var nl = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  cx - ox));
-    var nt = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, cy - oy));
+    e.preventDefault();
+    var nl = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  e.clientX - ox));
+    var nt = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, e.clientY - oy));
     panel.style.left = nl + 'px';
     panel.style.top  = nt + 'px';
-    e.preventDefault();
-  }
-  function pointerUp() {
+  }, { passive: false });
+
+  handle.addEventListener('pointerup', function() {
     if (!dragging) return;
     dragging = false;
     document.body.classList.remove('is-dragging');
-  }
+  });
 
-  handle.addEventListener('mousedown',  pointerDown);
-  handle.addEventListener('touchstart', pointerDown, { passive: false });
-  document.addEventListener('mousemove',  pointerMove);
-  document.addEventListener('touchmove',  pointerMove, { passive: false });
-  document.addEventListener('mouseup',  pointerUp);
-  document.addEventListener('touchend', pointerUp);
+  handle.addEventListener('pointercancel', function() {
+    dragging = false;
+    document.body.classList.remove('is-dragging');
+  });
 
   // Reset to CSS-default position when panel is closed
   panel._resetDragPosition = function() {
@@ -1900,6 +1895,16 @@ function reaction() {
     if (l3) l3.textContent = (user && user.name) ? user.name : 'Du';
   }
 
+  function setHubState(state) {
+    var hubBtn = document.getElementById('f1-hub-btn');
+    var hubLabel = document.getElementById('f1-hub-label');
+    if (!hubBtn) return;
+    hubBtn.classList.remove('go', 'done');
+    if (state === 'go') { hubBtn.classList.add('go'); if (hubLabel) hubLabel.textContent = 'LOS! 🟢'; }
+    else if (state === 'done') { hubBtn.classList.add('done'); if (hubLabel) hubLabel.textContent = '↺'; }
+    else { if (hubLabel) hubLabel.textContent = 'START'; }
+  }
+
   function arm() {
     phase = 'lights';
     resetLights();
@@ -1907,10 +1912,11 @@ function reaction() {
     initLabels();
     status.textContent = '🏁 Ampel beachten...';
     btn.className = 'waiting';
-    var wheel = document.getElementById('f1-wheel');
-    if (wheel) { wheel.classList.remove('show'); }
+    setHubState('start');
     var podium = document.getElementById('f1-podium');
     if (podium) podium.classList.remove('show');
+    var diff = document.getElementById('f1-diff-display');
+    if (diff) diff.classList.remove('show');
 
     for (var i = 1; i <= 5; i++) {
       (function(idx) {
@@ -1926,12 +1932,11 @@ function reaction() {
               resetLights();
               phase = 'go';
               startTime = Date.now();
-              status.textContent = '🟢 LOS! KLICK!';
+              status.textContent = '🟢 LOS! DRÜCKEN!';
               btn.className = 'active';
               area.classList.add('f1-go');
               setTimeout(function() { area.classList.remove('f1-go'); }, 500);
-              var wheel = document.getElementById('f1-wheel');
-              if (wheel) wheel.classList.add('show');
+              setHubState('go');
             }, wait);
           }
         }, 650 * idx);
@@ -1956,22 +1961,21 @@ function reaction() {
       var ms = Date.now() - startTime;
       phase = 'done';
       btn.className = '';
-      var wheel = document.getElementById('f1-wheel');
-      if (wheel) wheel.classList.remove('show');
+      setHubState('done');
 
       // Build all 4 times (3 ghosts + player)
       var allTimes = top3.map(function(g) { return g ? g.reaction_ms : null; });
       allTimes.push(ms);
 
-      // Compute min/max for relative scaling
+      // Compute min/max for relative scaling — max position 60% so labels never clip
       var validTimes = allTimes.filter(function(t) { return t && t > 0; });
       var bestT = Math.min.apply(null, validTimes);
       var worstT = Math.max.apply(null, validTimes);
       var spread = Math.max(worstT - bestT, 60);
 
       function dynPos(t) {
-        if (!t || t <= 0) return 10;
-        return Math.round(10 + (worstT - t) / spread * 76); // 10% = worst, 86% = best
+        if (!t || t <= 0) return 8;
+        return Math.round(8 + (worstT - t) / spread * 54); // 8% = worst, 62% = best
       }
 
       // Animate ghost cars
@@ -1979,13 +1983,13 @@ function reaction() {
         var w = getWrap(i); var lbl = getLabel(i);
         if (w && top3[i]) {
           w.style.left = dynPos(top3[i].reaction_ms) + '%';
-          if (lbl) lbl.textContent = top3[i].name + ' ' + top3[i].reaction_ms + 'ms';
+          if (lbl) lbl.textContent = top3[i].name + '\n' + top3[i].reaction_ms + 'ms';
         }
       }
       // Animate player car
       var pw = getWrap(3); var pl = getLabel(3);
       if (pw) pw.style.left = dynPos(ms) + '%';
-      if (pl) pl.textContent = (user && user.name ? user.name : 'Du') + ' ' + ms + 'ms';
+      if (pl) pl.textContent = (user && user.name ? user.name : 'Du') + '\n' + ms + 'ms';
 
       var grade = ms < 180 ? '⚡ Weltklasse!' : ms < 250 ? '⚡ Blitz-Reflex!' : ms < 320 ? '🟢 Exzellent!' : ms < 420 ? '🟢 Gut!' : ms < 550 ? '🟡 OK' : '🔴 Langsam';
       status.textContent = ms + ' ms — ' + grade;
@@ -2015,12 +2019,35 @@ function reaction() {
           }
         }
         podium.classList.add('show');
+
+        // Show diff display (no overlaps — each row is its own line)
+        var diffEl = document.getElementById('f1-diff-display');
+        if (diffEl && top3.length > 0) {
+          var diffHtml = '';
+          for (var j = 0; j < top3.length; j++) {
+            if (!top3[j]) continue;
+            var tDiff = ms - top3[j].reaction_ms;
+            var cls = tDiff < 0 ? 'faster' : tDiff > 0 ? 'slower' : 'tied';
+            var sign = tDiff < 0 ? '' : '+';
+            var label = top3[j].name + ' (' + top3[j].reaction_ms + 'ms)';
+            var diffText = tDiff === 0 ? 'Gleich' : sign + tDiff + 'ms';
+            var icon = tDiff < 0 ? '⚡' : tDiff > 0 ? '🐢' : '🤝';
+            diffHtml += '<div class="f1-diff-row ' + cls + '">' +
+              '<span>' + icon + ' <b>' + escHtml(label) + '</b></span>' +
+              '<div class="f1-diff-line"></div>' +
+              '<span>' + diffText + '</span>' +
+            '</div>';
+          }
+          diffEl.innerHTML = diffHtml;
+          diffEl.classList.add('show');
+        }
       }, 1200);
 
       setTimeout(function() {
         if (!on) return;
         status.textContent = ms + ' ms — ' + grade + '  •  Tippe für neuen Versuch';
         btn.className = 'active';
+        setHubState('start');
         phase = 'replay';
       }, 2800);
       return;
@@ -2051,10 +2078,11 @@ function reaction() {
       on = false; clearTimers(); resetLights();
       btn.removeEventListener('click', handleClick);
       btn.className = '';
-      var wheel = document.getElementById('f1-wheel');
-      if (wheel) wheel.classList.remove('show');
       var podium = document.getElementById('f1-podium');
       if (podium) podium.classList.remove('show');
+      var diff = document.getElementById('f1-diff-display');
+      if (diff) { diff.classList.remove('show'); diff.innerHTML = ''; }
+      setHubState('start');
     }
   };
 }
@@ -2538,18 +2566,17 @@ document.getElementById("btn-close-profile").addEventListener("click", function(
 async function loadC4LobbyScreen() {
   document.getElementById('c4-lobby-screen').style.display = 'block';
   try {
-    var res = await fetch(API_URL + '/api/users/online');
+    var res = await fetch(API_URL + '/api/users/search?me=' + user.id);
     var users = await res.json();
-    var num = (users||[]).filter(function(u){return u.id!==user.id;}).length;
-    document.getElementById('c4-online-num').textContent = num;
+    var online = (users||[]).filter(function(u){ return u.is_online && u.id !== user.id; });
+    document.getElementById('c4-online-num').textContent = online.length;
     var container = document.getElementById('c4-users-list');
     var html = '';
-    (users||[]).forEach(function(u) {
-      if (u.id === user.id) return;
+    online.forEach(function(u) {
       var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed='+(u.avatar_seed||u.name);
       html += '<div class="lobby-user-row"><img class="lobby-av" src="'+av+'"><span class="lobby-uname">'+escHtml(u.name)+'</span><button class="btn-invite btn-c4-invite" data-id="'+u.id+'">Einladen</button></div>';
     });
-    if (!html) html = '<div style="color:var(--dim);text-align:center;padding:1rem">Keine Spieler online</div>';
+    if (!html) html = '<div style="color:var(--dim);text-align:center;padding:1rem">Keine Freunde online</div>';
     container.innerHTML = html;
     container.querySelectorAll('.btn-c4-invite').forEach(function(btn) {
       btn.addEventListener('click', function() { sendGameInvite(parseInt(this.dataset.id), this, 'connect4'); });
@@ -2895,18 +2922,17 @@ function c4GameOver(result) {
 /* ---- PONG ---- */
 async function loadPongLobbyScreen() {
   try {
-    var res = await fetch(API_URL+'/api/users/online');
+    var res = await fetch(API_URL+'/api/users/search?me='+user.id);
     var users = await res.json();
-    var num=(users||[]).filter(function(u){return u.id!==user.id;}).length;
-    document.getElementById('pong-online-num').textContent=num;
+    var online=(users||[]).filter(function(u){return u.is_online && u.id!==user.id;});
+    document.getElementById('pong-online-num').textContent=online.length;
     var container=document.getElementById('pong-users-list');
     var html='';
-    (users||[]).forEach(function(u){
-      if(u.id===user.id)return;
+    online.forEach(function(u){
       var av='https://api.dicebear.com/7.x/adventurer/svg?seed='+(u.avatar_seed||u.name);
       html+='<div class="lobby-user-row"><img class="lobby-av" src="'+av+'"><span class="lobby-uname">'+escHtml(u.name)+'</span><button class="btn-invite btn-pong-invite" data-id="'+u.id+'">Einladen</button></div>';
     });
-    if(!html)html='<div style="color:var(--dim);text-align:center;padding:1rem">Keine Spieler online</div>';
+    if(!html)html='<div style="color:var(--dim);text-align:center;padding:1rem">Keine Freunde online</div>';
     container.innerHTML=html;
     container.querySelectorAll('.btn-pong-invite').forEach(function(btn){
       btn.addEventListener('click',function(){sendGameInvite(parseInt(this.dataset.id),this,'pong');});
@@ -3099,18 +3125,17 @@ async function loadRpsLobbyScreen() {
   document.getElementById('rps-lobby-screen').style.display='block';
   document.getElementById('rps-game-screen').style.display='none';
   try {
-    var res=await fetch(API_URL+'/api/users/online');
+    var res=await fetch(API_URL+'/api/users/search?me='+user.id);
     var users=await res.json();
-    var num=(users||[]).filter(function(u){return u.id!==user.id;}).length;
-    document.getElementById('rps-online-num').textContent=num;
+    var online=(users||[]).filter(function(u){return u.is_online && u.id!==user.id;});
+    document.getElementById('rps-online-num').textContent=online.length;
     var container=document.getElementById('rps-users-list');
     var html='';
-    (users||[]).forEach(function(u){
-      if(u.id===user.id)return;
+    online.forEach(function(u){
       var av='https://api.dicebear.com/7.x/adventurer/svg?seed='+(u.avatar_seed||u.name);
       html+='<div class="lobby-user-row"><img class="lobby-av" src="'+av+'"><span class="lobby-uname">'+escHtml(u.name)+'</span><button class="btn-invite btn-rps-invite" data-id="'+u.id+'">Einladen</button></div>';
     });
-    if(!html)html='<div style="color:var(--dim);text-align:center;padding:1rem">Keine Spieler online</div>';
+    if(!html)html='<div style="color:var(--dim);text-align:center;padding:1rem">Keine Freunde online</div>';
     container.innerHTML=html;
     container.querySelectorAll('.btn-rps-invite').forEach(function(btn){
       btn.addEventListener('click',function(){sendGameInvite(parseInt(this.dataset.id),this,'rps');});
