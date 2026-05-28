@@ -1785,11 +1785,12 @@ body.light .gc-input-row input { background: #fff; border-color: #ccc; color: #1
   }
   #global-chat-btn:hover { width: 48px; }
   .global-chat-panel {
-    top: auto; bottom: 80px; right: 10px; left: 10px;
-    width: auto; transform: none;
-    right: -100vw;
+    top: auto; bottom: 80px; right: 12px; left: auto;
+    width: calc(100vw - 24px);
+    transform: translateX(calc(100% + 30px));
+    transition: transform 0.28s ease;
   }
-  .global-chat-panel.open { right: 10px; }
+  .global-chat-panel.open { transform: translateX(0); }
 
   /* Mobile: make chat panels fill screen & always show a visible close btn */
   .global-chat-panel.open,

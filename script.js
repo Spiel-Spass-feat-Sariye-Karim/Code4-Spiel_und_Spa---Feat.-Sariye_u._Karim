@@ -1659,21 +1659,44 @@ function runG() {
   }
 }
 
-/* ---- fitCanvas helper ---- */
+/* ---- fitCanvas helper — DPR-aware, retries if popup not yet shown ---- */
 function fitCanvas(cv, logW, logH) {
   var pgame = document.querySelector('.pgame');
   if (!pgame) { cv.width = logW; cv.height = logH; return; }
-  var availW = pgame.clientWidth - 16;
-  var availH = pgame.clientHeight - 16;
+  var availW = pgame.clientWidth - 20;
+  var availH = pgame.clientHeight - 20;
+  if (availW <= 0 || availH <= 0) {
+    // popup not visible yet — retry next frame
+    requestAnimationFrame(function() { fitCanvas(cv, logW, logH); });
+    return;
+  }
   var ratio = logW / logH;
   var cssW, cssH;
   if (availW / availH > ratio) { cssH = availH; cssW = availH * ratio; }
   else { cssW = availW; cssH = availW / ratio; }
-  cv.style.width = Math.floor(cssW) + 'px';
-  cv.style.height = Math.floor(cssH) + 'px';
-  cv.width = logW;
-  cv.height = logH;
+  cssW = Math.floor(cssW); cssH = Math.floor(cssH);
+  var dpr = window.devicePixelRatio || 1;
+  // Display size (CSS pixels)
+  cv.style.width  = cssW + 'px';
+  cv.style.height = cssH + 'px';
+  // Physical canvas pixels = logical size × DPR (game coords stay 0..logW, 0..logH)
+  cv.width  = Math.round(logW * dpr);
+  cv.height = Math.round(logH * dpr);
+  // Store for event-handler scaling and resize
+  cv._W = logW; cv._H = logH; cv._cssW = cssW; cv._cssH = cssH; cv._dpr = dpr;
+  var ctx = cv.getContext('2d');
+  if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
+
+/* Re-fit on orientation / resize */
+window.addEventListener('resize', function() {
+  if (!which) return;
+  var cv = document.getElementById('c');
+  if (cv.style.display === 'none') return;
+  var lw = (which === 'pong') ? 400 : (which === 'connect4') ? 420 : 380;
+  var lh = (which === 'pong') ? 520 : (which === 'connect4') ? 400 : 420;
+  fitCanvas(cv, lw, lh);
+});
 
 /* ---- SPIEL: FARB-GEDAECHTNIS ---- */
 function memory() {
@@ -2359,7 +2382,7 @@ async function c4PollOnline() {
 
 function connect4Game(cv, isAI, diff, isHost, lobbyId) {
   var COLS = 7, ROWS = 6;
-  var W = cv.width, H = cv.height;
+  var W = cv._W || cv.width, H = cv._H || cv.height;
   var CELL = Math.floor(Math.min(W / COLS, (H - 46) / ROWS));
   var bW = COLS * CELL, bH = ROWS * CELL;
   var oX = Math.floor((W - bW) / 2);
@@ -2369,6 +2392,7 @@ function connect4Game(cv, isAI, diff, isHost, lobbyId) {
   var on = true, myTurn = isHost;
   var mySym = isHost ? 'R' : 'Y';
   var hoverCol = -1;
+  var animPiece = null; // { col, y, sym } during drop animation
 
   function dropRow(b, col) {
     for (var r = ROWS-1; r >= 0; r--) { if (!b[r*COLS+col]) return r; }
@@ -2424,8 +2448,17 @@ function connect4Game(cv, isAI, diff, isHost, lobbyId) {
         ctx.fill(); ctx.shadowBlur=0;
       }
     }
+    // Animated falling piece
+    if (animPiece) {
+      var ax = oX + animPiece.col * CELL + CELL/2;
+      var rad2 = CELL/2 - 4;
+      ctx.beginPath(); ctx.arc(ax, animPiece.y, rad2, 0, Math.PI*2);
+      ctx.fillStyle = animPiece.sym === 'R' ? '#ef4444' : '#fbbf24';
+      ctx.shadowColor = animPiece.sym === 'R' ? '#ef4444' : '#fbbf24';
+      ctx.shadowBlur = 18; ctx.fill(); ctx.shadowBlur = 0;
+    }
     // Hover
-    if (myTurn && on && hoverCol >= 0) {
+    if (myTurn && on && hoverCol >= 0 && !animPiece) {
       var hx = oX + hoverCol*CELL + CELL/2;
       ctx.beginPath(); ctx.arc(hx, 22, 14, 0, Math.PI*2);
       ctx.fillStyle = mySym==='R' ? 'rgba(239,68,68,0.85)' : 'rgba(251,191,36,0.85)';
@@ -2439,57 +2472,85 @@ function connect4Game(cv, isAI, diff, isHost, lobbyId) {
     // Status
     if (on) {
       ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center';
-      ctx.fillText(myTurn ? '👆 Dein Zug!' : '⏳ Gegner...', W/2, H-6);
+      ctx.fillText(myTurn && !animPiece ? '👆 Dein Zug!' : animPiece ? '' : '⏳ Gegner...', W/2, H-6);
     }
   }
 
+  function easeOutBounce(t) {
+    var n1 = 7.5625, d1 = 2.75;
+    if (t < 1/d1) return n1*t*t;
+    else if (t < 2/d1) { t -= 1.5/d1; return n1*t*t+0.75; }
+    else if (t < 2.5/d1) { t -= 2.25/d1; return n1*t*t+0.9375; }
+    else { t -= 2.625/d1; return n1*t*t+0.984375; }
+  }
+
+  function animateDrop(col, row, sym, onDone) {
+    var startY = oY - CELL/2 + 4; // just above the board
+    var targetY = oY + row * CELL + CELL/2;
+    var dur = Math.min(120 + row * 40, 380); // faster for top rows
+    var t0 = null;
+    animPiece = { col: col, y: startY, sym: sym };
+    function step(ts) {
+      if (!t0) t0 = ts;
+      var t = Math.min((ts - t0) / dur, 1);
+      animPiece.y = startY + (targetY - startY) * easeOutBounce(t);
+      draw();
+      if (t < 1) { requestAnimationFrame(step); }
+      else { animPiece = null; onDone(); }
+    }
+    requestAnimationFrame(step);
+  }
+
   function doPlace(col) {
-    if (!on || !myTurn) return;
+    if (!on || !myTurn || animPiece) return;
     var row = dropRow(board, col);
     if (row === -1) return;
-    board[row*COLS+col] = mySym;
-    draw();
-    if (checkWin(board, row, col, mySym)) {
-      on = false; c4On = false;
-      if (c4PollInterval) { clearInterval(c4PollInterval); c4PollInterval = null; }
-      sounds.highscore();
-      setTimeout(function() { c4GameOver('win'); }, 400);
-      return;
-    }
-    if (isDraw(board)) { on=false; c4On=false; setTimeout(function(){c4GameOver('draw');},400); return; }
     myTurn = false;
-    if (isAI) {
-      setTimeout(function() {
+    animateDrop(col, row, mySym, function() {
+      board[row*COLS+col] = mySym;
+      draw();
+      if (checkWin(board, row, col, mySym)) {
+        on = false; c4On = false;
+        if (c4PollInterval) { clearInterval(c4PollInterval); c4PollInterval = null; }
+        sounds.highscore();
+        setTimeout(function() { c4GameOver('win'); }, 300);
+        return;
+      }
+      if (isDraw(board)) { on=false; c4On=false; setTimeout(function(){c4GameOver('draw');},300); return; }
+      if (isAI) {
         var aiSym = mySym==='R'?'Y':'R';
         var aiCol = c4AiMove(board, aiSym, diff);
         var aiRow = dropRow(board, aiCol);
-        board[aiRow*COLS+aiCol] = aiSym;
-        draw();
-        if (checkWin(board, aiRow, aiCol, aiSym)) {
-          on=false; c4On=false; setTimeout(function(){c4GameOver('lose');},400); return;
-        }
-        if (isDraw(board)) { on=false; c4On=false; setTimeout(function(){c4GameOver('draw');},400); return; }
-        myTurn = true; draw();
-      }, diff==='easy'?400:diff==='medium'?600:800);
-    } else {
-      fetch(API_URL+'/api/lobby/move', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({lobby_id:lobbyId, user_id:user.id, move:col})
-      });
-    }
+        animateDrop(aiCol, aiRow, aiSym, function() {
+          board[aiRow*COLS+aiCol] = aiSym;
+          draw();
+          if (checkWin(board, aiRow, aiCol, aiSym)) {
+            on=false; c4On=false; setTimeout(function(){c4GameOver('lose');},300); return;
+          }
+          if (isDraw(board)) { on=false; c4On=false; setTimeout(function(){c4GameOver('draw');},300); return; }
+          myTurn = true; draw();
+        });
+      } else {
+        fetch(API_URL+'/api/lobby/move', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({lobby_id:lobbyId, user_id:user.id, move:col})
+        });
+      }
+    });
   }
 
   function onClick(e) {
     if (!on || !myTurn) return;
     var rect = cv.getBoundingClientRect();
-    var sx = cv.width/rect.width;
-    var cx2 = ((e.clientX||(e.changedTouches&&e.changedTouches[0].clientX)||0) - rect.left)*sx;
+    var scaleX = W / rect.width;
+    var cx2 = ((e.clientX||(e.changedTouches&&e.changedTouches[0].clientX)||0) - rect.left) * scaleX;
     var col = Math.floor((cx2-oX)/CELL);
     if (col>=0&&col<COLS) doPlace(col);
   }
   function onMove(e) {
-    var rect=cv.getBoundingClientRect(), sx=cv.width/rect.width;
-    var cx2=((e.clientX||(e.touches&&e.touches[0].clientX)||0)-rect.left)*sx;
+    var rect=cv.getBoundingClientRect();
+    var scaleX = W / rect.width;
+    var cx2=((e.clientX||(e.touches&&e.touches[0].clientX)||0)-rect.left)*scaleX;
     var col=Math.floor((cx2-oX)/CELL);
     hoverCol=(col>=0&&col<COLS)?col:-1; draw();
   }
@@ -2501,23 +2562,37 @@ function connect4Game(cv, isAI, diff, isHost, lobbyId) {
   draw();
 
   function applyState(state) {
-    if (!state||!state.board||!on) return;
+    if (!state||!state.board||!on||animPiece) return;
     var nb = state.board;
     var changed=false;
     for (var i=0;i<nb.length;i++){if(nb[i]!==board[i]){changed=true;break;}}
     if (!changed) return;
     var lr=-1,lc=-1,ls='';
     for (var i=0;i<nb.length;i++){if(nb[i]&&!board[i]){lr=Math.floor(i/COLS);lc=i%COLS;ls=nb[i];break;}}
-    board=nb.slice(); draw();
-    if (lr>=0&&checkWin(board,lr,lc,ls)) {
-      on=false; c4On=false;
-      if (c4PollInterval){clearInterval(c4PollInterval);c4PollInterval=null;}
-      var result=ls===mySym?'win':'lose';
-      setTimeout(function(){c4GameOver(result);},400); return;
+    if (lr>=0&&ls&&ls!==mySym) {
+      // animate opponent's piece falling
+      animateDrop(lc, lr, ls, function() {
+        board=nb.slice(); draw();
+        if (checkWin(board,lr,lc,ls)) {
+          on=false; c4On=false;
+          if (c4PollInterval){clearInterval(c4PollInterval);c4PollInterval=null;}
+          setTimeout(function(){c4GameOver('lose');},300); return;
+        }
+        if (isDraw(board)){on=false;c4On=false;setTimeout(function(){c4GameOver('draw');},300);return;}
+        myTurn=true; draw();
+      });
+    } else {
+      board=nb.slice(); draw();
+      if (lr>=0&&checkWin(board,lr,lc,ls)) {
+        on=false; c4On=false;
+        if (c4PollInterval){clearInterval(c4PollInterval);c4PollInterval=null;}
+        var result=ls===mySym?'win':'lose';
+        setTimeout(function(){c4GameOver(result);},300); return;
+      }
+      if (isDraw(board)){on=false;c4On=false;setTimeout(function(){c4GameOver('draw');},300);return;}
+      if (ls&&ls!==mySym) myTurn=true;
+      draw();
     }
-    if (isDraw(board)){on=false;c4On=false;setTimeout(function(){c4GameOver('draw');},400);return;}
-    if (ls&&ls!==mySym) myTurn=true;
-    draw();
   }
 
   return {
@@ -2625,7 +2700,7 @@ async function pongPollOnline() {
 }
 
 function pongGame(cv, isAI, diff, isHost, lobbyId) {
-  var W=cv.width, H=cv.height;
+  var W=cv._W||cv.width, H=cv._H||cv.height;
   var ctx=cv.getContext('2d');
   var PW=12, PH=80, BR=8, MAX=5;
   var on=true, raf=null;
@@ -2738,9 +2813,10 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
 
   function movePad(e) {
     e.preventDefault();
-    var rect=cv.getBoundingClientRect(), sY=cv.height/rect.height;
+    var rect=cv.getBoundingClientRect();
+    var scaleY = H / rect.height;
     var cY=e.touches?e.touches[0].clientY:e.clientY;
-    myPad.y=Math.max(0,Math.min(H-PH,(cY-rect.top)*sY-PH/2));
+    myPad.y=Math.max(0,Math.min(H-PH,(cY-rect.top)*scaleY-PH/2));
     if(!isAI&&!isHost&&lobbyId){
       fetch(API_URL+'/api/lobby/state',{
         method:'PUT',headers:{'Content-Type':'application/json'},
