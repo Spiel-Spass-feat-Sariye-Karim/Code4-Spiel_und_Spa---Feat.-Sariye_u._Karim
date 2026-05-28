@@ -2928,9 +2928,9 @@ function c4AiMove(board, aiSym, diff) {
 function c4GameOver(result) {
   var overlay=document.getElementById('ttt-overlay');
   var msg=document.getElementById('ttt-overlay-msg');
-  if(result==='win'){msg.textContent='🏆 Du hast gewonnen!';sounds.highscore();}
-  else if(result==='lose'){msg.textContent='😔 Du hast verloren.';}
-  else{msg.textContent='🤝 Unentschieden!';}
+  if(result==='win'){msg.innerHTML='🏆<br>Du hast gewonnen!<br><small style="font-size:0.6em;opacity:0.7">4 Gewinnt</small>';sounds.highscore();}
+  else if(result==='lose'){msg.innerHTML='😔<br>Du hast verloren.<br><small style="font-size:0.6em;opacity:0.7">4 Gewinnt</small>';}
+  else{msg.innerHTML='🤝<br>Unentschieden!<br><small style="font-size:0.6em;opacity:0.7">4 Gewinnt</small>';}
   overlay.classList.add('show');
 }
 
@@ -2993,7 +2993,8 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
   var ctx=cv.getContext('2d');
   var PW=12, PH=80, BR=8, MAX=5;
   var on=true, raf=null;
-  var lastPush=0;
+  var lastPush=0, lastTs=null;
+  var TARGET_DT=1000/60; // 16.67ms = one frame at 60fps
   // Ball speed by difficulty
   var speedMap={easy:2.0, medium:3.2, hard:5.0};
   var baseSpeed=speedMap[diff]||3.2;
@@ -3041,8 +3042,8 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
     ball.vy=(Math.random()-0.5)*baseSpeed*1.2;
   }
 
-  function physics() {
-    ball.x+=ball.vx; ball.y+=ball.vy;
+  function physics(dt) {
+    ball.x+=ball.vx*dt; ball.y+=ball.vy*dt;
     if(ball.y-BR<=0){ball.y=BR;ball.vy=Math.abs(ball.vy);}
     if(ball.y+BR>=H){ball.y=H-BR;ball.vy=-Math.abs(ball.vy);}
     var maxSpd=baseSpeed*2.5;
@@ -3060,14 +3061,17 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
     if(ball.x+BR>=W){sc.l++; document.getElementById('pts').textContent=isHost?sc.l:sc.r; reset(-1);}
   }
 
-  function loop() {
+  function loop(ts) {
     if(!on)return;
+    // Delta-time: normalise to 60fps so speed is frame-rate independent
+    var dt = lastTs ? Math.min((ts - lastTs) / TARGET_DT, 3) : 1;
+    lastTs = ts;
     if(isHost||isAI){
-      physics();
+      physics(dt);
       if(isAI){
-        var spd=diff==='easy'?2:diff==='medium'?3.5:5.5;
+        var aiSpd=baseSpeed*0.65; // AI paddle speed scales with ball speed
         var tgt=ball.y-PH/2;
-        padR.y+=Math.sign(tgt-padR.y)*Math.min(spd,Math.abs(tgt-padR.y));
+        padR.y+=Math.sign(tgt-padR.y)*Math.min(aiSpd*dt,Math.abs(tgt-padR.y));
         padR.y=Math.max(0,Math.min(H-PH,padR.y));
       }
       if(!isAI&&lobbyId){
@@ -3121,7 +3125,7 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
 
   cv.addEventListener('mousemove',movePad);
   cv.addEventListener('touchmove',movePad,{passive:false});
-  loop();
+  raf=requestAnimationFrame(loop);
 
   return {
     stop:function(){on=false;if(raf)cancelAnimationFrame(raf);cv.removeEventListener('mousemove',movePad);cv.removeEventListener('touchmove',movePad);},
@@ -3136,8 +3140,8 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
 function pongGameOver(result) {
   var overlay=document.getElementById('ttt-overlay');
   var msg=document.getElementById('ttt-overlay-msg');
-  if(result==='win'){msg.textContent='🏆 Du hast gewonnen!';sounds.highscore();}
-  else{msg.textContent='😔 Du hast verloren.';}
+  if(result==='win'){msg.innerHTML='🏆<br>Du hast gewonnen!<br><small style="font-size:0.6em;opacity:0.7">Pong</small>';sounds.highscore();}
+  else{msg.innerHTML='😔<br>Du hast verloren.<br><small style="font-size:0.6em;opacity:0.7">Pong</small>';}
   overlay.classList.add('show');
 }
 
@@ -3320,13 +3324,16 @@ function rpsStartGame(isAI, diff, lobbyId, isHost) {
       var aiChoices = ['rock', 'paper', 'scissors'];
       var opp;
       if (diff === 'easy') {
+        // Easy: fully random — no pattern reading
         opp = aiChoices[Math.floor(Math.random() * 3)];
       } else if (diff === 'medium') {
-        var wins = {rock:'paper',paper:'scissors',scissors:'rock'};
-        opp = Math.random() < 0.45 ? wins[choice] : aiChoices[Math.floor(Math.random()*3)];
+        // Medium: 20% chance to counter the player's choice — mostly fair
+        var wins = {rock:'paper', paper:'scissors', scissors:'rock'};
+        opp = Math.random() < 0.20 ? wins[choice] : aiChoices[Math.floor(Math.random()*3)];
       } else {
-        var winsH = {rock:'paper',paper:'scissors',scissors:'rock'};
-        opp = Math.random() < 0.72 ? winsH[choice] : aiChoices[Math.floor(Math.random()*3)];
+        // Hard: 35% chance to counter — challenging but beatable
+        var winsH = {rock:'paper', paper:'scissors', scissors:'rock'};
+        opp = Math.random() < 0.35 ? winsH[choice] : aiChoices[Math.floor(Math.random()*3)];
       }
       resolve(choice, opp);
     } else {

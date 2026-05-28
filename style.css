@@ -2498,36 +2498,42 @@ body.light .sb-empty-row { color: #888; }
 
 .ttt-overlay {
   display: none;
-  position: absolute;
+  position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.78);
-  border-radius: 10px;
+  background: rgba(0,0,0,0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  gap: 1.1rem;
-  z-index: 10;
+  gap: 1.4rem;
+  z-index: 340;
+  padding: 2rem;
+  box-sizing: border-box;
 }
 .ttt-overlay.show { display: flex; }
 .ttt-overlay-msg {
-  font-size: 1.5rem;
-  font-weight: 800;
+  font-size: clamp(1.6rem, 5vw, 2.4rem);
+  font-weight: 900;
   color: #fff;
   text-align: center;
+  text-shadow: 0 2px 20px rgba(0,0,0,0.5);
+  line-height: 1.3;
 }
 .ttt-rematch-btn {
-  padding: 0.6rem 1.6rem;
+  padding: 0.8rem 2.4rem;
   background: var(--c1);
   color: #fff;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 700;
   cursor: pointer;
-  transition: opacity 0.2s;
+  box-shadow: 0 4px 18px rgba(255,87,51,0.4);
+  transition: transform 0.15s, opacity 0.15s;
 }
-.ttt-rematch-btn:hover { opacity: 0.85; }
+.ttt-rematch-btn:hover { opacity: 0.88; transform: scale(1.04); }
 
 /* Invite toast */
 .toast-invite {
