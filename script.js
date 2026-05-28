@@ -1792,59 +1792,158 @@ function stack(cv){
 
 /* ---- SPIEL 3: REAKTIONSTEST ---- */
 function reaction() {
-  var btn = document.getElementById('reaction-btn');
-  var status = document.getElementById('reaction-status');
-  var on = true;
-  var waiting = true;
+  var area    = document.getElementById('reaction-area');
+  var status  = document.getElementById('reaction-status');
+  var btn     = document.getElementById('reaction-btn');
+  var on      = true;
+  var phase   = 'idle'; // idle | lights | go | done | replay
   var startTime = null;
-  var timeout = null;
+  var lightTimers = [];
+  var goTimer = null;
+  var top3 = [];
+
+  /* Position on track: lower ms = further right (better) */
+  function reactionPos(ms) {
+    return Math.max(7, Math.min(88, 88 - (ms - 80) * 0.135));
+  }
+
+  function getBulb(n) { return document.getElementById('fl' + n); }
+  function getWrap(i) { return document.getElementById('f1-wrap-' + i); }
+  function getLabel(i){ return document.getElementById('f1-label-' + i); }
+
+  function clearTimers() {
+    lightTimers.forEach(function(t){ clearTimeout(t); });
+    lightTimers = [];
+    if (goTimer) { clearTimeout(goTimer); goTimer = null; }
+  }
+
+  function resetLights() {
+    for (var i = 1; i <= 5; i++) { var b = getBulb(i); if (b) b.classList.remove('on'); }
+  }
+
+  function resetCars() {
+    for (var i = 0; i < 4; i++) {
+      var w = getWrap(i);
+      if (!w) continue;
+      w.style.transition = 'none';
+      w.style.left = '6%';
+    }
+    setTimeout(function() {
+      for (var i = 0; i < 4; i++) { var w = getWrap(i); if (w) w.style.transition = ''; }
+    }, 80);
+  }
+
+  function initLabels() {
+    for (var i = 0; i < 3; i++) {
+      var lbl = getLabel(i);
+      if (lbl) lbl.textContent = top3[i] ? top3[i].name : '— Platz ' + (i+1);
+    }
+    var l3 = getLabel(3);
+    if (l3) l3.textContent = (user && user.name) ? user.name : 'Du';
+  }
 
   function arm() {
-    waiting = true;
-    startTime = null;
-    btn.className = '';
-    btn.textContent = '⏳';
-    status.textContent = 'Warte auf das Signal...';
-    var delay = 1000 + Math.random() * 3000;
-    timeout = setTimeout(function() {
-      if (!on) return;
-      waiting = false;
-      startTime = Date.now();
-      btn.classList.add('ready');
-      btn.textContent = 'JETZT!';
-      status.textContent = 'Klick so schnell du kannst!';
-    }, delay);
+    phase = 'lights';
+    resetLights();
+    resetCars();
+    initLabels();
+    status.textContent = '🏁 Ampel beachten...';
+    btn.className = 'waiting';
+
+    for (var i = 1; i <= 5; i++) {
+      (function(idx) {
+        var t = setTimeout(function() {
+          if (!on) return;
+          var b = getBulb(idx);
+          if (b) b.classList.add('on');
+          if (idx === 5) {
+            // All 5 lit — random wait then ALL OUT = GO
+            var wait = 600 + Math.random() * 2400;
+            goTimer = setTimeout(function() {
+              if (!on) return;
+              resetLights();
+              phase = 'go';
+              startTime = Date.now();
+              status.textContent = '🟢 LOS! KLICK!';
+              btn.className = 'active';
+              area.classList.add('f1-go');
+              setTimeout(function() { area.classList.remove('f1-go'); }, 500);
+            }, wait);
+          }
+        }, 650 * idx);
+        lightTimers.push(t);
+      })(i);
+    }
   }
 
   function handleClick() {
     if (!on) return;
-    if (waiting) {
-      clearTimeout(timeout);
-      btn.textContent = '❌';
-      status.textContent = 'Zu früh! Warte auf Grün.';
-      setTimeout(function() { if (on) arm(); }, 1500);
+
+    if (phase === 'lights') {
+      clearTimers(); resetLights();
+      phase = 'idle';
+      status.textContent = '❌ Zu früh! Nochmal...';
+      btn.className = '';
+      setTimeout(function() { if (on) arm(); }, 1800);
       return;
     }
-    var ms = Date.now() - startTime;
-    on = false;
-    btn.classList.remove('ready');
-    btn.textContent = ms + ' ms';
-    status.textContent = ms + ' ms — ' + (ms < 250 ? '⚡ Blitz!' : ms < 400 ? '🟢 Gut!' : ms < 600 ? '🟡 OK' : '🔴 Langsam');
-    document.getElementById('pts').textContent = ms + 'ms';
-    sounds.highscore();
-    saveHS('reaction', ms); // ms direkt speichern, niedrigerer Wert = besser
+
+    if (phase === 'go') {
+      var ms = Date.now() - startTime;
+      phase = 'done';
+      btn.className = '';
+
+      /* Animate ghost cars */
+      for (var i = 0; i < 3; i++) {
+        var w = getWrap(i); var lbl = getLabel(i);
+        if (w && top3[i]) {
+          w.style.left = reactionPos(top3[i].reaction_ms) + '%';
+          if (lbl) lbl.textContent = top3[i].name + ' ' + top3[i].reaction_ms + 'ms';
+        }
+      }
+      /* Animate player car */
+      var pw = getWrap(3); var pl = getLabel(3);
+      if (pw) pw.style.left = reactionPos(ms) + '%';
+      if (pl) pl.textContent = (user && user.name ? user.name : 'Du') + ' ' + ms + 'ms';
+
+      var grade = ms < 180 ? '⚡ Weltklasse!' : ms < 250 ? '⚡ Blitz-Reflex!' : ms < 320 ? '🟢 Exzellent!' : ms < 420 ? '🟢 Gut!' : ms < 550 ? '🟡 OK' : '🔴 Langsam';
+      status.textContent = ms + ' ms — ' + grade;
+      document.getElementById('pts').textContent = ms + 'ms';
+      sounds.highscore();
+      saveHS('reaction', ms);
+
+      setTimeout(function() {
+        if (!on) return;
+        status.textContent = ms + ' ms — ' + grade + '  •  Tippe für neuen Versuch';
+        btn.className = 'active';
+        phase = 'replay';
+      }, 2800);
+      return;
+    }
+
+    if (phase === 'replay') { arm(); }
   }
 
   btn.addEventListener('click', handleClick);
-  arm();
+
+  /* Fetch top3 from global highscores, then start */
+  (async function() {
+    try {
+      var res = await fetch(API_URL + '/api/global-highscores');
+      var hs = await res.json();
+      top3 = (hs || [])
+        .filter(function(u) { return u.reaction_ms && u.reaction_ms > 0; })
+        .sort(function(a, b) { return a.reaction_ms - b.reaction_ms; })
+        .slice(0, 3);
+    } catch(e) {}
+    if (on) arm();
+  })();
 
   return {
     stop: function() {
-      on = false;
-      clearTimeout(timeout);
+      on = false; clearTimers(); resetLights();
       btn.removeEventListener('click', handleClick);
       btn.className = '';
-      btn.textContent = '⏳';
     }
   };
 }
@@ -2487,7 +2586,7 @@ function connect4Game(cv, isAI, diff, isHost, lobbyId) {
   function animateDrop(col, row, sym, onDone) {
     var startY = oY - CELL/2 + 4; // just above the board
     var targetY = oY + row * CELL + CELL/2;
-    var dur = Math.min(120 + row * 40, 380); // faster for top rows
+    var dur = Math.min(280 + row * 65, 700); // satisfying drop speed
     var t0 = null;
     animPiece = { col: col, y: startY, sym: sym };
     function step(ts) {

@@ -296,8 +296,36 @@
       class="pad" data-color="yellow" id="pad-yellow"></div> </div> <div id="memory-status" class="memory-status"></div>
 
       <div id="reaction-area" class="reaction-area">
-        <div id="reaction-status">Warte auf das Signal...</div>
-        <button id="reaction-btn">⏳</button>
+        <!-- F1 Ampel-Gantry -->
+        <div class="f1-gantry">
+          <div class="f1-gantry-bar"></div>
+          <div class="f1-lights-row">
+            <div class="f1-light-pod"><div class="f1-bulb" id="fl1"></div></div>
+            <div class="f1-light-pod"><div class="f1-bulb" id="fl2"></div></div>
+            <div class="f1-light-pod"><div class="f1-bulb" id="fl3"></div></div>
+            <div class="f1-light-pod"><div class="f1-bulb" id="fl4"></div></div>
+            <div class="f1-light-pod"><div class="f1-bulb" id="fl5"></div></div>
+          </div>
+        </div>
+        <!-- Rennstrecke mit Geist-Autos -->
+        <div class="f1-race-track">
+          <div class="f1-start-line"></div>
+          <div class="f1-lane">
+            <div class="f1-car-wrap" id="f1-wrap-0"><span class="f1-car-icon">🏎️</span><span class="f1-car-label" id="f1-label-0">—</span></div>
+          </div>
+          <div class="f1-lane">
+            <div class="f1-car-wrap" id="f1-wrap-1"><span class="f1-car-icon">🏎️</span><span class="f1-car-label" id="f1-label-1">—</span></div>
+          </div>
+          <div class="f1-lane">
+            <div class="f1-car-wrap" id="f1-wrap-2"><span class="f1-car-icon">🏎️</span><span class="f1-car-label" id="f1-label-2">—</span></div>
+          </div>
+          <div class="f1-lane f1-player-lane">
+            <div class="f1-car-wrap" id="f1-wrap-3"><span class="f1-car-icon f1-player-car">🏎️</span><span class="f1-car-label f1-player-label" id="f1-label-3">Du</span></div>
+          </div>
+        </div>
+        <div id="reaction-status" class="f1-status">Bereit machen...</div>
+        <!-- unsichtbarer Klick-Overlay -->
+        <button id="reaction-btn"></button>
       </div>
 
       <div id="guess-area" class="guess-area">
