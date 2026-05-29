@@ -16,6 +16,9 @@ var c4PollInterval=null,c4LobbyId=null,c4IsHost=false,c4IsAI=false,c4AiDiff='eas
 var pongPollInterval=null,pongLobbyId=null,pongIsHost=false,pongIsAI=false,pongAiDiff='easy',pongOn=false;
 // RPS
 var rpsPollInterval=null,rpsLobbyId=null,rpsIsHost=false,rpsIsAI=false,rpsAiDiff='easy',rpsOn=false;
+// Chess
+var chessPollInterval=null,chessLobbyId=null,chessIsHost=false,chessIsAI=false,chessAiDiff='easy',chessOn=false;
+var chessState=null,chessSelected=-1,chessValidMoves=[],chessLastMoveFrom=-1,chessLastMoveTo=-1,chessMyColor='w';
 
 /* ---- DARK/LIGHT MODE ---- */
 (function() {
@@ -216,7 +219,7 @@ async function sendGameInvite(toId, btn, gameType) {
       body: JSON.stringify({ lobby_id: lobby.id, from_id: user.id, to_id: toId })
     });
     if (btn) { btn.textContent = '✓ Gesendet'; }
-    var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', pong:'Pong', rps:'Schere Stein Papier' };
+    var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', pong:'Pong', rps:'Schere Stein Papier', chess:'Schach' };
     showToast('⚔️ Einladung zu ' + (gameNames[gameType]||gameType) + ' gesendet!');
     if (hostWaitInterval) clearInterval(hostWaitInterval);
     hostWaitInterval = setInterval(async function() {
@@ -235,6 +238,9 @@ async function sendGameInvite(toId, btn, gameType) {
           } else if (gameType === 'rps') {
             openG('rps');
             setTimeout(function() { rpsStartOnline(lobby.id, true); }, 80);
+          } else if (gameType === 'chess') {
+            openG('chess');
+            setTimeout(function() { chessStartOnline(lobby.id, true); }, 80);
           } else {
             tttLobbyId = lobby.id; tttIsHost = true; tttMySymbol = 'X';
             openG('multiplayer');
@@ -275,8 +281,8 @@ function showInviteToast(inv) {
   t.className = 'toast toast-invite';
   var seed = inv.avatar_seed || inv.from_name || 'unknown';
   var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
-  var gameIcons = { tictactoe:'⚔️', connect4:'🔴', pong:'🏓', rps:'✊' };
-  var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', pong:'Pong', rps:'Schere Stein Papier' };
+  var gameIcons = { tictactoe:'⚔️', connect4:'🔴', pong:'🏓', rps:'✊', chess:'♟️' };
+  var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', pong:'Pong', rps:'Schere Stein Papier', chess:'Schach' };
   var icon = gameIcons[inv.game_type] || '⚔️';
   var name = gameNames[inv.game_type] || 'Duell';
   t.innerHTML =
@@ -310,6 +316,9 @@ async function acceptGameInvite(inv) {
     } else if (gt === 'rps') {
       openG('rps');
       setTimeout(function() { rpsStartOnline(inv.lobby_id, false); }, 80);
+    } else if (gt === 'chess') {
+      openG('chess');
+      setTimeout(function() { chessStartOnline(inv.lobby_id, false); }, 80);
     } else {
       openG('multiplayer');
       setTimeout(function() { tttStartOnline(inv.lobby_id, false); }, 80);
@@ -563,6 +572,43 @@ function tttRematch() {
     tttLobbyId = null;
     loadLobbyScreen();
   }
+}
+
+function gameRematch() {
+  var overlay = document.getElementById('ttt-overlay');
+  if (overlay) overlay.classList.remove('show');
+  if (which === 'connect4') {
+    if (c4PollInterval) { clearInterval(c4PollInterval); c4PollInterval = null; }
+    c4On = false; c4LobbyId = null;
+    if (game) { game.stop(); game = null; }
+    var cv = document.getElementById('c'); cv.style.display = 'none'; cv.style.width = ''; cv.style.height = '';
+    if (c4IsAI) { c4Start(c4AiDiff); } else { document.getElementById('c4-area').classList.add('active'); loadC4LobbyScreen(); }
+  } else if (which === 'pong') {
+    if (pongPollInterval) { clearInterval(pongPollInterval); pongPollInterval = null; }
+    pongOn = false; pongLobbyId = null;
+    if (game) { game.stop(); game = null; }
+    var cv = document.getElementById('c'); cv.style.display = 'none'; cv.style.width = ''; cv.style.height = '';
+    if (pongIsAI) { pongStart(pongAiDiff); } else { document.getElementById('pong-area').classList.add('active'); loadPongLobbyScreen(); }
+  } else if (which === 'rps') {
+    if (rpsPollInterval) { clearInterval(rpsPollInterval); rpsPollInterval = null; }
+    rpsOn = false; rpsLobbyId = null;
+    if (game) { game.stop(); game = null; }
+    document.getElementById('rps-game-screen').style.display = 'none';
+    document.getElementById('rps-overlay').style.display = 'none';
+    if (rpsIsAI) { rpsStart(rpsAiDiff); } else { document.getElementById('rps-area').classList.add('active'); loadRpsLobbyScreen(); }
+  } else if (which === 'chess') {
+    if (chessPollInterval) { clearInterval(chessPollInterval); chessPollInterval = null; }
+    chessOn = false; chessLobbyId = null;
+    if (chessIsAI) { chessStart(chessAiDiff); } else { document.getElementById('chess-area').classList.add('active'); loadChessLobbyScreen(); }
+  } else {
+    tttRematch();
+  }
+}
+
+function gameLeave() {
+  var overlay = document.getElementById('ttt-overlay');
+  if (overlay) overlay.classList.remove('show');
+  closeG();
 }
 
 /* ---- PRIVATE CHAT ---- */
@@ -1348,6 +1394,7 @@ document.getElementById('card-multiplayer').addEventListener('click', function()
 document.getElementById('card-connect4').addEventListener('click', function() { openG('connect4'); });
 document.getElementById('card-pong').addEventListener('click', function() { openG('pong'); });
 document.getElementById('card-rps').addEventListener('click', function() { openG('rps'); });
+document.getElementById('card-chess').addEventListener('click', function() { openG('chess'); });
 document.getElementById('btn-x').addEventListener('click', closeG);
 document.getElementById('btn-again').addEventListener('click', resetG);
 document.getElementById('popup').addEventListener('click', function(e) { if (e.target === this) closeG(); });
@@ -1546,6 +1593,7 @@ document.getElementById('btn-vs-ai').addEventListener('click', function() { tttS
 document.getElementById('btn-c4-ai').addEventListener('click', function() { c4Start(c4AiDiff); });
 document.getElementById('btn-pong-ai').addEventListener('click', function() { pongStart(pongAiDiff); });
 document.getElementById('btn-rps-ai').addEventListener('click', function() { rpsStart(rpsAiDiff); });
+document.getElementById('btn-chess-ai').addEventListener('click', function() { chessStart(chessAiDiff); });
 
 // TicTacToe diff buttons (only in #lobby-screen)
 document.querySelectorAll('#lobby-screen .diff-btn').forEach(function(btn) {
@@ -1576,15 +1624,29 @@ document.querySelectorAll('.rps-diff').forEach(function(btn) {
     rpsAiDiff = this.dataset.diff;
   });
 });
-document.getElementById('ttt-rematch-btn').addEventListener('click', tttRematch);
+document.querySelectorAll('.chess-diff').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.chess-diff').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    chessAiDiff = this.dataset.diff;
+  });
+});
+document.getElementById('ttt-rematch-btn').addEventListener('click', gameRematch);
+document.getElementById('ttt-leave-btn').addEventListener('click', gameLeave);
 document.getElementById('rps-rematch-btn').addEventListener('click', resetG);
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    var overlay = document.getElementById('ttt-overlay');
+    if (overlay && overlay.classList.contains('show')) { gameLeave(); }
+  }
+});
 document.getElementById('pc-close').addEventListener('click', closePrivateChat);
 document.getElementById('pc-send').addEventListener('click', sendPrivateMessage);
 document.getElementById('pc-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') sendPrivateMessage(); });
 
 function openG(id) {
   which = id;
-  var titles = { memory: 'Farb-Gedächtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest', bubble: 'Bubble Pop', guess: 'Zahlen-Raten', wordle: 'Info-Wordle', multiplayer: '⚔️ TicTacToe Duell', connect4: '🔴 4 Gewinnt', pong: '🏓 Pong', rps: '✊ Schere Stein Papier' };
+  var titles = { memory: 'Farb-Gedächtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest', bubble: 'Bubble Pop', guess: 'Zahlen-Raten', wordle: 'Info-Wordle', multiplayer: '⚔️ TicTacToe Duell', connect4: '🔴 4 Gewinnt', pong: '🏓 Pong', rps: '✊ Schere Stein Papier', chess: '♟️ Schach' };
   document.getElementById('gtitle').textContent = titles[id] || id;
   document.getElementById('pts').textContent = '0';
   var canvas = document.getElementById('c');
@@ -1597,6 +1659,7 @@ function openG(id) {
   var c4Area = document.getElementById('c4-area');
   var pongArea = document.getElementById('pong-area');
   var rpsArea = document.getElementById('rps-area');
+  var chessArea = document.getElementById('chess-area');
   // Hide all
   canvas.style.display = 'none';
   pads.classList.remove('active');
@@ -1608,6 +1671,7 @@ function openG(id) {
   c4Area.classList.remove('active');
   pongArea.classList.remove('active');
   rpsArea.classList.remove('active');
+  chessArea.classList.remove('active');
   document.getElementById('pbot-pts-wrap').style.display = '';
   document.getElementById('btn-again').style.display = 'inline-block';
   if (id === 'memory') {
@@ -1630,6 +1694,8 @@ function openG(id) {
     pongArea.classList.add('active');
   } else if (id === 'rps') {
     rpsArea.classList.add('active');
+  } else if (id === 'chess') {
+    chessArea.classList.add('active');
   }
   document.getElementById('popup').classList.add('on');
   runG();
@@ -1641,8 +1707,10 @@ function closeG() {
   if (c4PollInterval) { clearInterval(c4PollInterval); c4PollInterval = null; }
   if (pongPollInterval) { clearInterval(pongPollInterval); pongPollInterval = null; }
   if (rpsPollInterval) { clearInterval(rpsPollInterval); rpsPollInterval = null; }
+  if (chessPollInterval) { clearInterval(chessPollInterval); chessPollInterval = null; }
   if (hostWaitInterval) { clearInterval(hostWaitInterval); hostWaitInterval = null; }
-  tttOn = false; c4On = false; pongOn = false; rpsOn = false;
+  tttOn = false; c4On = false; pongOn = false; rpsOn = false; chessOn = false;
+  document.getElementById('ttt-overlay').classList.remove('show');
   document.getElementById('popup').classList.remove('on');
   document.getElementById('memory-pads').classList.remove('active');
   document.getElementById('memory-status').classList.remove('active');
@@ -1653,6 +1721,7 @@ function closeG() {
   document.getElementById('c4-area').classList.remove('active');
   document.getElementById('pong-area').classList.remove('active');
   document.getElementById('rps-area').classList.remove('active');
+  document.getElementById('chess-area').classList.remove('active');
   var cv = document.getElementById('c');
   cv.style.width = ''; cv.style.height = '';
 }
@@ -1695,8 +1764,17 @@ function resetG() {
     if (game) { game.stop(); game = null; }
     document.getElementById('rps-game-screen').style.display = 'none';
     document.getElementById('rps-overlay').style.display = 'none';
+    document.getElementById('ttt-overlay').classList.remove('show');
     document.getElementById('rps-area').classList.add('active');
     loadRpsLobbyScreen();
+    return;
+  }
+  if (which === 'chess') {
+    if (chessPollInterval) { clearInterval(chessPollInterval); chessPollInterval = null; }
+    chessOn = false; chessLobbyId = null;
+    document.getElementById('ttt-overlay').classList.remove('show');
+    document.getElementById('chess-area').classList.add('active');
+    loadChessLobbyScreen();
     return;
   }
   if (game) { game.stop(); game = null; }
@@ -1725,6 +1803,8 @@ function runG() {
     loadPongLobbyScreen();
   } else if (which === 'rps') {
     loadRpsLobbyScreen();
+  } else if (which === 'chess') {
+    loadChessLobbyScreen();
   } else {
     fitCanvas(c, 380, 420);
     game = stack(c);
@@ -3375,10 +3455,407 @@ async function rpsPollOnline() {
 }
 
 function rpsGameOver(result) {
-  var overlay=document.getElementById('rps-overlay');
-  var msg=document.getElementById('rps-overlay-msg');
-  if(result==='win'){msg.textContent='🏆 Du hast gewonnen!';sounds.highscore();}
-  else{msg.textContent='😔 Du hast verloren.';}
-  overlay.style.display='flex';
-  document.getElementById('rps-choices').style.display='none';
+  var overlay=document.getElementById('ttt-overlay');
+  var msg=document.getElementById('ttt-overlay-msg');
+  if(result==='win'){msg.innerHTML='🏆<br>Du hast gewonnen!<br><small style="font-size:0.6em;opacity:0.7">Schere Stein Papier</small>';sounds.highscore();}
+  else{msg.innerHTML='😔<br>Du hast verloren.<br><small style="font-size:0.6em;opacity:0.7">Schere Stein Papier</small>';}
+  overlay.classList.add('show');
+}
+
+/* ================================================================
+   CHESS ENGINE + UI
+   ================================================================ */
+
+var CHESS_INIT = [
+  'bR','bN','bB','bQ','bK','bB','bN','bR',
+  'bP','bP','bP','bP','bP','bP','bP','bP',
+  '','','','','','','','',
+  '','','','','','','','',
+  '','','','','','','','',
+  '','','','','','','','',
+  'wP','wP','wP','wP','wP','wP','wP','wP',
+  'wR','wN','wB','wQ','wK','wB','wN','wR'
+];
+
+var CHESS_SYM = {
+  wK:'♔',wQ:'♕',wR:'♖',wB:'♗',wN:'♘',wP:'♙',
+  bK:'♚',bQ:'♛',bR:'♜',bB:'♝',bN:'♞',bP:'♟'
+};
+
+var CHESS_VAL = {P:100,N:320,B:330,R:500,Q:900,K:20000};
+
+var CHESS_PST = {
+  P:[  0, 0, 0, 0, 0, 0, 0, 0,
+      50,50,50,50,50,50,50,50,
+      10,10,20,30,30,20,10,10,
+       5, 5,10,25,25,10, 5, 5,
+       0, 0, 0,20,20, 0, 0, 0,
+       5,-5,-10,0,0,-10,-5, 5,
+       5,10,10,-20,-20,10,10, 5,
+       0, 0, 0, 0, 0, 0, 0, 0],
+  N:[-50,-40,-30,-30,-30,-30,-40,-50,
+     -40,-20,  0,  0,  0,  0,-20,-40,
+     -30,  0, 10, 15, 15, 10,  0,-30,
+     -30,  5, 15, 20, 20, 15,  5,-30,
+     -30,  0, 15, 20, 20, 15,  0,-30,
+     -30,  5, 10, 15, 15, 10,  5,-30,
+     -40,-20,  0,  5,  5,  0,-20,-40,
+     -50,-40,-30,-30,-30,-30,-40,-50],
+  B:[-20,-10,-10,-10,-10,-10,-10,-20,
+     -10,  0,  0,  0,  0,  0,  0,-10,
+     -10,  0,  5, 10, 10,  5,  0,-10,
+     -10,  5,  5, 10, 10,  5,  5,-10,
+     -10,  0, 10, 10, 10, 10,  0,-10,
+     -10, 10, 10, 10, 10, 10, 10,-10,
+     -10,  5,  0,  0,  0,  0,  5,-10,
+     -20,-10,-10,-10,-10,-10,-10,-20],
+  R:[  0,  0,  0,  0,  0,  0,  0,  0,
+       5, 10, 10, 10, 10, 10, 10,  5,
+      -5,  0,  0,  0,  0,  0,  0, -5,
+      -5,  0,  0,  0,  0,  0,  0, -5,
+      -5,  0,  0,  0,  0,  0,  0, -5,
+      -5,  0,  0,  0,  0,  0,  0, -5,
+      -5,  0,  0,  0,  0,  0,  0, -5,
+       0,  0,  0,  5,  5,  0,  0,  0],
+  Q:[-20,-10,-10, -5, -5,-10,-10,-20,
+     -10,  0,  0,  0,  0,  0,  0,-10,
+     -10,  0,  5,  5,  5,  5,  0,-10,
+      -5,  0,  5,  5,  5,  5,  0, -5,
+       0,  0,  5,  5,  5,  5,  0, -5,
+     -10,  5,  5,  5,  5,  5,  0,-10,
+     -10,  0,  5,  0,  0,  0,  0,-10,
+     -20,-10,-10, -5, -5,-10,-10,-20],
+  K:[-30,-40,-40,-50,-50,-40,-40,-30,
+     -30,-40,-40,-50,-50,-40,-40,-30,
+     -30,-40,-40,-50,-50,-40,-40,-30,
+     -30,-40,-40,-50,-50,-40,-40,-30,
+     -20,-30,-30,-40,-40,-30,-30,-20,
+     -10,-20,-20,-20,-20,-20,-20,-10,
+      20, 20,  0,  0,  0,  0, 20, 20,
+      20, 30, 10,  0,  0, 10, 30, 20]
+};
+
+function cR(sq){return sq>>3;}
+function cC(sq){return sq&7;}
+function cSq(r,c){return r*8+c;}
+function cClr(p){return p?p[0]:null;}
+function cTyp(p){return p?p[1]:null;}
+
+function chessInitState(){
+  return{board:CHESS_INIT.slice(),turn:'w',castling:{wK:true,wQ:true,bK:true,bQ:true},enPassant:-1};
+}
+
+function chessIsAttacked(board,sq,byColor){
+  var r=cR(sq),c=cC(sq),i,nr,nc,p;
+  // Pawns
+  if(byColor==='w'){
+    if(r+1<8){if(c-1>=0&&board[cSq(r+1,c-1)]==='wP')return true;if(c+1<8&&board[cSq(r+1,c+1)]==='wP')return true;}
+  }else{
+    if(r-1>=0){if(c-1>=0&&board[cSq(r-1,c-1)]==='bP')return true;if(c+1<8&&board[cSq(r-1,c+1)]==='bP')return true;}
+  }
+  // Knights
+  var km=[[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+  for(i=0;i<8;i++){nr=r+km[i][0];nc=c+km[i][1];if(nr>=0&&nr<8&&nc>=0&&nc<8){p=board[cSq(nr,nc)];if(p&&cClr(p)===byColor&&cTyp(p)==='N')return true;}}
+  // King
+  var kd=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+  for(i=0;i<8;i++){nr=r+kd[i][0];nc=c+kd[i][1];if(nr>=0&&nr<8&&nc>=0&&nc<8){p=board[cSq(nr,nc)];if(p&&cClr(p)===byColor&&cTyp(p)==='K')return true;}}
+  // Rook/Queen rays
+  var straight=[[0,1],[0,-1],[1,0],[-1,0]];
+  for(i=0;i<4;i++){nr=r+straight[i][0];nc=c+straight[i][1];while(nr>=0&&nr<8&&nc>=0&&nc<8){p=board[cSq(nr,nc)];if(p){if(cClr(p)===byColor&&(cTyp(p)==='R'||cTyp(p)==='Q'))return true;break;}nr+=straight[i][0];nc+=straight[i][1];}}
+  // Bishop/Queen diagonals
+  var diag=[[-1,-1],[-1,1],[1,-1],[1,1]];
+  for(i=0;i<4;i++){nr=r+diag[i][0];nc=c+diag[i][1];while(nr>=0&&nr<8&&nc>=0&&nc<8){p=board[cSq(nr,nc)];if(p){if(cClr(p)===byColor&&(cTyp(p)==='B'||cTyp(p)==='Q'))return true;break;}nr+=diag[i][0];nc+=diag[i][1];}}
+  return false;
+}
+
+function chessPseudoMoves(state,sq){
+  var board=state.board,ep=state.enPassant,p=board[sq];
+  if(!p)return[];
+  var clr=cClr(p),typ=cTyp(p),r=cR(sq),c=cC(sq),moves=[],i,nr,nc,to;
+  function add(t){if(t<0||t>63)return;var tgt=board[t];if(!tgt||cClr(tgt)!==clr)moves.push(t);}
+  if(typ==='P'){
+    var dir=clr==='w'?-1:1,start=clr==='w'?6:1;
+    nr=r+dir;
+    if(nr>=0&&nr<8&&!board[cSq(nr,c)]){moves.push(cSq(nr,c));if(r===start&&!board[cSq(r+2*dir,c)])moves.push(cSq(r+2*dir,c));}
+    var capCols=[c-1,c+1];
+    for(i=0;i<2;i++){nc=capCols[i];if(nc>=0&&nc<8&&nr>=0&&nr<8){var cs=cSq(nr,nc);var tgt=board[cs];if(tgt&&cClr(tgt)!==clr)moves.push(cs);if(cs===ep)moves.push(cs);}}
+    return moves;
+  }
+  if(typ==='N'){var nm=[[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];for(i=0;i<8;i++){nr=r+nm[i][0];nc=c+nm[i][1];if(nr>=0&&nr<8&&nc>=0&&nc<8)add(cSq(nr,nc));}return moves;}
+  if(typ==='K'){
+    var kd=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+    for(i=0;i<8;i++){nr=r+kd[i][0];nc=c+kd[i][1];if(nr>=0&&nr<8&&nc>=0&&nc<8)add(cSq(nr,nc));}
+    var cast=state.castling;
+    if(clr==='w'&&sq===60){if(cast.wK&&!board[61]&&!board[62])moves.push(62);if(cast.wQ&&!board[59]&&!board[58]&&!board[57])moves.push(58);}
+    if(clr==='b'&&sq===4){if(cast.bK&&!board[5]&&!board[6])moves.push(6);if(cast.bQ&&!board[3]&&!board[2]&&!board[1])moves.push(2);}
+    return moves;
+  }
+  var dirs=[];
+  if(typ==='R'||typ==='Q')dirs=dirs.concat([[0,1],[0,-1],[1,0],[-1,0]]);
+  if(typ==='B'||typ==='Q')dirs=dirs.concat([[-1,-1],[-1,1],[1,-1],[1,1]]);
+  for(i=0;i<dirs.length;i++){nr=r+dirs[i][0];nc=c+dirs[i][1];while(nr>=0&&nr<8&&nc>=0&&nc<8){to=cSq(nr,nc);var tgt=board[to];if(tgt){if(cClr(tgt)!==clr)moves.push(to);break;}moves.push(to);nr+=dirs[i][0];nc+=dirs[i][1];}}
+  return moves;
+}
+
+function chessApplyMove(state,from,to,promo){
+  var board=state.board.slice();
+  var cast={wK:state.castling.wK,wQ:state.castling.wQ,bK:state.castling.bK,bQ:state.castling.bQ};
+  var p=board[from],clr=cClr(p),typ=cTyp(p),newEP=-1;
+  // En passant capture
+  if(typ==='P'&&to===state.enPassant){board[cSq(cR(from),cC(to))]=''; }
+  // Double push → set ep target
+  if(typ==='P'&&Math.abs(cR(to)-cR(from))===2){newEP=cSq((cR(from)+cR(to))>>1,cC(from));}
+  // Castling: move rook
+  if(typ==='K'){
+    if(from===60&&to===62){board[63]='';board[61]='wR';}
+    if(from===60&&to===58){board[56]='';board[59]='wR';}
+    if(from===4&&to===6){board[7]='';board[5]='bR';}
+    if(from===4&&to===2){board[0]='';board[3]='bR';}
+    if(clr==='w'){cast.wK=false;cast.wQ=false;}else{cast.bK=false;cast.bQ=false;}
+  }
+  // Update castling on rook move/capture
+  if(from===56||to===56)cast.wQ=false;if(from===63||to===63)cast.wK=false;
+  if(from===0 ||to===0 )cast.bQ=false;if(from===7 ||to===7 )cast.bK=false;
+  // Promotion
+  var piece=p;
+  if(typ==='P'&&(cR(to)===0||cR(to)===7))piece=clr+(promo||'Q');
+  board[to]=piece;board[from]='';
+  return{board:board,turn:clr==='w'?'b':'w',castling:cast,enPassant:newEP};
+}
+
+function chessFindKing(board,color){for(var i=0;i<64;i++){if(board[i]===color+'K')return i;}return -1;}
+
+function chessIsCheck(state,color){
+  var kSq=chessFindKing(state.board,color);
+  if(kSq<0)return true;
+  return chessIsAttacked(state.board,kSq,color==='w'?'b':'w');
+}
+
+function chessLegalMoves(state,sq){
+  var p=state.board[sq];if(!p)return[];
+  var clr=cClr(p),typ=cTyp(p);
+  if(clr!==state.turn)return[];
+  var pseudo=chessPseudoMoves(state,sq),legal=[],opp=clr==='w'?'b':'w';
+  for(var i=0;i<pseudo.length;i++){
+    var to=pseudo[i];
+    if(typ==='K'&&Math.abs(to-sq)===2){
+      if(chessIsAttacked(state.board,sq,opp))continue;
+      if(chessIsAttacked(state.board,(sq+to)>>1,opp))continue;
+    }
+    var ns=chessApplyMove(state,sq,to);
+    if(!chessIsCheck(ns,clr))legal.push(to);
+  }
+  return legal;
+}
+
+function chessAllLegalMoves(state,color){
+  var all=[];
+  for(var sq=0;sq<64;sq++){var p=state.board[sq];if(p&&cClr(p)===color){var ms=chessLegalMoves(state,sq);for(var i=0;i<ms.length;i++)all.push({from:sq,to:ms[i]});}}
+  return all;
+}
+
+function chessEval(state){
+  var score=0;
+  for(var sq=0;sq<64;sq++){
+    var p=state.board[sq];if(!p)continue;
+    var clr=cClr(p),typ=cTyp(p),val=CHESS_VAL[typ]||0;
+    var pstIdx=clr==='w'?sq:(56-(sq&~7))+(sq&7);
+    score+=(clr==='w'?1:-1)*(val+((CHESS_PST[typ]||[])[pstIdx]||0));
+  }
+  return score;
+}
+
+function chessMinimax(state,depth,alpha,beta,isMax){
+  if(depth===0)return chessEval(state);
+  var color=isMax?'w':'b',moves=chessAllLegalMoves(state,color);
+  if(!moves.length)return chessIsCheck(state,color)?(isMax?-99999+depth:99999-depth):0;
+  if(isMax){
+    var best=-Infinity;
+    for(var i=0;i<moves.length;i++){var v=chessMinimax(chessApplyMove(state,moves[i].from,moves[i].to),depth-1,alpha,beta,false);if(v>best)best=v;if(v>alpha)alpha=v;if(alpha>=beta)break;}
+    return best;
+  }else{
+    var best=Infinity;
+    for(var i=0;i<moves.length;i++){var v=chessMinimax(chessApplyMove(state,moves[i].from,moves[i].to),depth-1,alpha,beta,true);if(v<best)best=v;if(v<beta)beta=v;if(alpha>=beta)break;}
+    return best;
+  }
+}
+
+function chessBestMove(state,diff){
+  var moves=chessAllLegalMoves(state,state.turn);
+  if(!moves.length)return null;
+  if(diff==='easy')return moves[Math.floor(Math.random()*moves.length)];
+  var depth=diff==='hard'?3:2,isMax=state.turn==='w',best=isMax?-Infinity:Infinity,bestMove=moves[0];
+  // Shuffle for variety at equal scores
+  moves=moves.slice().sort(function(){return Math.random()-0.5;});
+  for(var i=0;i<moves.length;i++){
+    var v=chessMinimax(chessApplyMove(state,moves[i].from,moves[i].to),depth-1,-Infinity,Infinity,!isMax);
+    if(isMax?v>best:v<best){best=v;bestMove=moves[i];}
+  }
+  return bestMove;
+}
+
+/* ---- Chess UI ---- */
+
+function buildChessBoard(){
+  var board=document.getElementById('chess-board');
+  board.innerHTML='';
+  for(var i=0;i<64;i++){
+    var sq=document.createElement('div');
+    var r=i>>3,c=i&7;
+    sq.className='csq '+((r+c)%2===0?'light':'dark');
+    sq.dataset.sq=i;
+    (function(idx){sq.addEventListener('click',function(){onChessSquareClick(idx);});})(i);
+    board.appendChild(sq);
+  }
+}
+
+function renderChessBoard(){
+  if(!chessState)return;
+  var board=document.getElementById('chess-board');
+  if(!board)return;
+  var squares=board.querySelectorAll('.csq');
+  var inCheck=chessIsCheck(chessState,chessState.turn);
+  var kingCheck=inCheck?chessFindKing(chessState.board,chessState.turn):-1;
+  squares.forEach(function(sq){
+    var idx=parseInt(sq.dataset.sq),r=idx>>3,c=idx&7,isLight=(r+c)%2===0;
+    sq.className='csq '+(isLight?'light':'dark');
+    if(idx===chessSelected)sq.classList.add('selected');
+    if(chessValidMoves.indexOf(idx)>=0){sq.classList.add(chessState.board[idx]?'valid-capture':'valid-target');}
+    if(idx===chessLastMoveFrom||idx===chessLastMoveTo)sq.classList.add('last-move');
+    if(idx===kingCheck)sq.classList.add('check-king');
+    var p=chessState.board[idx];
+    sq.innerHTML=p?'<span class="chess-piece '+(cClr(p)==='w'?'white':'black')+'">'+CHESS_SYM[p]+'</span>':'';
+  });
+  var myTurn=chessState.turn===chessMyColor,statusEl=document.getElementById('chess-status');
+  if(statusEl){
+    if(myTurn)statusEl.textContent=inCheck?'⚠️ Schach! Du bist am Zug':'Du bist am Zug ✔';
+    else statusEl.textContent=inCheck?'⚠️ Schach! Gegner ist am Zug':'Gegner ist am Zug...';
+  }
+}
+
+function onChessSquareClick(sq){
+  if(!chessOn||!chessState||chessState.turn!==chessMyColor)return;
+  var p=chessState.board[sq];
+  if(chessSelected>=0&&chessValidMoves.indexOf(sq)>=0){chessDoMove(chessSelected,sq);return;}
+  if(p&&cClr(p)===chessMyColor){chessSelected=sq;chessValidMoves=chessLegalMoves(chessState,sq);renderChessBoard();return;}
+  chessSelected=-1;chessValidMoves=[];renderChessBoard();
+}
+
+function chessDoMove(from,to){
+  chessLastMoveFrom=from;chessLastMoveTo=to;
+  chessState=chessApplyMove(chessState,from,to);
+  chessSelected=-1;chessValidMoves=[];
+  if(!chessIsAI&&chessLobbyId){
+    fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lobby_id:chessLobbyId,user_id:user.id,patch:{chessState:chessState,lastFrom:from,lastTo:to}})});
+  }
+  renderChessBoard();
+  var opp=chessState.turn,oppMoves=chessAllLegalMoves(chessState,opp);
+  if(!oppMoves.length){
+    setTimeout(function(){chessGameOver(chessIsCheck(chessState,opp)?(opp===chessMyColor?'lose':'win'):'draw');},400);
+    return;
+  }
+  if(chessIsAI&&chessState.turn!==chessMyColor)setTimeout(chessAiMove,500);
+}
+
+function chessAiMove(){
+  if(!chessOn||!chessState)return;
+  var mv=chessBestMove(chessState,chessAiDiff);
+  if(!mv)return;
+  chessLastMoveFrom=mv.from;chessLastMoveTo=mv.to;
+  chessState=chessApplyMove(chessState,mv.from,mv.to);
+  renderChessBoard();
+  var opp=chessState.turn,oppMoves=chessAllLegalMoves(chessState,opp);
+  if(!oppMoves.length){
+    setTimeout(function(){chessGameOver(chessIsCheck(chessState,opp)?(opp===chessMyColor?'lose':'win'):'draw');},300);
+  }
+}
+
+function chessGameOver(result){
+  chessOn=false;
+  if(chessPollInterval){clearInterval(chessPollInterval);chessPollInterval=null;}
+  var overlay=document.getElementById('ttt-overlay'),msg=document.getElementById('ttt-overlay-msg');
+  if(result==='win'){
+    msg.innerHTML='🏆<br>Du hast gewonnen!<br><small style="font-size:0.6em;opacity:0.7">Schach</small>';
+    sounds.highscore();
+    if(chessIsAI)saveHS('chess',chessAiDiff==='hard'?40:chessAiDiff==='medium'?25:15);
+  }else if(result==='lose'){
+    msg.innerHTML='😔<br>Du hast verloren.<br><small style="font-size:0.6em;opacity:0.7">Schach</small>';
+  }else{
+    msg.innerHTML='🤝<br>Unentschieden!<br><small style="font-size:0.6em;opacity:0.7">Schach</small>';
+  }
+  overlay.classList.add('show');
+}
+
+async function loadChessLobbyScreen(){
+  var ls=document.getElementById('chess-lobby-screen'),gs=document.getElementById('chess-game-screen');
+  if(ls)ls.style.display='block';if(gs)gs.style.display='none';
+  try{
+    var res=await fetch(API_URL+'/api/users/search?me='+user.id);
+    var users=await res.json();
+    var online=(users||[]).filter(function(u){return u.is_online&&u.id!==user.id;});
+    document.getElementById('chess-online-num').textContent=online.length;
+    var container=document.getElementById('chess-users-list');
+    if(!online.length){container.innerHTML='<div class="lobby-empty">Keine Freunde online</div>';return;}
+    var html='';
+    online.forEach(function(u){
+      var seed=u.avatar_seed||u.name||'unknown';
+      var av='https://api.dicebear.com/7.x/adventurer/svg?seed='+encodeURIComponent(seed);
+      html+='<div class="lobby-user-row"><img class="lobby-user-av" src="'+av+'" alt=""><span class="lobby-user-name">'+escHtml(u.name)+'</span><button class="btn-invite" data-id="'+u.id+'" data-game="chess">Einladen</button></div>';
+    });
+    container.innerHTML=html;
+    container.querySelectorAll('.btn-invite').forEach(function(btn){
+      btn.addEventListener('click',function(){sendGameInvite(parseInt(this.dataset.id),this,'chess');});
+    });
+  }catch(e){}
+}
+
+function chessStart(diff){
+  chessIsAI=true;chessAiDiff=diff||chessAiDiff;chessIsHost=true;chessOn=true;chessMyColor='w';
+  document.getElementById('chess-lobby-screen').style.display='none';
+  document.getElementById('chess-game-screen').style.display='block';
+  document.getElementById('ttt-overlay').classList.remove('show');
+  chessState=chessInitState();chessSelected=-1;chessValidMoves=[];chessLastMoveFrom=-1;chessLastMoveTo=-1;
+  buildChessBoard();renderChessBoard();
+  var diff2=chessAiDiff==='easy'?'Leicht':chessAiDiff==='medium'?'Mittel':'Schwer';
+  document.getElementById('chess-player-info').innerHTML=
+    '<span class="chess-you">♔ Du (Weiß)</span><span class="chess-vs"> vs </span><span class="chess-opp">♚ KI – '+diff2+'</span>';
+  document.getElementById('btn-again').style.display='none';
+}
+
+function chessStartOnline(lobbyId,isHost){
+  chessLobbyId=lobbyId;chessIsHost=isHost;chessIsAI=false;chessOn=true;chessMyColor=isHost?'w':'b';
+  document.getElementById('chess-lobby-screen').style.display='none';
+  document.getElementById('chess-game-screen').style.display='block';
+  document.getElementById('ttt-overlay').classList.remove('show');
+  if(isHost){chessState=chessInitState();chessSelected=-1;chessValidMoves=[];chessLastMoveFrom=-1;chessLastMoveTo=-1;}
+  buildChessBoard();if(chessState)renderChessBoard();
+  document.getElementById('chess-player-info').innerHTML=
+    '<span class="chess-you">'+(isHost?'♔ Du (Weiß)':'♚ Du (Schwarz)')+'</span>';
+  document.getElementById('btn-again').style.display='none';
+  if(chessPollInterval)clearInterval(chessPollInterval);
+  chessPollInterval=setInterval(chessPollOnline,500);
+}
+
+async function chessPollOnline(){
+  if(!chessOn||!chessLobbyId)return;
+  try{
+    var res=await fetch(API_URL+'/api/lobby/'+chessLobbyId);
+    if(!res.ok)return;
+    var lobby=await res.json();
+    var st=lobby.game_state;
+    if(!st||!st.chessState)return;
+    // Only update when it's the opponent's move that was applied
+    if(!chessState||st.chessState.turn===chessMyColor&&JSON.stringify(chessState)!==JSON.stringify(st.chessState)){
+      chessState=st.chessState;
+      if(st.lastFrom!==undefined)chessLastMoveFrom=st.lastFrom;
+      if(st.lastTo!==undefined)chessLastMoveTo=st.lastTo;
+      chessSelected=-1;chessValidMoves=[];
+      buildChessBoard();renderChessBoard();
+      var opp=chessState.turn,oppMoves=chessAllLegalMoves(chessState,opp);
+      if(!oppMoves.length){
+        setTimeout(function(){chessGameOver(chessIsCheck(chessState,opp)?(opp===chessMyColor?'lose':'win'):'draw');},400);
+      }
+    }
+  }catch(e){}
 }

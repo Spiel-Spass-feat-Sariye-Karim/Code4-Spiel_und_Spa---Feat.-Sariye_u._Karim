@@ -30,8 +30,8 @@
   </div>
   <!-- Scrolling ticker text -->
   <div class="login-ticker" aria-hidden="true">
-    <span>⚔️ ARCADEBOX &nbsp;&nbsp; 🎮 SPIELEN &nbsp;&nbsp; 🏆 HIGHSCORES &nbsp;&nbsp; 👥 FREUNDE &nbsp;&nbsp; 🔴 CONNECT4 &nbsp;&nbsp; 🏓 PONG &nbsp;&nbsp; ✊ SSP &nbsp;&nbsp; 🧠 MEMORY &nbsp;&nbsp; 🧱 STACK &nbsp;&nbsp; 🫧 BUBBLE &nbsp;&nbsp; 💻 WORDLE &nbsp;&nbsp;</span>
-    <span>⚔️ ARCADEBOX &nbsp;&nbsp; 🎮 SPIELEN &nbsp;&nbsp; 🏆 HIGHSCORES &nbsp;&nbsp; 👥 FREUNDE &nbsp;&nbsp; 🔴 CONNECT4 &nbsp;&nbsp; 🏓 PONG &nbsp;&nbsp; ✊ SSP &nbsp;&nbsp; 🧠 MEMORY &nbsp;&nbsp; 🧱 STACK &nbsp;&nbsp; 🫧 BUBBLE &nbsp;&nbsp; 💻 WORDLE &nbsp;&nbsp;</span>
+    <span>⚔️ ARCADEBOX &nbsp;&nbsp; 🎮 SPIELEN &nbsp;&nbsp; 🏆 HIGHSCORES &nbsp;&nbsp; 👥 FREUNDE &nbsp;&nbsp; 🔴 CONNECT4 &nbsp;&nbsp; 🏓 PONG &nbsp;&nbsp; ✊ SSP &nbsp;&nbsp; ♟️ SCHACH &nbsp;&nbsp; 🧠 MEMORY &nbsp;&nbsp; 🧱 STACK &nbsp;&nbsp; 🫧 BUBBLE &nbsp;&nbsp; 💻 WORDLE &nbsp;&nbsp;</span>
+    <span>⚔️ ARCADEBOX &nbsp;&nbsp; 🎮 SPIELEN &nbsp;&nbsp; 🏆 HIGHSCORES &nbsp;&nbsp; 👥 FREUNDE &nbsp;&nbsp; 🔴 CONNECT4 &nbsp;&nbsp; 🏓 PONG &nbsp;&nbsp; ✊ SSP &nbsp;&nbsp; ♟️ SCHACH &nbsp;&nbsp; 🧠 MEMORY &nbsp;&nbsp; 🧱 STACK &nbsp;&nbsp; 🫧 BUBBLE &nbsp;&nbsp; 💻 WORDLE &nbsp;&nbsp;</span>
   </div>
   <div class="login-box">
     <div class="login-logo-wrap">
@@ -98,7 +98,7 @@
       <button class="cat-header" data-cat="multi" aria-expanded="true">
         <span class="cat-icon">⚔️</span>
         <span class="cat-title">Multiplayer</span>
-        <span class="cat-badge">4 Spiele</span>
+        <span class="cat-badge">5 Spiele</span>
         <span class="cat-chevron">▾</span>
       </button>
       <div class="cat-body">
@@ -107,6 +107,7 @@
           <div class="card" id="card-connect4"><div class="em">🔴</div><h3>4 Gewinnt</h3><p>Verbinde als Erster 4 Steine in einer Reihe</p></div>
           <div class="card" id="card-pong"><div class="em">🏓</div><h3>Pong</h3><p>Schlage den Ball — zuerst 5 Punkte gewinnt</p></div>
           <div class="card" id="card-rps"><div class="em">✊</div><h3>Schere Stein Papier</h3><p>Best of 5 Runden — wer zuerst 3 gewinnt</p></div>
+          <div class="card" id="card-chess"><div class="em">♟️</div><h3>Schach</h3><p>Klassisches Schach gegen KI oder Freunde</p></div>
         </div>
       </div>
     </div>
@@ -499,6 +500,31 @@
         </div>
       </div>
 
+      <!-- Schach Lobby -->
+      <div id="chess-area" class="chess-area">
+        <div id="chess-lobby-screen">
+          <div class="lobby-online-count"><span id="chess-online-num">0</span> Spieler gerade online</div>
+          <div class="lobby-difficulty">
+            <span class="diff-label">Schwierigkeit:</span>
+            <div class="diff-btns">
+              <button class="diff-btn chess-diff active" data-diff="easy">Leicht</button>
+              <button class="diff-btn chess-diff" data-diff="medium">Mittel</button>
+              <button class="diff-btn chess-diff" data-diff="hard">Schwer</button>
+            </div>
+          </div>
+          <button id="btn-chess-ai" class="btn-vs-ai">🤖 Gegen KI spielen</button>
+          <div class="lobby-divider">— oder Freund einladen —</div>
+          <div id="chess-users-list" class="lobby-users-list"></div>
+        </div>
+        <div id="chess-game-screen" class="chess-game-screen" style="display:none">
+          <div id="chess-player-info" class="chess-player-info"></div>
+          <div id="chess-status" class="chess-status">Bereit...</div>
+          <div class="chess-board-wrap">
+            <div id="chess-board" class="chess-board"></div>
+          </div>
+        </div>
+      </div>
+
     </div>
     <div class="pbot"><span id="pbot-pts-wrap">Punkte: <b id="pts">0</b></span><button id="btn-again">Nochmal</button></div>
   </div>
@@ -507,7 +533,10 @@
 <!-- UNIVERSAL GAME-OVER OVERLAY (fixed, covers all games) -->
 <div id="ttt-overlay" class="ttt-overlay">
   <div id="ttt-overlay-msg" class="ttt-overlay-msg"></div>
-  <button id="ttt-rematch-btn" class="ttt-rematch-btn">Nochmal!</button>
+  <div class="ttt-overlay-btns">
+    <button id="ttt-rematch-btn" class="ttt-rematch-btn">🔄 Nochmal spielen</button>
+    <button id="ttt-leave-btn" class="ttt-leave-btn">🚪 Verlassen</button>
+  </div>
 </div>
 
 <div id="profile-overlay" class="overlay">
