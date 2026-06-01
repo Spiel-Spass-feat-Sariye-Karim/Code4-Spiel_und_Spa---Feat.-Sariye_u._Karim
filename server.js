@@ -171,7 +171,7 @@ app.post('/api/save-score', async (req, res) => {
       updates.reaction = (user.reaction === 0) ? score : Math.min(user.reaction, score);
     } else if (game_type === 'bubble') {
       updates.precision = Math.max(user.precision || 0, score);
-    } else if (game_type === 'tictactoe' || game_type === 'multiplayer_wins') {
+    } else if (game_type === 'tictactoe' || game_type === 'multiplayer_wins' || game_type === 'flappy') {
       // Kein eigenes User-Feld; nur highscores + games_played
     } else {
       updates[game_type] = Math.max(user[game_type] || 0, score);
@@ -253,7 +253,7 @@ app.get('/api/global-highscores', async (req, res) => {
       if (!u) return;
       const uid = u.name.toLowerCase();
       if (!userMap[uid]) {
-        userMap[uid] = { name: u.name, avatar_seed: u.avatar_seed, memory: 0, stack: 0, reaction_ms: 0, precision: 0, guess: 0, wordle: 0 };
+        userMap[uid] = { name: u.name, avatar_seed: u.avatar_seed, memory: 0, stack: 0, reaction_ms: 0, precision: 0, guess: 0, wordle: 0, flappy: 0 };
       }
       if (item.game_type === 'memory') {
         userMap[uid].memory = Math.max(userMap[uid].memory, item.score);
@@ -269,6 +269,8 @@ app.get('/api/global-highscores', async (req, res) => {
         userMap[uid].guess = Math.max(userMap[uid].guess, item.score);
       } else if (item.game_type === 'wordle') {
         userMap[uid].wordle = Math.max(userMap[uid].wordle, item.score);
+      } else if (item.game_type === 'flappy') {
+        userMap[uid].flappy = Math.max(userMap[uid].flappy, item.score);
       }
     });
 
@@ -282,6 +284,7 @@ app.get('/api/global-highscores', async (req, res) => {
     const precisionRanked = [...users].sort((a, b) => b.precision - a.precision);
     const guessRanked     = [...users].sort((a, b) => b.guess - a.guess);
     const wordleRanked    = [...users].sort((a, b) => b.wordle - a.wordle);
+    const flappyRanked    = [...users].sort((a, b) => b.flappy - a.flappy);
     const reactionRanked  = [...users].sort((a, b) => {
       if (!a.reaction_ms && !b.reaction_ms) return 0;
       if (!a.reaction_ms) return 1;
@@ -297,6 +300,7 @@ app.get('/api/global-highscores', async (req, res) => {
     precisionRanked.forEach((u, i) => { if (u.precision   > 0) pts[u.name.toLowerCase()] += rankPts(i); });
     guessRanked.forEach((u, i)     => { if (u.guess       > 0) pts[u.name.toLowerCase()] += rankPts(i); });
     wordleRanked.forEach((u, i)    => { if (u.wordle      > 0) pts[u.name.toLowerCase()] += rankPts(i); });
+    flappyRanked.forEach((u, i)    => { if (u.flappy      > 0) pts[u.name.toLowerCase()] += rankPts(i); });
 
     const result = users
       .map(u => ({ ...u, rank_points: pts[u.name.toLowerCase()] }))
@@ -473,12 +477,25 @@ app.post('/api/lobby/create', async (req, res) => {
   const { host_id, game_type } = req.body;
   if (!host_id) return res.status(400).json({ error: 'Fehlende Daten' });
   try {
+    // Initialize correct game_state per game type
+    let initialState;
+    if (game_type === 'connect4') {
+      initialState = { board: Array(6 * 7).fill(''), currentTurn: 'R' };
+    } else if (game_type === 'chess') {
+      initialState = { moves: [], currentTurn: 'w' };
+    } else if (game_type === 'rps') {
+      initialState = { round: 1, hostChoice: null, guestChoice: null };
+    } else if (game_type === 'pong') {
+      initialState = {};
+    } else {
+      initialState = { board: Array(9).fill(''), currentTurn: 'X' };
+    }
     const { data, error } = await db.from('game_lobbies')
       .insert({
         host_id,
         game_type: game_type || 'tictactoe',
         status: 'waiting',
-        game_state: { board: Array(9).fill(''), currentTurn: 'X' }
+        game_state: initialState
       })
       .select().single();
     if (error) throw error;

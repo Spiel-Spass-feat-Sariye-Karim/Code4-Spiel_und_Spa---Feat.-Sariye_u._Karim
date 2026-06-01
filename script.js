@@ -2867,6 +2867,7 @@ function connect4Game(cv, isAI, diff, isHost, lobbyId) {
     var t0 = null;
     animPiece = { col: col, y: startY, sym: sym };
     function step(ts) {
+      if (!on) { animPiece = null; return; } // stopped — bail out
       if (!t0) t0 = ts;
       var t = Math.min((ts - t0) / dur, 1);
       animPiece.y = startY + (targetY - startY) * easeOutBounce(t);
@@ -2931,10 +2932,11 @@ function connect4Game(cv, isAI, diff, isHost, lobbyId) {
     hoverCol=(col>=0&&col<COLS)?col:-1; draw();
   }
 
+  function onLeave(){hoverCol=-1;draw();}
   cv.addEventListener('click', onClick);
   cv.addEventListener('touchend', onClick);
   cv.addEventListener('mousemove', onMove);
-  cv.addEventListener('mouseleave', function(){hoverCol=-1;draw();});
+  cv.addEventListener('mouseleave', onLeave);
   draw();
 
   function applyState(state) {
@@ -2972,7 +2974,7 @@ function connect4Game(cv, isAI, diff, isHost, lobbyId) {
   }
 
   return {
-    stop:function(){on=false;cv.removeEventListener('click',onClick);cv.removeEventListener('touchend',onClick);cv.removeEventListener('mousemove',onMove);},
+    stop:function(){on=false;animPiece=null;cv.removeEventListener('click',onClick);cv.removeEventListener('touchend',onClick);cv.removeEventListener('mousemove',onMove);cv.removeEventListener('mouseleave',onLeave);},
     applyState:applyState
   };
 }

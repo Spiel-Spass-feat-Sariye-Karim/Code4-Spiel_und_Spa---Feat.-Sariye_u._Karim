@@ -1167,21 +1167,86 @@ margin-top: 3rem;
 /* ---- Dark/Light Mode ---- */
 body.light {
   --s1: #efefef;
-  --s2: #e2e2e6;
+  --s2: #e4e4ea;
   --tx: #111;
   --dim: #555;
-  background: #f4f4f8;
+  background: #f0f0f8;
 }
-body.light::before { opacity: 0.07; }
-body.light::after  { opacity: 0; }
-body.light header  { border-bottom-color: #ddd; background: #fff; }
-body.light .login-box { border-color: #ddd; }
+
+/* Light mode animated gradient background — soft pastel blobs instead of stars */
+body.light::before {
+  background-image:
+    radial-gradient(ellipse 60% 40% at 20% 30%, rgba(255,87,51,0.10) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 50% at 80% 70%, rgba(139,92,246,0.09) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 60% at 55% 10%, rgba(59,130,246,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 30% 30% at 10% 80%, rgba(27,158,119,0.07) 0%, transparent 70%);
+  opacity: 1;
+  animation: lightBlobMove 10s ease-in-out infinite alternate;
+}
+body.light::after {
+  background:
+    radial-gradient(ellipse at 40% 50%, rgba(255,87,51,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 20%, rgba(139,92,246,0.06) 0%, transparent 60%);
+  opacity: 1;
+  animation: glow 7s ease-in-out infinite alternate;
+}
+@keyframes lightBlobMove {
+  0%   { transform: scale(1) translate(0, 0); }
+  33%  { transform: scale(1.04) translate(-15px, 12px); }
+  66%  { transform: scale(0.98) translate(12px, -8px); }
+  100% { transform: scale(1.02) translate(-8px, 16px); }
+}
+
+body.light header  { border-bottom-color: rgba(0,0,0,0.08); background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+body.light .login-box { border-color: rgba(0,0,0,0.10); background: rgba(255,255,255,0.9); }
 body.light .login-box input { border-color: #ccc; background: #fff; color: #111; }
-body.light .auth-tabs { background: #e0e0e4; }
+body.light .auth-tabs { background: #e0e0e6; }
 body.light #login-err { color: #cc0000; }
-body.light .pbox { background: #fff; }
-body.light .ptop, body.light .pbot { border-color: #ddd; }
-body.light .overlay-box { background: #fff; }
+
+/* Popup box */
+body.light .pbox { background: rgba(255,255,255,0.97); box-shadow: 0 8px 40px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08); }
+body.light .ptop { border-bottom-color: rgba(0,0,0,0.08); background: rgba(248,248,252,0.8); }
+body.light .pbot { border-top-color: rgba(0,0,0,0.08); background: rgba(248,248,252,0.8); }
+
+/* X close button — must be visible on light background */
+body.light .ptop button {
+  color: #444;
+  background: rgba(0,0,0,0.06);
+  border: 1px solid rgba(0,0,0,0.10);
+}
+body.light .ptop button:hover { background: #ef4444; color: #fff; border-color: transparent; }
+
+/* Overlay */
+body.light .overlay-box { background: rgba(255,255,255,0.97); box-shadow: 0 8px 40px rgba(0,0,0,0.14); }
+
+/* Scoreboard & game panels */
+body.light .pbox-inner, body.light .pgame { background: transparent; }
+body.light .rank-row { background: rgba(0,0,0,0.04); }
+body.light .rank-row:hover { background: rgba(255,87,51,0.08); }
+body.light .score-section h3 { color: #333; border-bottom-color: rgba(0,0,0,0.10); }
+body.light .friends-section-title { border-bottom-color: rgba(0,0,0,0.10); }
+body.light .friend-row { background: rgba(0,0,0,0.04); }
+body.light .friend-row:hover { background: rgba(255,87,51,0.07); }
+body.light .lobby-user-row { background: rgba(0,0,0,0.04); }
+body.light .rank-info-btn { background: rgba(0,0,0,0.06); border-color: rgba(0,0,0,0.10); }
+
+/* Game area backgrounds — keep canvas-based games dark (they handle own bg) */
+body.light .ttt-board button { border-color: rgba(0,0,0,0.15); }
+body.light .ttt-board button:hover { background: rgba(255,87,51,0.08); }
+body.light .wordle-board .cell { border-color: rgba(0,0,0,0.18); color: #111; }
+body.light .wordle-board .cell.correct { border-color: #2a9d5c; background: #2a9d5c; color: #fff; }
+body.light .wordle-board .cell.present { border-color: #e9c46a; background: #e9c46a; color: #111; }
+body.light .wordle-board .cell.absent  { border-color: #999; background: #bbb; color: #111; }
+body.light .wordle-keys .key { background: #ddd; color: #111; border-color: rgba(0,0,0,0.12); }
+body.light .wordle-keys .key.correct { background: #2a9d5c; color: #fff; }
+body.light .wordle-keys .key.present { background: #e9c46a; color: #111; }
+body.light .wordle-keys .key.absent  { background: #aaa; color: #111; }
+
+/* Toast */
+body.light .toast { background: rgba(255,255,255,0.97); color: #111; box-shadow: 0 4px 20px rgba(0,0,0,0.18); border: 1px solid rgba(0,0,0,0.10); }
+
+/* Invite notification */
+body.light .invite-notif { background: rgba(255,255,255,0.97); border-color: rgba(0,0,0,0.12); color: #111; box-shadow: 0 4px 20px rgba(0,0,0,0.16); }
 
 /* ---- Board Tabs (Global / Freunde) ---- */
 .board-tabs {
