@@ -369,6 +369,9 @@ app.post('/api/friends/request', async (req, res) => {
       status: 'pending'
     });
     if (error) return res.status(400).json({ error: 'Fehler beim Senden der Anfrage' });
+    // Push notification to recipient
+    const { data: sender } = await db.from('users').select('name').eq('id', user_id).single();
+    sendPushToUser(parseInt(friend_id), '👥 Freundschaftsanfrage', (sender?.name || 'Jemand') + ' möchte dich als Freund hinzufügen!');
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
@@ -602,6 +605,12 @@ app.post('/api/lobby/invite', async (req, res) => {
       .insert({ lobby_id, from_id, to_id, status: 'pending' })
       .select().single();
     if (error) throw error;
+    // Send push notification to invited user
+    const { data: fromUser } = await db.from('users').select('name').eq('id', from_id).single();
+    const { data: lobby } = await db.from('game_lobbies').select('game_type').eq('id', lobby_id).single();
+    const gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', pong:'Pong', rps:'Schere Stein Papier', chess:'Schach' };
+    const gameName = lobby ? (gameNames[lobby.game_type] || lobby.game_type) : 'einem Spiel';
+    sendPushToUser(to_id, '⚔️ Spieleinladung', (fromUser?.name || 'Jemand') + ' lädt dich zu ' + gameName + ' ein!');
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
@@ -747,6 +756,78 @@ app.post('/api/chat/global', async (req, res) => {
     res.status(500).json({ error: 'Server-Fehler' });
   }
 });
+
+// ============= PUSH NOTIFICATIONS =============
+
+let webpush = null;
+let vapidPublicKey = null;
+let vapidPrivateKey = null;
+
+try {
+  webpush = require('web-push');
+  vapidPublicKey  = process.env.VAPID_PUBLIC_KEY;
+  vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    // Generate new VAPID keys and print them — user must add to .env
+    const keys = webpush.generateVAPIDKeys();
+    vapidPublicKey  = keys.publicKey;
+    vapidPrivateKey = keys.privateKey;
+    console.log('\n⚠️  VAPID keys not set! Add these to your .env file and redeploy:');
+    console.log('VAPID_PUBLIC_KEY=' + vapidPublicKey);
+    console.log('VAPID_PRIVATE_KEY=' + vapidPrivateKey + '\n');
+  }
+  webpush.setVapidDetails('mailto:admin@arcadebox.app', vapidPublicKey, vapidPrivateKey);
+} catch(e) {
+  console.warn('web-push not available, push notifications disabled:', e.message);
+}
+
+// Return VAPID public key to client
+app.get('/api/push/vapid-public-key', (req, res) => {
+  if (!vapidPublicKey) return res.status(503).json({ error: 'Push nicht konfiguriert' });
+  res.json({ key: vapidPublicKey });
+});
+
+// Save push subscription for a user
+app.post('/api/push/subscribe', async (req, res) => {
+  const { user_id, subscription } = req.body;
+  if (!user_id || !subscription) return res.status(400).json({ error: 'Fehlende Daten' });
+  try {
+    // Upsert: delete old for same endpoint, insert new
+    await db.from('push_subscriptions')
+      .delete()
+      .eq('user_id', user_id)
+      .eq('subscription->>endpoint', subscription.endpoint);
+    await db.from('push_subscriptions').insert({ user_id, subscription });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+// Helper: send push notification to a specific user
+async function sendPushToUser(userId, title, body, extra = {}) {
+  if (!webpush) return;
+  try {
+    const { data: subs } = await db.from('push_subscriptions')
+      .select('subscription').eq('user_id', userId);
+    if (!subs || !subs.length) return;
+    const payload = JSON.stringify({ title, body, ...extra });
+    for (const row of subs) {
+      try {
+        await webpush.sendNotification(row.subscription, payload);
+      } catch (e) {
+        if (e.statusCode === 410 || e.statusCode === 404) {
+          // Subscription expired — clean up
+          await db.from('push_subscriptions')
+            .delete()
+            .eq('user_id', userId)
+            .eq('subscription->>endpoint', row.subscription.endpoint);
+        }
+      }
+    }
+  } catch (e) {}
+}
 
 // ============= SERVER STARTEN =============
 console.log('About to start server');

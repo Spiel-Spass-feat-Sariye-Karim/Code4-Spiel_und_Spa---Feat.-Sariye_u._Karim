@@ -27,6 +27,98 @@ var chessState=null,chessSelected=-1,chessValidMoves=[],chessLastMoveFrom=-1,che
   }
 })();
 
+/* ════════════════════════════════════════════════
+   PUSH NOTIFICATIONS & SERVICE WORKER
+   ════════════════════════════════════════════════ */
+var pushVapidPublicKey = null; // fetched from server on demand
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(function(e) {
+    console.warn('SW registration failed:', e);
+  });
+}
+
+// Show the custom permission dialog
+function showNotifDialog(onAllow, onDeny) {
+  var dialog = document.getElementById('notif-dialog');
+  if (!dialog) return;
+  dialog.style.display = 'flex';
+  document.getElementById('notif-allow-btn').onclick = function() {
+    dialog.style.display = 'none';
+    onAllow();
+  };
+  document.getElementById('notif-deny-btn').onclick = function() {
+    dialog.style.display = 'none';
+    if (onDeny) onDeny();
+  };
+}
+
+// Request permission + subscribe after login/register
+async function initPushNotifications() {
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  // Already granted → just subscribe
+  if (Notification.permission === 'granted') {
+    await subscribeUserToPush();
+    return;
+  }
+  // Already denied → don't ask again
+  if (Notification.permission === 'denied') return;
+  // Not yet asked → show once
+  if (localStorage.getItem('notif_asked')) return;
+  localStorage.setItem('notif_asked', '1');
+  showNotifDialog(async function() {
+    try {
+      var perm = await Notification.requestPermission();
+      if (perm === 'granted') await subscribeUserToPush();
+    } catch(e) {}
+  });
+}
+
+async function subscribeUserToPush() {
+  if (!user) return;
+  try {
+    var reg = await navigator.serviceWorker.ready;
+    // Fetch VAPID public key from server if not cached
+    if (!pushVapidPublicKey) {
+      var r = await fetch(API_URL + '/api/push/vapid-public-key');
+      if (!r.ok) return;
+      var data = await r.json();
+      pushVapidPublicKey = data.key;
+    }
+    var sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(pushVapidPublicKey)
+    });
+    await fetch(API_URL + '/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.id, subscription: sub.toJSON() })
+    });
+  } catch(e) {}
+}
+
+function urlBase64ToUint8Array(base64String) {
+  var padding = '='.repeat((4 - base64String.length % 4) % 4);
+  var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  var rawData = atob(base64);
+  var outputArray = new Uint8Array(rawData.length);
+  for (var i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+// Show a local notification (fallback when tab is visible)
+function showLocalNotif(title, body, icon) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  // Only show local if the tab is not focused
+  if (!document.hidden) return; // tab is visible, we already show toast/badge
+  try {
+    navigator.serviceWorker.ready.then(function(reg) {
+      reg.showNotification(title, { body: body, icon: icon || '' });
+    });
+  } catch(e) {}
+}
+
 /* ---- AUTO-LOGIN via Cookie ---- */
 (function() {
   // Nach einem Logout kein Auto-Login — Login-Maske zeigen
@@ -272,6 +364,12 @@ async function checkGameInvites() {
       if (seenInviteIds.has(inv.id)) return;
       seenInviteIds.add(inv.id);
       showInviteToast(inv);
+      // Local push notification when tab is hidden
+      var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', pong:'Pong', rps:'Schere Stein Papier', chess:'Schach' };
+      showLocalNotif(
+        '⚔️ Spieleinladung',
+        (inv.from_name || 'Jemand') + ' lädt dich zu ' + (gameNames[inv.game_type]||'einem Spiel') + ' ein!'
+      );
     });
   } catch (e) {}
 }
@@ -852,6 +950,13 @@ async function loadFriendRequests() {
       badge.textContent = requests.length;
       badge.style.display = requests.length > 0 ? 'inline-flex' : 'none';
     }
+    // Local push notification for new friend requests
+    var prevCount = parseInt(loadFriendRequests._prevCount || 0);
+    if (requests.length > prevCount && prevCount >= 0 && loadFriendRequests._prevCount !== undefined) {
+      var newest = requests[0];
+      showLocalNotif('👥 Freundschaftsanfrage', (newest.name||'Jemand') + ' möchte dich als Freund hinzufügen!');
+    }
+    loadFriendRequests._prevCount = requests.length;
     renderFriendRequests(requests);
   } catch (err) { console.error(err); }
 }
@@ -1134,6 +1239,8 @@ document.getElementById("avatar").src =
   // Theme-Button Emoji setzen
   var themeBtn = document.getElementById('btn-theme');
   if (themeBtn) themeBtn.textContent = document.body.classList.contains('light') ? '☀️' : '🌙';
+  // Push notifications (delayed slightly so UI settles first)
+  setTimeout(initPushNotifications, 1200);
 }
 
 document.getElementById("btn-logout").addEventListener("click",
@@ -1258,76 +1365,67 @@ async function loadGlobalHS() {
     }
     function isMeClass(item) { return (user && item.name === user.name) ? ' sb-me' : ''; }
     function medal(i) {
-      if (i === 0) return '<span class="sb-m sb-gold">🥇</span>';
-      if (i === 1) return '<span class="sb-m sb-silver">🥈</span>';
-      if (i === 2) return '<span class="sb-m sb-bronze">🥉</span>';
-      return '<span class="sb-m sb-num">' + (i+1) + '</span>';
+      if (i === 0) return '🥇';
+      if (i === 1) return '🥈';
+      if (i === 2) return '🥉';
+      return (i+1)+'';
     }
 
-    function sbRows(sorted, key, fmt, limit) {
-      var out = '';
-      var shown = 0;
-      for (var i = 0; i < sorted.length && shown < (limit||5); i++) {
-        var val = sorted[i][key];
-        if (!val || val === 0) continue;
-        out += '<div class="sb-row' + isMeClass(sorted[i]) + '">' +
-          medal(shown) +
-          '<img src="' + avUrl(sorted[i]) + '" class="sb-av" loading="lazy">' +
-          '<span class="sb-name">' + sorted[i].name + '</span>' +
-          '<span class="sb-score">' + fmt(val) + '</span>' +
-          '</div>';
-        shown++;
+    // Helpers for formatting per-game score cells
+    function fmtVal(val, key) {
+      if (!val || val === 0) return '<span style="opacity:0.3">—</span>';
+      if (key === 'reaction_ms') return '<span class="sbt-val-num">'+val+'</span><span class="sbt-val-unit">ms</span>';
+      if (key === 'stack') return '<span class="sbt-val-num">'+val+'</span><span class="sbt-val-unit"> Et.</span>';
+      return '<span class="sbt-val-num">'+val+'</span>';
+    }
+
+    // Build unified table — top 15 players sorted by RP
+    var cols = [
+      { key:'memory',      th:'🧠', label:'Gedächtnis', cls:'sbt-memory'   },
+      { key:'stack',       th:'🧱', label:'Turm',       cls:'sbt-stack'    },
+      { key:'reaction_ms', th:'⚡', label:'Reaktion',   cls:'sbt-reaction' },
+      { key:'precision',   th:'🫧', label:'Bubble',     cls:'sbt-bubble'   },
+      { key:'guess',       th:'🔢', label:'Zahlen',     cls:'sbt-guess'    },
+      { key:'wordle',      th:'💻', label:'Wordle',     cls:'sbt-wordle'   },
+      { key:'flappy',      th:'🐦', label:'Flappy',     cls:'sbt-flappy'   }
+    ];
+
+    var thead = '<thead><tr>' +
+      '<th class="sbt-th-rank"></th>' +
+      '<th class="sbt-th-player">Spieler</th>' +
+      '<th class="sbt-divider-after sbt-rp-col" style="min-width:44px">RP<span class="sbt-th-label">Rang-Pkt.</span></th>';
+    for (var ci = 0; ci < cols.length; ci++) {
+      thead += '<th class="'+cols[ci].cls+'">'+cols[ci].th+'<span class="sbt-th-label">'+cols[ci].label+'</span></th>';
+    }
+    thead += '</tr></thead>';
+
+    var tbody = '<tbody>';
+    var limit = Math.min(15, scores.length);
+    for (var i = 0; i < limit; i++) {
+      var s = scores[i];
+      var total = (s.memory||0)+(s.stack||0)+(s.precision||0)+(s.guess||0)+(s.wordle||0)+(s.flappy||0);
+      var meClass = isMeClass(s) ? ' sbt-me' : '';
+      tbody += '<tr class="sbt-row'+meClass+'">' +
+        '<td class="sbt-td-rank">'+medal(i)+'</td>' +
+        '<td class="sbt-td-player">' +
+          '<div class="sbt-player-inner">' +
+            '<img src="'+avUrl(s)+'" class="sb-av" loading="lazy">' +
+            '<span class="sbt-player-name">'+escHtml(s.name)+'</span>' +
+            '<span class="sbt-rank-badge">'+getRank(total)+'</span>' +
+          '</div>' +
+        '</td>' +
+        '<td class="sbt-td-rp sbt-divider-after">'+(s.rank_points||0)+'<span class="sbt-rp-unit"> RP</span></td>';
+      for (var ci = 0; ci < cols.length; ci++) {
+        tbody += '<td class="sbt-td-val">'+fmtVal(s[cols[ci].key], cols[ci].key)+'</td>';
       }
-      return out || '<div class="sb-empty-row">Noch keine Einträge</div>';
+      tbody += '</tr>';
     }
+    if (limit === 0) tbody += '<tr><td colspan="11" class="sb-empty">Noch keine Einträge</td></tr>';
+    tbody += '</tbody>';
 
-    function sbSection(colorClass, emoji, title, sorted, key, fmt) {
-      return '<div class="sb-section">' +
-        '<div class="sb-head ' + colorClass + '"><span class="sb-emoji">' + emoji + '</span><span>' + title + '</span></div>' +
-        '<div class="sb-body">' + sbRows(sorted, key, fmt, 5) + '</div>' +
-        '</div>';
-    }
-
-    // Overall top 5 — shown in its own spotlight card above the grid
-    var overallHtml = '';
-    for (var i = 0; i < Math.min(5, scores.length); i++) {
-      var item = scores[i];
-      var total = (item.memory||0)+(item.stack||0)+(item.precision||0)+(item.guess||0)+(item.wordle||0)+(item.flappy||0);
-      overallHtml +=
-        '<div class="sb-row sb-row-overall' + isMeClass(item) + '">' +
-        medal(i) +
-        '<img src="' + avUrl(item) + '" class="sb-av" loading="lazy">' +
-        '<span class="sb-name">' + item.name +
-          '<span class="sb-rank-badge">' + getRank(total) + '</span>' +
-        '</span>' +
-        '<span class="sb-score sb-rp">' + (item.rank_points||0) + '<span class="sb-unit"> RP</span></span>' +
-        '</div>';
-    }
-
-    // Per-game sorted lists (skip users with 0 score)
-    var memSort    = scores.slice().sort(function(a,b){ return (b.memory||0)-(a.memory||0); });
-    var stackSort  = scores.slice().sort(function(a,b){ return (b.stack||0)-(a.stack||0); });
-    var reactSort  = scores.filter(function(x){ return x.reaction_ms>0; }).sort(function(a,b){ return a.reaction_ms-b.reaction_ms; });
-    var bubbleSort = scores.slice().sort(function(a,b){ return (b.precision||0)-(a.precision||0); });
-    var guessSort  = scores.slice().sort(function(a,b){ return (b.guess||0)-(a.guess||0); });
-    var wordleSort = scores.slice().sort(function(a,b){ return (b.wordle||0)-(a.wordle||0); });
-    var flappySort = scores.slice().sort(function(a,b){ return (b.flappy||0)-(a.flappy||0); });
-
-    var html =
-      // Full-width overall card
-      '<div class="sb-overall-section">' +
-        '<div class="sb-overall-head">🏆 Gesamtwertung</div>' +
-        '<div class="sb-body">' + overallHtml + '</div>' +
-      '</div>' +
-      // 3-column grid of game sections
-      '<div class="sb-grid">' +
-        sbSection('sb-memory',   '🧠', 'Farb-Gedächtnis', memSort,    'memory',      function(v){ return v+' Pkt'; }) +
-        sbSection('sb-stack',    '🧱', 'Turm-Stapler',    stackSort,  'stack',       function(v){ return v+' Etagen'; }) +
-        sbSection('sb-reaction', '⚡', 'Reaktionstest',   reactSort,  'reaction_ms', function(v){ return v+' ms'; }) +
-        sbSection('sb-bubble',   '🫧', 'Bubble Pop',      bubbleSort, 'precision',   function(v){ return v+' Pkt'; }) +
-        sbSection('sb-guess',    '🔢', 'Zahlen-Raten',    guessSort,  'guess',       function(v){ return v+' Pkt'; }) +
-        sbSection('sb-wordle',   '💻', 'Info-Wordle',     wordleSort, 'wordle',      function(v){ return v+' Pkt'; }) +
-        sbSection('sb-flappy',   '🐦', 'Flappy Bird',     flappySort, 'flappy',      function(v){ return v+' Pkt'; }) +
+    var html = '<div class="sb-unified">' +
+      '<div class="sb-unified-header">🏆 Gesamtranking — alle Spiele</div>' +
+      '<div class="sb-table-wrap"><table class="sb-table">'+thead+tbody+'</table></div>' +
       '</div>';
 
     document.getElementById('global-hs').innerHTML = html;
