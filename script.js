@@ -1394,7 +1394,7 @@ function startArcadeParticles() {
       var p = ((row / 13) + speed) % 1;
       var gy = vy + (H - vy) * Math.pow(p, 1.6);
       var hw = (H - vy) * Math.pow(p, 1.6) * 1.3;
-      var alpha = Math.pow(p, 0.7) * 0.18;
+      var alpha = Math.pow(p, 0.7) * 0.30;
       ctx.strokeStyle = 'rgba(255,87,51,' + alpha + ')';
       ctx.lineWidth = 0.8;
       ctx.beginPath(); ctx.moveTo(vx - hw, gy); ctx.lineTo(vx + hw, gy); ctx.stroke();
@@ -1471,34 +1471,6 @@ function startArcadeParticles() {
     }
   }
 
-  // ── Cabinet LED strip — drawn BELOW the page (bottom of screen) ──
-  function drawLEDs() {
-    var ledW = 6, ledH = 10, gap = 4;
-    var numLeds = Math.floor(W / (ledW + gap));
-    var yBase = H - 14; // bottom strip only (not top — header covers it)
-    for (var i = 0; i < numLeds; i++) {
-      var phase = (t * 0.04 + i * 0.18) % (Math.PI * 2);
-      var bright = 0.2 + 0.6 * Math.abs(Math.sin(phase));
-      var hue2 = (i * 15 + t * 0.5) % 360;
-      var x2 = i * (ledW + gap) + 2;
-      ctx.fillStyle = 'hsla(' + hue2 + ',100%,65%,' + bright + ')';
-      if (bright > 0.55) { ctx.shadowColor = 'hsl('+hue2+',100%,65%)'; ctx.shadowBlur = 10; }
-      ctx.beginPath();
-      ctx.roundRect ? ctx.roundRect(x2, yBase, ledW, ledH, 2) : ctx.rect(x2, yBase, ledW, ledH);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
-    // Side accent strips (left and right thin bars)
-    for (var j = 0; j < Math.floor(H / 12); j++) {
-      var ph2 = (t * 0.03 + j * 0.25) % (Math.PI * 2);
-      var br2 = 0.1 + 0.3 * Math.abs(Math.sin(ph2));
-      var hu2 = (j * 20 + t * 0.4) % 360;
-      ctx.fillStyle = 'hsla(' + hu2 + ',100%,65%,' + br2 + ')';
-      ctx.fillRect(0, j * 12, 3, 8);
-      ctx.fillRect(W - 3, j * 12, 3, 8);
-    }
-  }
-
   // ── Scan line ──
   function drawScanline() {
     var sy = (t * 1.8) % (H + 100) - 50;
@@ -1517,7 +1489,6 @@ function startArcadeParticles() {
     drawGrid();
     drawRain();
     drawParticles();
-    drawLEDs();
     drawScanline();
     t++;
     arcadeRaf = requestAnimationFrame(frame);
@@ -3664,6 +3635,11 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
         }
       }
       if(sc.l>=MAX||sc.r>=MAX){
+        // Force push final score so guest sees game end
+        if(!isAI&&lobbyId){
+          fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:{bx:Math.round(ball.x),by:Math.round(ball.y),sl:sc.l,sr:sc.r,gameOver:true}})});
+        }
         on=false; pongOn=false;
         if(pongPollInterval){clearInterval(pongPollInterval);pongPollInterval=null;}
         var win=(sc.l>=MAX&&isHost)||(sc.r>=MAX&&!isHost);
@@ -3677,7 +3653,7 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
       if(srvState.sl!==undefined)sc.l=srvState.sl;
       if(srvState.sr!==undefined)sc.r=srvState.sr;
       document.getElementById('pts').textContent=sc.r;
-      if(sc.l>=MAX||sc.r>=MAX){
+      if(sc.l>=MAX||sc.r>=MAX||srvState.gameOver){
         on=false;pongOn=false;
         if(pongPollInterval){clearInterval(pongPollInterval);pongPollInterval=null;}
         if(raf)cancelAnimationFrame(raf);

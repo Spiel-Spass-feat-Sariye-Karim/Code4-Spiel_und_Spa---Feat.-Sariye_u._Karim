@@ -284,7 +284,7 @@ header > * { position: relative; z-index: 1; }
 /* ── Logo — pixel font + neon glow ─────────────────── */
 .logo {
   font-family: 'Press Start 2P', monospace;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   letter-spacing: 0.02em;
   animation: logoGlow 3.5s ease-in-out infinite alternate;
   text-transform: uppercase;
@@ -765,7 +765,79 @@ body.light #cat-single .cat-header { background: linear-gradient(90deg,#ede9fe,#
 body.light #cat-multi  .cat-header { background: linear-gradient(90deg,#fee2e2,#fecaca); color: #7f1d1d; }
 body.light .cat-title  { color: inherit; }
 body.light .card-featured { background: #fff5f5; border-color: #fca5a5; box-shadow: none; }
- 
+
+/* ════ RETRO ARCADE DESIGN EXTRAS ════ */
+
+/* Retro pixel scanline animation on cards.
+   ::before is taken (sweep shine) and ::after is taken (hover border glow) on .card.
+   We animate the scan as a moving background-image stripe on .card itself,
+   layered on top of the existing background via background-image with background-size trick. */
+@keyframes cardScan {
+  0%   { background-position: 0 -110%; }
+  10%  { background-position: 0 -110%; }
+  90%  { background-position: 0  210%; }
+  100% { background-position: 0  210%; }
+}
+
+/* Layer a thin horizontal scan stripe onto each card's background */
+.card {
+  background-image:
+    linear-gradient(
+      180deg,
+      transparent 49%,
+      rgba(255,87,51,0.22) 50%,
+      transparent 51%
+    );
+  background-size: 100% 20px;
+  background-repeat: no-repeat;
+  animation: cardScan 4s ease-in-out infinite;
+}
+
+/* Stagger card scan animations */
+.card:nth-child(2) { animation-delay: 0.6s; }
+.card:nth-child(3) { animation-delay: 1.2s; }
+.card:nth-child(4) { animation-delay: 1.8s; }
+.card:nth-child(5) { animation-delay: 2.4s; }
+.card:nth-child(6) { animation-delay: 3.0s; }
+.card:nth-child(7) { animation-delay: 3.6s; }
+
+/* Retro "coin" decorative elements on hero */
+.hero::after {
+  content: '▶ CREDIT 00 ◀';
+  display: block;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.45rem;
+  color: rgba(255,87,51,0.35);
+  letter-spacing: 0.15em;
+  margin-top: 0.5rem;
+  animation: blinkStart 1.8s step-end infinite;
+}
+body.light .hero::after { color: rgba(200,60,20,0.25); }
+
+/* Neon glow on .stat-box */
+.stat-box {
+  transition: box-shadow 0.3s;
+}
+.stat-box:hover {
+  box-shadow: 0 0 0 1px rgba(255,87,51,0.3), 0 0 16px rgba(255,87,51,0.1);
+}
+
+/* Retro flicker on logo occasionally */
+@keyframes arcadeFlicker {
+  0%,92%,96%,100% { opacity: 1; }
+  94%   { opacity: 0.8; }
+  95%   { opacity: 0.4; }
+}
+.logo { animation: logoGlow 3.5s ease-in-out infinite alternate, arcadeFlicker 8s step-end infinite; }
+body.light .logo { animation: logoGlowLight 3.5s ease-in-out infinite alternate, arcadeFlicker 12s step-end infinite; }
+
+/* Pixel font for the scoreboard header */
+.sb-unified-header {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+}
+
 /* Highscores */
 .hs-section{max-width:500px;margin:1rem auto;padding:0 1rem 2rem}
 .hs-section h3{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--dim);margin-bottom:0.5rem;font-weight:700}
