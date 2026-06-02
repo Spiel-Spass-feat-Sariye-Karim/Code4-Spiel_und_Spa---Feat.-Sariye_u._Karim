@@ -3903,9 +3903,7 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
   var sc={l:0,r:0};
   var myPad=isHost?padL:padR;
   var srvState=null;
-  // Target ball for smooth interpolation (guest side)
-  var targetBall={x:W/2,y:H/2,vx:0,vy:0};
-  var targetBallAge=0; // ms since last server update
+  var srvStateNew=false; // true only when a brand-new WS message just arrived
   // Countdown
   var cdCount = (!isAI&&lobbyId) ? 3 : 0; // 3-2-1 for online
   var cdTs = null;
@@ -3985,8 +3983,10 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
         ball.vx = (isHost||isAI) ? baseSpeed : (targetBall.vx || baseSpeed);
         ball.vy = (isHost||isAI) ? baseSpeed*0.6 : (targetBall.vy || baseSpeed*0.6);
         if (isHost && lobbyId) {
+          var startMsg={type:'pong',started:true,bx:ball.x,by:ball.y,bvx:ball.vx,bvy:ball.vy,lpy:padL.y,sl:0,sr:0};
+          sendGameWS(startMsg); // instant WS broadcast
           fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:{started:true,bx:ball.x,by:ball.y,bvx:ball.vx,bvy:ball.vy,lpy:padL.y,sl:0,sr:0}})});
+            body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:startMsg})});
         }
       } else {
         draw(remaining); raf=requestAnimationFrame(loop); return;
@@ -4027,9 +4027,11 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
         draw(0); setTimeout(function(){pongGameOver(win?'win':'lose');},400); return;
       }
 
-    // ── GUEST: smooth interpolation + local extrapolation ──
+    // ── GUEST: dead reckoning — process new WS state once, then local physics ──
     } else if(!isAI){
-      if(srvState){
+      // Only process srvState when a NEW message just arrived (not every frame!)
+      if(srvState && srvStateNew){
+        srvStateNew = false; // consume — don't re-process next frame
         if(srvState.sl!==undefined)sc.l=srvState.sl;
         if(srvState.sr!==undefined)sc.r=srvState.sr;
         if(srvState.lpy!==undefined)padL.y=srvState.lpy;
@@ -4038,13 +4040,15 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
         if(!srvState.started){draw(3);raf=requestAnimationFrame(loop);return;}
 
         if(srvState.bx!==undefined){
-          // Snap if ball is very far (score reset / new point)
           var dx=srvState.bx-ball.x, dy=srvState.by-ball.y;
-          if(Math.abs(dx)>100||Math.abs(dy)>100){ball.x=srvState.bx;ball.y=srvState.by;}
-          // Update velocity from server
-          ball.vx=srvState.bvx||ball.vx;
-          ball.vy=srvState.bvy||ball.vy;
-          targetBall.x=srvState.bx; targetBall.y=srvState.by;
+          if(Math.sqrt(dx*dx+dy*dy)>60){
+            // Large gap: snap (score reset or initial sync)
+            ball.x=srvState.bx; ball.y=srvState.by;
+          } else {
+            // Small gap: gentle 40% correction — absorb drift without jerking
+            ball.x+=dx*0.4; ball.y+=dy*0.4;
+          }
+          ball.vx=srvState.bvx; ball.vy=srvState.bvy;
         }
         if(sc.l>=MAX||sc.r>=MAX||srvState.gameOver){
           on=false;pongOn=false;
@@ -4052,11 +4056,12 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
           if(raf)cancelAnimationFrame(raf);
           draw(0); setTimeout(function(){pongGameOver(sc.r>=MAX?'win':'lose');},400); return;
         }
+      } else if(!srvState||!srvState.started){
+        // No server state yet — show countdown
+        draw(3); raf=requestAnimationFrame(loop); return;
       }
-      // Local extrapolation at 60fps
+      // Pure local physics every frame (no continuous pull-back)
       ball.x+=ball.vx*dt; ball.y+=ball.vy*dt;
-      // Soft correction toward server target (reduces drift)
-      if(targetBall.x){ ball.x+=(targetBall.x-ball.x)*0.06; ball.y+=(targetBall.y-ball.y)*0.06; }
       if(ball.y-BR<=0){ball.y=BR;ball.vy=Math.abs(ball.vy);}
       if(ball.y+BR>=H){ball.y=H-BR;ball.vy=-Math.abs(ball.vy);}
     }
@@ -4084,10 +4089,10 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
     stop:function(){on=false;if(raf)cancelAnimationFrame(raf);cv.removeEventListener('mousemove',movePad);cv.removeEventListener('touchmove',movePad);},
     applyState:function(state){
       if(!state)return;
-      // Host receives guest's paddle via WS (type=pong_paddle)
       if(isHost&&state.type==='pong_paddle'){padR.y=state.rpy;return;}
-      if(isHost)return; // host doesn't process game state messages
+      if(isHost)return;
       srvState=state;
+      srvStateNew=true; // mark as fresh so the game loop processes it exactly once
       if(state.rpy!==undefined)padR.y=state.rpy;
     }
   };
