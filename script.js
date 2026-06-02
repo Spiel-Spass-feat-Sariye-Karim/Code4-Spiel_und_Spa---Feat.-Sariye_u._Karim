@@ -1945,7 +1945,9 @@ function showHS() {
   var reactionDisplay = reactionMs > 0
     ? (reactionMs < 400 ? '🟢 ' : '') + reactionMs + 'ms ⚡'
     : '-';
-  document.getElementById('hs-list').innerHTML =
+  var hsList = document.getElementById('hs-list');
+  if (!hsList) return; // element removed — skip gracefully
+  hsList.innerHTML =
     '<div class="hs-row"><span>🧠 Farb-Gedächtnis</span><span>' + badge(user.memory||0) + (user.memory||0) + '</span></div>' +
     '<div class="hs-row"><span>🧱 Turm-Stapler</span><span>' + badge(user.stack||0) + (user.stack||0) + '</span></div>' +
     '<div class="hs-row"><span>⚡ Reaktionstest</span><span>' + reactionDisplay + '</span></div>' +

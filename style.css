@@ -4175,149 +4175,159 @@ body.light .sb-empty-row { color: #888; }
 /* Pong canvas overlay status */
 .pong-status { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); color:rgba(255,255,255,0.5); font-size:0.8rem; font-weight:700; pointer-events:none; }
 
+
 /* ═══════════════════════════════════════════════════════════
-   DESIGN OVERHAUL — More Retro, More Elegant, Higher Level
+   ARCADE RETRO DESIGN — v2 (Complete & Tested)
    ═══════════════════════════════════════════════════════════ */
 
-/* ── VT323 everywhere ──────────────────────────────────── */
-.hero h1 { font-family: var(--retro-font); font-size: 2.6rem; font-weight: 400; }
-.hero h1 em { font-style: normal; }
-.pbot b, .ptop span, .diff-label, .lobby-online-count,
-.lobby-empty, .lobby-divider, .board-tab, .rank-info-btn,
-.friends-section-title, .sidebar-label,
-.ttt-status, .rps-round-info, .chess-status,
-.sb-unified-header, .wordle-header, .guess-header,
-.stat-lbl, .nc-item-title, .patch-title,
-.live-widget-label, .notif-center-title,
-.nc-tab, .cat-badge { font-family: var(--retro-font); letter-spacing: 0.05em; }
+/* ── VT323 retro font — selective, readable sizes ──────── */
+.hero h1 { font-family: var(--retro-font); font-size: 2.6rem; font-weight: 400; letter-spacing: 0.05em; }
+.cat-title { font-family: var(--retro-font) !important; font-size: 0.9rem !important; }
+.cat-badge { font-family: var(--retro-font); font-size: 0.85rem; letter-spacing: 0.03em; }
+.card h3 { font-family: var(--retro-font); font-size: 1.2rem; font-weight: 400; letter-spacing: 0.04em; }
+.sb-unified-header { font-family: var(--pixel-font); font-size: 0.58rem; letter-spacing: 0.12em; }
+.ttt-status, .chess-status { font-family: var(--retro-font); font-size: 1.4rem; letter-spacing: 0.04em; }
+.rps-round-info { font-family: var(--retro-font); font-size: 1.6rem; }
+.diff-label { font-family: var(--retro-font); font-size: 1.1rem; }
+.lobby-online-count { font-family: var(--retro-font); font-size: 1.1rem; }
+.lobby-empty { font-family: var(--retro-font); font-size: 1rem; }
+.ptop span:first-of-type { font-family: var(--retro-font); font-size: 1.1rem; letter-spacing: 0.06em; }
+.pbot b { font-family: var(--retro-font); font-size: 1.3rem; }
+.stat-lbl { font-family: var(--retro-font); font-size: 0.85rem; letter-spacing: 0.06em; }
+.board-tab { font-family: var(--retro-font); font-size: 0.9rem; }
+.friends-section-title { font-family: var(--retro-font); font-size: 0.95rem; }
+.sidebar-label { font-family: var(--retro-font); font-size: 1rem; }
+.notif-center-title { font-family: var(--retro-font); font-size: 1.2rem; font-weight: 400; }
+.nc-tab { font-family: var(--retro-font); font-size: 1rem; }
+.nc-item-title { font-family: var(--retro-font); font-size: 1rem; }
+.patch-title { font-family: var(--retro-font); font-size: 1rem; letter-spacing: 0.03em; }
+.live-widget-label { font-family: var(--retro-font); font-size: 0.7rem; }
+.btn-vs-ai { font-family: var(--retro-font); font-size: 1.1rem; letter-spacing: 0.04em; }
+.btn-invite { font-family: var(--retro-font) !important; font-size: 1rem !important; letter-spacing: 0.03em; }
+.diff-btn { font-family: var(--retro-font); font-size: 0.9rem; }
 
-/* Larger VT323 for readable retro feel */
-.ttt-status, .chess-status { font-size: 1.3rem; }
-.rps-round-info { font-size: 1.5rem; }
-.lobby-online-count { font-size: 1.2rem; }
-.diff-label { font-size: 1.1rem; }
-
-/* ── Scoreboard — richer colors ───────────────────────── */
+/* ── Scoreboard — new elegant design ───────────────────── */
 .sb-unified {
-  background: linear-gradient(180deg, #0d0d1f 0%, #111130 100%);
-  border-color: rgba(139,92,246,0.2);
-  box-shadow: 0 8px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(139,92,246,0.1);
+  background: linear-gradient(160deg, #0d0d22 0%, #0a0a1a 60%, #0f0820 100%);
+  border: 1px solid rgba(139,92,246,0.18);
+  box-shadow: 0 12px 48px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.04);
 }
 .sb-unified-header {
-  background: linear-gradient(90deg, #7c3aed 0%, #ff416c 50%, #ff8c00 100%);
-  font-family: var(--pixel-font);
-  font-size: 0.6rem;
-  letter-spacing: 0.12em;
-  padding: 14px 20px;
+  background: linear-gradient(90deg, #6d28d9 0%, #c026d3 40%, #db2777 70%, #f97316 100%);
+  padding: 13px 20px;
 }
-.sb-table thead tr { background: rgba(139,92,246,0.08); }
-.sb-table thead th { color: rgba(255,255,255,0.5); border-bottom-color: rgba(139,92,246,0.15); }
-.sb-table tbody tr { border-bottom-color: rgba(255,255,255,0.03); }
-.sb-table tbody tr:hover { background: rgba(139,92,246,0.06); }
+.sb-table thead tr { background: rgba(139,92,246,0.07); }
+.sb-table thead th {
+  color: rgba(255,255,255,0.45);
+  border-bottom: 1px solid rgba(139,92,246,0.12);
+  font-family: var(--retro-font);
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+}
+.sb-table thead th .sbt-th-label { font-size: 0.65rem; font-family: sans-serif; }
+.sb-table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.03); }
+.sb-table tbody tr:hover { background: rgba(139,92,246,0.07); }
 .sb-table tbody tr.sbt-me {
-  background: linear-gradient(90deg, rgba(255,87,51,0.12), rgba(255,87,51,0.05));
+  background: linear-gradient(90deg, rgba(255,87,51,0.11), rgba(255,87,51,0.03));
   box-shadow: inset 3px 0 0 var(--c1);
 }
-/* Softer, more elegant per-game colors */
-.sb-table .sbt-memory   { color: #c4b5fd; } /* soft violet */
-.sb-table .sbt-stack    { color: #fde68a; } /* soft amber */
-.sb-table .sbt-reaction { color: #fdba74; } /* soft orange */
-.sb-table .sbt-bubble   { color: #7dd3fc; } /* soft sky */
-.sb-table .sbt-guess    { color: #86efac; } /* soft green */
-.sb-table .sbt-wordle   { color: #a5b4fc; } /* soft indigo */
-.sb-table .sbt-flappy   { color: #bef264; } /* soft lime */
-.sb-table .sbt-rp-col   { color: #fef08a; } /* soft yellow */
-.sbt-val-num { color: rgba(255,255,255,0.8); }
+/* Soft pastel game column colors */
+.sb-table .sbt-memory   { color: #c4b5fd; }
+.sb-table .sbt-stack    { color: #fde68a; }
+.sb-table .sbt-reaction { color: #fdba74; }
+.sb-table .sbt-bubble   { color: #7dd3fc; }
+.sb-table .sbt-guess    { color: #86efac; }
+.sb-table .sbt-wordle   { color: #a5b4fc; }
+.sb-table .sbt-flappy   { color: #bef264; }
+.sb-table .sbt-rp-col   { color: #fef08a; }
+.sbt-val-num { color: rgba(255,255,255,0.82); }
 .sbt-player-name { color: rgba(255,255,255,0.9); }
+.sbt-td-rp { font-family: var(--retro-font); font-size: 1rem; }
 
-body.light .sb-unified { background: linear-gradient(180deg,#f8f6ff,#f0eeff); border-color: rgba(139,92,246,0.15); }
-body.light .sb-table thead tr { background: rgba(139,92,246,0.05); }
-body.light .sb-table .sbt-memory   { color: #7c3aed; }
+/* Light mode scoreboard */
+body.light .sb-unified { background: linear-gradient(160deg, #faf7ff, #f3eeff); border-color: rgba(139,92,246,0.2); }
+body.light .sb-table thead tr { background: rgba(139,92,246,0.06); }
+body.light .sb-table thead th { border-bottom-color: rgba(139,92,246,0.12); }
+body.light .sb-table .sbt-memory   { color: #6d28d9; }
 body.light .sb-table .sbt-stack    { color: #d97706; }
 body.light .sb-table .sbt-reaction { color: #ea580c; }
 body.light .sb-table .sbt-bubble   { color: #0284c7; }
-body.light .sb-table .sbt-guess    { color: #16a34a; }
-body.light .sb-table .sbt-wordle   { color: #4f46e5; }
-body.light .sb-table .sbt-flappy   { color: #65a30d; }
-body.light .sb-table .sbt-rp-col   { color: #ca8a04; }
+body.light .sb-table .sbt-guess    { color: #15803d; }
+body.light .sb-table .sbt-wordle   { color: #4338ca; }
+body.light .sb-table .sbt-flappy   { color: #4d7c0f; }
+body.light .sb-table .sbt-rp-col   { color: #92400e; }
 body.light .sbt-val-num { color: #1a1a2e; }
+body.light .sbt-player-name { color: #1a1a2e; }
 
-/* ── Card design elevated ──────────────────────────────── */
+/* ── Cards — elevated retro ────────────────────────────── */
 .card {
+  background: linear-gradient(155deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
   border-color: rgba(255,255,255,0.05);
-  background: linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%);
 }
-.card h3 { font-size: 1.25rem; letter-spacing: 0.03em; }
-.card p { font-size: 0.8rem; line-height: 1.5; color: rgba(255,255,255,0.4); }
-.card .em { transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), filter 0.25s; }
-.card:hover .em { filter: drop-shadow(0 0 8px rgba(255,87,51,0.5)); }
+.card p { font-size: 0.8rem; line-height: 1.55; color: rgba(255,255,255,0.38); }
+.card:hover { border-color: rgba(255,87,51,0.4); }
+.card:hover .em { filter: drop-shadow(0 0 10px rgba(255,87,51,0.5)); }
 
-/* ── Game category headers ─────────────────────────────── */
-#cat-single .cat-header {
-  background: linear-gradient(90deg, #1a0050 0%, #3b0764 40%, #1e3a6e 100%);
-  background-size: 200% 100%;
+/* ── Stat boxes ────────────────────────────────────────── */
+.stat-box {
+  background: linear-gradient(155deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.06);
 }
-#cat-multi .cat-header {
-  background: linear-gradient(90deg, #450a0a 0%, #7f1d1d 40%, #431407 100%);
-  background-size: 200% 100%;
-}
+.stat-val { color: var(--c1); text-shadow: 0 0 18px rgba(255,87,51,0.35); }
+body.light .stat-val { text-shadow: none; }
+body.light .stat-box { background: rgba(255,255,255,0.9); border-color: rgba(0,0,0,0.08); }
 
 /* ── Header elevated ───────────────────────────────────── */
-header {
-  background: rgba(8,8,16,0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom-color: rgba(255,255,255,0.06);
-}
-body.light header { background: rgba(255,255,255,0.88); }
+header { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
 
 /* ── Popup elevated ────────────────────────────────────── */
 .pbox {
-  background: linear-gradient(180deg, #0e0e20, #090918);
-  border: 1px solid rgba(255,255,255,0.08);
-  box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(139,92,246,0.08);
+  background: linear-gradient(180deg, #0f0f22 0%, #09091a 100%);
+  border: 1px solid rgba(255,255,255,0.07);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(139,92,246,0.07);
 }
-.ptop { background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)); border-bottom-color: rgba(255,255,255,0.06); }
-.pbot { background: rgba(255,255,255,0.02); border-top-color: rgba(255,255,255,0.06); }
-body.light .pbox { background: #fff; box-shadow: 0 16px 60px rgba(0,0,0,0.12); }
+.ptop {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(0,0,0,0));
+  border-bottom-color: rgba(255,255,255,0.06);
+}
+.pbot { border-top-color: rgba(255,255,255,0.06); }
+body.light .pbox { background: #fff; border-color: rgba(0,0,0,0.08); box-shadow: 0 16px 60px rgba(0,0,0,0.12); }
+body.light .ptop { background: rgba(248,248,252,0.95); }
 
-/* ── Lobby screens ─────────────────────────────────────── */
-.lobby-user-row { border-radius: 12px; transition: background 0.15s, transform 0.15s; }
+/* ── Scrollbar retro ──────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,87,51,0.28); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,87,51,0.55); }
+
+/* ── Lobby rows animated ──────────────────────────────── */
+.lobby-user-row { transition: background 0.15s, transform 0.15s; border-radius: 10px; }
 .lobby-user-row:hover { transform: translateX(3px); }
-.btn-invite {
-  background: linear-gradient(135deg, var(--c1), #ff8c00);
-  color: #fff; border: none; border-radius: 8px; padding: 5px 14px;
-  font-size: 0.72rem; font-weight: 700; cursor: pointer; font-family: var(--retro-font);
-  font-size: 0.9rem; letter-spacing: 0.03em;
-  transition: opacity 0.15s, transform 0.1s;
-}
-.btn-invite:hover { opacity: 0.88; transform: scale(1.04); }
+.friend-row { transition: background 0.15s, transform 0.12s; }
+.friend-row:hover { transform: translateX(3px); }
 
-/* ── Hero enhancements ─────────────────────────────────── */
-.hero h1 { font-size: 2.8rem; }
+/* ── Invite button ────────────────────────────────────── */
+.btn-invite {
+  background: linear-gradient(135deg, var(--c1), #ff8c00) !important;
+  border-radius: 8px !important;
+  transition: opacity 0.15s, transform 0.12s !important;
+  color: #fff !important;
+}
+.btn-invite:hover { opacity: 0.88 !important; transform: scale(1.05) !important; }
+
+/* ── Diff buttons retro ───────────────────────────────── */
+.diff-btn.active {
+  background: linear-gradient(135deg, var(--c1), #ff8c00);
+  box-shadow: 0 2px 10px rgba(255,87,51,0.35);
+}
+
+/* ── Hero ─────────────────────────────────────────────── */
 .hero-press-start {
   font-family: var(--pixel-font);
-  font-size: 0.55rem;
-  border-color: rgba(255,87,51,0.25);
-  color: rgba(255,87,51,0.65);
+  font-size: 0.52rem;
+  border-color: rgba(255,87,51,0.22);
+  color: rgba(255,87,51,0.6);
+  border-radius: 20px;
+  padding: 5px 14px;
 }
-
-/* ── Stat boxes retro polish ──────────────────────────── */
-.stat-box {
-  background: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
-  border-color: rgba(255,255,255,0.07);
-}
-.stat-val { text-shadow: 0 0 20px rgba(255,87,51,0.4); }
-body.light .stat-val { text-shadow: none; }
-body.light .stat-box { background: rgba(255,255,255,0.9); }
-
-/* ── Scrollbar retro ─────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
-::-webkit-scrollbar-thumb { background: rgba(255,87,51,0.3); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,87,51,0.6); }
-
-/* ── Friend rows retro ──────────────────────────────── */
-.friend-row { border-radius: 10px; transition: transform 0.12s, background 0.12s; }
-.friend-row:hover { transform: translateX(3px); }
 
