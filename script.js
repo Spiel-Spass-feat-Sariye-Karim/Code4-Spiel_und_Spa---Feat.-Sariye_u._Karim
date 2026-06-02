@@ -253,6 +253,15 @@ function getScoreTotal(u) {
 }
 
 /* ---- ONLINE STATUS ---- */
+// A user is "invite-eligible" if they logged in within the last 60 minutes.
+// This shows them in invite lists even if the app is backgrounded (heartbeat paused).
+function isRecentlyActive(u) {
+  if (!u) return false;
+  if (u.is_online) return true; // server computed: last_seen < 3 min
+  if (!u.last_seen) return false;
+  return (Date.now() - new Date(u.last_seen).getTime()) < 60 * 60 * 1000; // 60 min
+}
+
 function formatLastSeen(last_seen, is_online) {
   if (is_online) return '<span class="online-dot green"></span>Online';
   if (!last_seen) return '<span class="online-dot gray"></span>Offline';
@@ -332,7 +341,7 @@ async function loadLobbyScreen() {
     if (!res.ok) return;
     var users = await res.json();
     if (!Array.isArray(users)) return;
-    var online = users.filter(function(u) { return u.is_online; });
+    var online = users.filter(function(u) { return isRecentlyActive(u) && u.id !== user.id; });
     document.getElementById('lobby-online-num').textContent = online.length;
     var container = document.getElementById('lobby-users-list');
     if (!online.length) {
@@ -779,11 +788,24 @@ async function loadUnreadCounts() {
     if (!res.ok) return;
     var data = await res.json();
     if (!Array.isArray(data)) return;
+    var prevCounts = Object.assign({}, unreadCounts);
     unreadCounts = {};
     data.forEach(function(item) { unreadCounts[item.friend_id] = item.count; });
     updateSidebarBadges();
+    // Show notification for new messages from each friend
+    data.forEach(function(item) {
+      var prev = prevCounts[item.friend_id] || 0;
+      if (item.count > prev && loadUnreadCounts._initialized) {
+        // Find friend name from friendsList
+        var friend = friendsList.find(function(f) { return f.id === item.friend_id; });
+        var name = friend ? friend.name : 'Ein Freund';
+        showLocalNotif('💬 Neue Nachricht', name + ' hat dir geschrieben!');
+      }
+    });
+    loadUnreadCounts._initialized = true;
   } catch (e) {}
 }
+loadUnreadCounts._initialized = false;
 
 function updateSidebarBadges() {
   document.querySelectorAll('.sidebar-friend').forEach(function(el) {
@@ -1281,6 +1303,7 @@ document.getElementById("avatar").src =
   document.getElementById('sidebar-mobile-btn').classList.add('visible');
   document.getElementById('global-chat-btn').classList.add('visible');
   unreadCounts = {};
+  loadUnreadCounts._initialized = false; // reset so first load doesn't trigger notifs for old messages
   loadUnreadCounts();
   if (unreadInterval) clearInterval(unreadInterval);
   unreadInterval = setInterval(loadUnreadCounts, 5000);
@@ -1303,6 +1326,44 @@ document.getElementById("avatar").src =
   if (themeBtn) themeBtn.textContent = document.body.classList.contains('light') ? '☀️' : '🌙';
   // Push notifications (delayed slightly so UI settles first)
   setTimeout(initPushNotifications, 1200);
+  // Start arcade particle system
+  startArcadeParticles();
+}
+
+/* ════════════════════════════════════════════════
+   ARCADE PARTICLE SYSTEM — floating emojis
+   ════════════════════════════════════════════════ */
+var arcadeParticleTimer = null;
+
+function startArcadeParticles() {
+  if (arcadeParticleTimer) return; // already running
+  var emojis = ['👾','🎮','🕹️','💥','⭐','🏆','🎯','💰','🔥','⚡','🪙','🌟','💫','🎲','🎪'];
+  var container = document.getElementById('arcade-particles');
+  if (!container) return;
+
+  function spawnParticle() {
+    if (!container || document.hidden) return; // don't spawn when tab hidden
+    var el = document.createElement('span');
+    el.className = 'arcade-particle';
+    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    var left = 5 + Math.random() * 90; // 5%–95% of viewport width
+    var dur  = 4 + Math.random() * 5;  // 4–9 seconds
+    var delay = Math.random() * 0.5;
+    el.style.cssText = 'left:' + left + '%;bottom:' + (Math.random() * 10) + '%;animation-duration:' + dur + 's;animation-delay:' + delay + 's;font-size:' + (0.8 + Math.random() * 0.7) + 'rem;';
+    container.appendChild(el);
+    // Remove after animation completes
+    setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, (dur + delay + 0.5) * 1000);
+  }
+
+  // Spawn a particle every 1.8 seconds
+  spawnParticle();
+  arcadeParticleTimer = setInterval(spawnParticle, 1800);
+}
+
+function stopArcadeParticles() {
+  if (arcadeParticleTimer) { clearInterval(arcadeParticleTimer); arcadeParticleTimer = null; }
+  var container = document.getElementById('arcade-particles');
+  if (container) container.innerHTML = '';
 }
 
 document.getElementById("btn-logout").addEventListener("click",
@@ -1881,6 +1942,7 @@ function openG(id) {
     chessArea.classList.add('active');
   }
   document.getElementById('popup').classList.add('on');
+  stopArcadeParticles(); // pause particles while in-game
   runG();
 }
 
@@ -1895,6 +1957,7 @@ function closeG() {
   tttOn = false; c4On = false; pongOn = false; rpsOn = false; chessOn = false;
   document.getElementById('ttt-overlay').classList.remove('show');
   document.getElementById('popup').classList.remove('on');
+  startArcadeParticles(); // resume particles on main screen
   document.getElementById('memory-pads').classList.remove('active');
   document.getElementById('memory-status').classList.remove('active');
   document.getElementById('reaction-area').classList.remove('active');
@@ -2884,7 +2947,7 @@ async function loadC4LobbyScreen() {
   try {
     var res = await fetch(API_URL + '/api/users/search?me=' + user.id);
     var users = await res.json();
-    var online = (users||[]).filter(function(u){ return u.is_online && u.id !== user.id; });
+    var online = (users||[]).filter(function(u){ return isRecentlyActive(u) && u.id !== user.id; });
     document.getElementById('c4-online-num').textContent = online.length;
     var container = document.getElementById('c4-users-list');
     if (!online.length) { container.innerHTML = '<div class="lobby-empty">Keine Freunde online</div>'; return; }
@@ -3267,7 +3330,7 @@ async function loadPongLobbyScreen() {
   try {
     var res = await fetch(API_URL+'/api/users/search?me='+user.id);
     var users = await res.json();
-    var online=(users||[]).filter(function(u){return u.is_online && u.id!==user.id;});
+    var online=(users||[]).filter(function(u){return isRecentlyActive(u)&&u.id!==user.id;});
     document.getElementById('pong-online-num').textContent=online.length;
     var container=document.getElementById('pong-users-list');
     if(!online.length){container.innerHTML='<div class="lobby-empty">Keine Freunde online</div>';return;}
@@ -3480,7 +3543,7 @@ async function loadRpsLobbyScreen() {
   try {
     var res=await fetch(API_URL+'/api/users/search?me='+user.id);
     var users=await res.json();
-    var online=(users||[]).filter(function(u){return u.is_online && u.id!==user.id;});
+    var online=(users||[]).filter(function(u){return isRecentlyActive(u)&&u.id!==user.id;});
     document.getElementById('rps-online-num').textContent=online.length;
     var container=document.getElementById('rps-users-list');
     if(!online.length){container.innerHTML='<div class="lobby-empty">Keine Freunde online</div>';return;}
@@ -4047,7 +4110,7 @@ async function loadChessLobbyScreen(){
   try{
     var res=await fetch(API_URL+'/api/users/search?me='+user.id);
     var users=await res.json();
-    var online=(users||[]).filter(function(u){return u.is_online&&u.id!==user.id;});
+    var online=(users||[]).filter(function(u){return isRecentlyActive(u)&&u.id!==user.id;});
     document.getElementById('chess-online-num').textContent=online.length;
     var container=document.getElementById('chess-users-list');
     if(!online.length){container.innerHTML='<div class="lobby-empty">Keine Freunde online</div>';return;}

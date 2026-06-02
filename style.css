@@ -407,9 +407,115 @@ body.light .hero h1::after { opacity: 0 !important; animation: none; }
   50%      { opacity: 0; }
 }
 body.light .hero-press-start { color: rgba(200,60,20,0.6); border-color: rgba(200,60,20,0.25); }
- 
+
+/* ── Hero badges ─────────────────────────────────────────────── */
+.hero-badges {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 0.55rem 0 0.2rem;
+}
+.hero-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.55);
+  animation: badgePulse 4s ease-in-out infinite;
+}
+.hero-badge:nth-child(2) { animation-delay: 1.3s; }
+.hero-badge:nth-child(3) { animation-delay: 2.6s; }
+@keyframes badgePulse {
+  0%,100% { border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.55); }
+  50%     { border-color: rgba(255,87,51,0.4);   color: rgba(255,87,51,0.9);   box-shadow: 0 0 8px rgba(255,87,51,0.15); }
+}
+body.light .hero-badge { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.12); color: rgba(0,0,0,0.45); }
+
+/* ── Hero pixel grid ─────────────────────────────────────────── */
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255,87,51,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,87,51,0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+  animation: gridSlide 12s linear infinite;
+  z-index: 0;
+}
+@keyframes gridSlide {
+  0%   { background-position: 0 0; }
+  100% { background-position: 28px 28px; }
+}
+body.light .hero-grid {
+  background-image:
+    linear-gradient(rgba(255,87,51,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,87,51,0.06) 1px, transparent 1px);
+}
+/* Ensure hero text is above grid */
+.hero > *:not(.hero-grid) { position: relative; z-index: 1; }
+
+/* ── Neon corner decorations ─────────────────────────────────── */
+.arcade-corner {
+  position: fixed;
+  width: 60px;
+  height: 60px;
+  pointer-events: none;
+  z-index: 9997;
+  opacity: 0.35;
+  animation: cornerPulse 3s ease-in-out infinite alternate;
+}
+.arcade-corner-tl { top: 70px; left: 12px; border-top: 2px solid var(--c1); border-left: 2px solid var(--c1); }
+.arcade-corner-tr { top: 70px; right: 12px; border-top: 2px solid #7c3aed; border-right: 2px solid #7c3aed; animation-delay: 1.5s; }
+@keyframes cornerPulse {
+  0%   { opacity: 0.2; }
+  100% { opacity: 0.6; filter: drop-shadow(0 0 4px currentColor); }
+}
+body.light .arcade-corner { opacity: 0.2; }
+
+/* ── Floating arcade particles (via JS) ──────────────────────── */
+#arcade-particles {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9996;
+  overflow: hidden;
+}
+.arcade-particle {
+  position: absolute;
+  font-size: 1.1rem;
+  line-height: 1;
+  user-select: none;
+  animation: particleFloat linear forwards;
+  opacity: 0;
+}
+@keyframes particleFloat {
+  0%   { opacity: 0;   transform: translateY(0)   scale(0.6) rotate(0deg); }
+  10%  { opacity: 0.7; }
+  80%  { opacity: 0.5; }
+  100% { opacity: 0;   transform: translateY(-260px) scale(1.1) rotate(20deg); }
+}
+
+/* ── Neon glow border on game-category on hover ──────────────── */
+.game-category {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.07);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  transition: box-shadow 0.3s, border-color 0.3s;
+}
+.game-category:hover {
+  box-shadow: 0 6px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,87,51,0.2);
+  border-color: rgba(255,87,51,0.2);
+}
+
 /* Karten */
-/* ── Game Categories ────────────────────────────────────────── */
+/* ── Game Categories ────────────────────────────────────────────────────── */
 .game-categories {
   max-width: 900px;
   margin: 0 auto;
@@ -417,12 +523,6 @@ body.light .hero-press-start { color: rgba(200,60,20,0.6); border-color: rgba(20
   display: flex;
   flex-direction: column;
   gap: 1rem;
-}
-.game-category {
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.07);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
 }
 /* Category header button */
 .cat-header {

@@ -324,7 +324,16 @@ app.get('/api/users/search', async (req, res) => {
     else query = query.order('name');
     const { data: users, error } = await query;
     if (error) return res.status(400).json({ error: 'Fehler' });
-    const result = (users || []).filter(u => u.id !== me);
+    const now = Date.now();
+    // Compute real online status from last_seen (heartbeat every 30s, 3 min grace period)
+    const result = (users || [])
+      .filter(u => u.id !== me)
+      .map(u => ({
+        ...u,
+        is_online: u.last_seen
+          ? (now - new Date(u.last_seen).getTime()) < 3 * 60 * 1000
+          : false
+      }));
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
