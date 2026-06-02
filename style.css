@@ -975,6 +975,54 @@ body.light #btn-close-profile:hover { background: #ef4444; color: #fff; }
 body.light .avatar-arrow { border-color: #ccc; background: #f0f0f0; color: #333; }
 body.light .avatar-arrow:hover:not(:disabled) { background: var(--c1); border-color: var(--c1); color: #fff; }
 
+/* ---- Notification setting row in profile ---- */
+.notif-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--s2);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+body.light .notif-setting-row { background: #f0f0f6; border-color: rgba(0,0,0,0.08); }
+.notif-setting-label { font-size: 0.85rem; font-weight: 700; color: var(--tx); }
+.notif-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+}
+.notif-toggle-track {
+  width: 42px;
+  height: 24px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 12px;
+  position: relative;
+  transition: background 0.25s;
+  flex-shrink: 0;
+}
+.notif-toggle-btn.on .notif-toggle-track { background: var(--c1); }
+.notif-toggle-thumb {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 18px; height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: left 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+.notif-toggle-btn.on .notif-toggle-thumb { left: 21px; }
+.notif-toggle-text { font-size: 0.75rem; font-weight: 700; color: var(--dim); width: 28px; }
+.notif-toggle-btn.on .notif-toggle-text { color: var(--c1); }
+.notif-setting-hint { font-size: 0.72rem; color: var(--dim); margin-top: 0.35rem; min-height: 1.1em; text-align: center; }
+
 @keyframes fadeInUp {
 from { opacity: 0; transform: translateY(20px); }
 to { opacity: 1; transform: translateY(0); }

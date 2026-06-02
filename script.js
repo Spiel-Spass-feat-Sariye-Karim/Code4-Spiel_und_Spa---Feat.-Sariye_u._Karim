@@ -19,6 +19,7 @@ var rpsPollInterval=null,rpsLobbyId=null,rpsIsHost=false,rpsIsAI=false,rpsAiDiff
 // Chess
 var chessPollInterval=null,chessLobbyId=null,chessIsHost=false,chessIsAI=false,chessAiDiff='easy',chessOn=false;
 var chessState=null,chessSelected=-1,chessValidMoves=[],chessLastMoveFrom=-1,chessLastMoveTo=-1,chessMyColor='w';
+var chessMoveInFlight=false; // true while our move is being sent to server (prevent poll overwrite)
 
 /* ---- DARK/LIGHT MODE ---- */
 (function() {
@@ -28,25 +29,22 @@ var chessState=null,chessSelected=-1,chessValidMoves=[],chessLastMoveFrom=-1,che
 })();
 
 /* ════════════════════════════════════════════════
-   PUSH NOTIFICATIONS & SERVICE WORKER
+   NOTIFICATIONS (Notification API + optional Web Push)
    ════════════════════════════════════════════════ */
-var pushVapidPublicKey = null; // fetched from server on demand
 
-// Register service worker
+// Register service worker (needed for background notifications on iOS PWA)
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(function(e) {
-    console.warn('SW registration failed:', e);
-  });
+  navigator.serviceWorker.register('/sw.js').catch(function(){});
 }
 
-// Show the custom permission dialog
+// Show the custom permission dialog (called from settings toggle, not auto)
 function showNotifDialog(onAllow, onDeny) {
   var dialog = document.getElementById('notif-dialog');
   if (!dialog) return;
   dialog.style.display = 'flex';
   document.getElementById('notif-allow-btn').onclick = function() {
     dialog.style.display = 'none';
-    onAllow();
+    if (onAllow) onAllow();
   };
   document.getElementById('notif-deny-btn').onclick = function() {
     dialog.style.display = 'none';
@@ -54,68 +52,132 @@ function showNotifDialog(onAllow, onDeny) {
   };
 }
 
-// Request permission + subscribe after login/register
-async function initPushNotifications() {
-  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
-  // Already granted → just subscribe
+// Called on login — show permission dialog once if not yet decided
+function initPushNotifications() {
+  if (!('Notification' in window)) return;
   if (Notification.permission === 'granted') {
-    await subscribeUserToPush();
+    updateNotifToggleUI(true);
+    tryWebPushSubscribe();
     return;
   }
-  // Already denied → don't ask again
-  if (Notification.permission === 'denied') return;
-  // Not yet asked → show once
+  if (Notification.permission === 'denied') {
+    updateNotifToggleUI(false);
+    return;
+  }
+  // Not yet decided — show our custom dialog ONCE
   if (localStorage.getItem('notif_asked')) return;
   localStorage.setItem('notif_asked', '1');
-  showNotifDialog(async function() {
-    try {
-      var perm = await Notification.requestPermission();
-      if (perm === 'granted') await subscribeUserToPush();
-    } catch(e) {}
-  });
+  showNotifDialog(function() { requestNotifPermission(true); });
 }
 
-async function subscribeUserToPush() {
-  if (!user) return;
+// Request browser permission — MUST be called from user gesture OR our dialog callback
+async function requestNotifPermission(fromDialog) {
+  if (!('Notification' in window)) {
+    setNotifHint('Dein Browser unterstützt keine Benachrichtigungen.');
+    return false;
+  }
   try {
-    var reg = await navigator.serviceWorker.ready;
-    // Fetch VAPID public key from server if not cached
-    if (!pushVapidPublicKey) {
-      var r = await fetch(API_URL + '/api/push/vapid-public-key');
-      if (!r.ok) return;
-      var data = await r.json();
-      pushVapidPublicKey = data.key;
+    var perm;
+    if (fromDialog) {
+      perm = await Notification.requestPermission();
+    } else {
+      // Direct request needs user gesture — this path is the toggle button click
+      perm = await Notification.requestPermission();
     }
+    var granted = perm === 'granted';
+    updateNotifToggleUI(granted);
+    if (granted) {
+      setNotifHint('Benachrichtigungen aktiv ✓');
+      tryWebPushSubscribe();
+    } else if (perm === 'denied') {
+      setNotifHint('Blockiert im Browser — in den Browser-Einstellungen aktivieren.');
+    }
+    return granted;
+  } catch(e) {
+    setNotifHint('Fehler beim Anfordern der Erlaubnis.');
+    return false;
+  }
+}
+
+// Try to set up Web Push subscription (optional — works only if DB table + VAPID keys set up)
+async function tryWebPushSubscribe() {
+  if (!user || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    var r = await fetch(API_URL + '/api/push/vapid-public-key');
+    if (!r.ok) return; // VAPID not configured — that's OK
+    var data = await r.json();
+    if (!data.key) return;
+    var reg = await navigator.serviceWorker.ready;
     var sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(pushVapidPublicKey)
+      applicationServerKey: urlBase64ToUint8Array(data.key)
     });
     await fetch(API_URL + '/api/push/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: user.id, subscription: sub.toJSON() })
     });
-  } catch(e) {}
+  } catch(e) {} // Silently fail — basic Notification API still works
 }
 
-function urlBase64ToUint8Array(base64String) {
-  var padding = '='.repeat((4 - base64String.length % 4) % 4);
-  var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  var rawData = atob(base64);
-  var outputArray = new Uint8Array(rawData.length);
-  for (var i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-  return outputArray;
+function urlBase64ToUint8Array(b64) {
+  var padding = '='.repeat((4 - b64.length % 4) % 4);
+  var base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+  var raw = atob(base64);
+  var arr = new Uint8Array(raw.length);
+  for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
 }
 
-// Show a local notification (fallback when tab is visible)
-function showLocalNotif(title, body, icon) {
+// Update toggle button UI to reflect current permission state
+function updateNotifToggleUI(on) {
+  var btn = document.getElementById('notif-toggle-btn');
+  var txt = document.getElementById('notif-toggle-text');
+  if (!btn) return;
+  if (on) { btn.classList.add('on'); if (txt) txt.textContent = 'An'; }
+  else    { btn.classList.remove('on'); if (txt) txt.textContent = 'Aus'; }
+}
+
+function setNotifHint(msg) {
+  var el = document.getElementById('notif-setting-hint');
+  if (el) el.textContent = msg;
+}
+
+// Update toggle state when profile opens
+function refreshNotifToggle() {
+  if (!('Notification' in window)) {
+    var row = document.getElementById('notif-setting-row');
+    if (row) row.style.display = 'none';
+    return;
+  }
+  updateNotifToggleUI(Notification.permission === 'granted');
+  if (Notification.permission === 'granted')  setNotifHint('Benachrichtigungen sind aktiv ✓');
+  else if (Notification.permission === 'denied') setNotifHint('Im Browser blockiert — Browsereinstellungen öffnen.');
+  else setNotifHint('Tippe auf den Schalter um Benachrichtigungen zu aktivieren.');
+}
+
+// Show a system notification (works when tab is open OR in background)
+// Uses service worker for iOS PWA compatibility
+function showLocalNotif(title, body) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  // Only show local if the tab is not focused
-  if (!document.hidden) return; // tab is visible, we already show toast/badge
   try {
-    navigator.serviceWorker.ready.then(function(reg) {
-      reg.showNotification(title, { body: body, icon: icon || '' });
-    });
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(function(reg) {
+        reg.showNotification(title, {
+          body: body,
+          icon: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%8E%AE%3C/text%3E%3C/svg%3E',
+          badge: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%8E%AE%3C/text%3E%3C/svg%3E',
+          vibrate: [100, 50, 100],
+          tag: 'arcadebox',
+          renotify: true
+        });
+      }).catch(function() {
+        // Fallback: direct notification if SW not ready
+        new Notification(title, { body: body });
+      });
+    } else {
+      new Notification(title, { body: body });
+    }
   } catch(e) {}
 }
 
@@ -2770,10 +2832,46 @@ document.getElementById("avatar").addEventListener("click", function() {
     "Mitglied seit: " + created + "<br>" +
     "Spiele gespielt: " + (user.games_played || 0);
   document.getElementById("profile-overlay").classList.add("on");
+  refreshNotifToggle();
 });
 
 document.getElementById("btn-close-profile").addEventListener("click", function() {
   document.getElementById("profile-overlay").classList.remove("on");
+});
+
+// Notification toggle button in profile
+document.getElementById('notif-toggle-btn').addEventListener('click', async function() {
+  if (!('Notification' in window)) {
+    setNotifHint('Dein Browser unterstützt keine Benachrichtigungen.');
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    // Turn off: unsubscribe from web push, clear local preference
+    updateNotifToggleUI(false);
+    setNotifHint('Benachrichtigungen deaktiviert.');
+    localStorage.setItem('notif_asked', '1');
+    if (user) {
+      try {
+        await fetch(API_URL + '/api/push/subscribe', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: user.id })
+        });
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+          var reg = await navigator.serviceWorker.ready;
+          var sub = await reg.pushManager.getSubscription();
+          if (sub) await sub.unsubscribe();
+        }
+      } catch(e) {}
+    }
+    // Note: can't revoke Notification permission in JS — user must do it in browser settings
+    setNotifHint('Deaktiviert. Für Browser-Blockierung: Browser-Einstellungen öffnen.');
+  } else if (Notification.permission === 'denied') {
+    setNotifHint('Im Browser blockiert — Browser-Einstellungen → Benachrichtigungen → ArcadeBox zulassen.');
+  } else {
+    // Not yet decided — request permission
+    await requestNotifPermission(false);
+  }
 });
 
 /* ================================================================
@@ -3056,37 +3154,61 @@ function connect4Game(cv, isAI, diff, isHost, lobbyId) {
   cv.addEventListener('mouseleave', onLeave);
   draw();
 
+  // Scan entire board for any 4-in-a-row — more robust than single-position check
+  function findWinner(b) {
+    for (var r=0;r<ROWS;r++) {
+      for (var c=0;c<COLS;c++) {
+        var s=b[r*COLS+c];
+        if (s && checkWin(b,r,c,s)) return s;
+      }
+    }
+    return null;
+  }
+
+  function finishRound(b) {
+    var winner = findWinner(b);
+    if (winner) {
+      on=false; c4On=false;
+      if (c4PollInterval){clearInterval(c4PollInterval);c4PollInterval=null;}
+      var result = winner===mySym ? 'win' : 'lose';
+      setTimeout(function(){c4GameOver(result);},300);
+      return true;
+    }
+    if (isDraw(b)){on=false;c4On=false;setTimeout(function(){c4GameOver('draw');},300);return true;}
+    return false;
+  }
+
   function applyState(state) {
-    if (!state||!state.board||!on||animPiece) return;
+    if (!state||!state.board||!on) return;
     var nb = state.board;
     var changed=false;
     for (var i=0;i<nb.length;i++){if(nb[i]!==board[i]){changed=true;break;}}
     if (!changed) return;
+
+    // If animation in progress, wait — but keep nb reference for after animation
+    if (animPiece) {
+      var pendingNb = nb;
+      // Schedule re-check after current animation (500ms safety margin)
+      setTimeout(function(){ if(on) applyState(state); }, 500);
+      return;
+    }
+
+    // Find the new piece (first cell that changed from empty to filled)
     var lr=-1,lc=-1,ls='';
     for (var i=0;i<nb.length;i++){if(nb[i]&&!board[i]){lr=Math.floor(i/COLS);lc=i%COLS;ls=nb[i];break;}}
-    if (lr>=0&&ls&&ls!==mySym) {
-      // animate opponent's piece falling
+
+    if (lr>=0 && ls && ls!==mySym) {
+      // Opponent's piece — animate it falling in
       animateDrop(lc, lr, ls, function() {
-        board=nb.slice(); draw();
-        if (checkWin(board,lr,lc,ls)) {
-          on=false; c4On=false;
-          if (c4PollInterval){clearInterval(c4PollInterval);c4PollInterval=null;}
-          setTimeout(function(){c4GameOver('lose');},300); return;
-        }
-        if (isDraw(board)){on=false;c4On=false;setTimeout(function(){c4GameOver('draw');},300);return;}
-        myTurn=true; draw();
+        board=nb.slice();
+        draw();
+        if (!finishRound(board)) { myTurn=true; draw(); }
       });
     } else {
-      board=nb.slice(); draw();
-      if (lr>=0&&checkWin(board,lr,lc,ls)) {
-        on=false; c4On=false;
-        if (c4PollInterval){clearInterval(c4PollInterval);c4PollInterval=null;}
-        var result=ls===mySym?'win':'lose';
-        setTimeout(function(){c4GameOver(result);},300); return;
-      }
-      if (isDraw(board)){on=false;c4On=false;setTimeout(function(){c4GameOver('draw');},300);return;}
-      if (ls&&ls!==mySym) myTurn=true;
+      // My own piece confirmed by server, or no new piece found — just sync board
+      board=nb.slice();
       draw();
+      if (lr>=0) finishRound(board);
     }
   }
 
@@ -3473,8 +3595,8 @@ function rpsStartGame(isAI, diff, lobbyId, isHost) {
         document.getElementById('rps-choices').style.display = 'flex';
         btns.forEach(function(b) { b.disabled = false; b.classList.remove('chosen'); });
         if (!isAI && lobbyId) {
-          var patch = { round: round };
-          patch[isHost ? 'hostChoice' : 'guestChoice'] = null;
+          // Clear BOTH choices so stale server state doesn't trigger next round early
+          var patch = { round: round, hostChoice: null, guestChoice: null };
           fetch(API_URL + '/api/lobby/state', {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ lobby_id: lobbyId, user_id: user.id, patch: patch })
@@ -3559,10 +3681,14 @@ function rpsStartGame(isAI, diff, lobbyId, isHost) {
 
   function checkServerState(state) {
     if(!state || !roundActive || !myChoice) return;
+    // Reject stale state from a previous or future round
+    if(state.round !== undefined && state.round !== round) return;
     var oppKey = isHost ? 'guestChoice' : 'hostChoice';
     var myKey  = isHost ? 'hostChoice'  : 'guestChoice';
     var oppChoice = state[oppKey];
-    if(oppChoice && state[myKey] === myChoice){
+    var myServerChoice = state[myKey];
+    // Only resolve when BOTH choices are present AND my server-side choice matches what I picked
+    if(oppChoice && myServerChoice === myChoice){
       resolve(myChoice, oppChoice);
     }
   }
@@ -3872,8 +3998,10 @@ function chessDoMove(from,to){
   chessState=chessApplyMove(chessState,from,to);
   chessSelected=-1;chessValidMoves=[];
   if(!chessIsAI&&chessLobbyId){
+    chessMoveInFlight=true; // block poll from overwriting until server confirms
     fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({lobby_id:chessLobbyId,user_id:user.id,patch:{chessState:chessState,lastFrom:from,lastTo:to}})});
+      body:JSON.stringify({lobby_id:chessLobbyId,user_id:user.id,patch:{chessState:chessState,lastFrom:from,lastTo:to}})
+    }).finally(function(){ chessMoveInFlight=false; });
   }
   renderChessBoard();
   var opp=chessState.turn,oppMoves=chessAllLegalMoves(chessState,opp);
@@ -3950,7 +4078,7 @@ function chessStart(diff){
 }
 
 function chessStartOnline(lobbyId,isHost){
-  chessLobbyId=lobbyId;chessIsHost=isHost;chessIsAI=false;chessOn=true;chessMyColor=isHost?'w':'b';
+  chessLobbyId=lobbyId;chessIsHost=isHost;chessIsAI=false;chessOn=true;chessMyColor=isHost?'w':'b';chessMoveInFlight=false;
   document.getElementById('chess-lobby-screen').style.display='none';
   document.getElementById('chess-game-screen').style.display='flex';
   document.getElementById('ttt-overlay').classList.remove('show');
@@ -3965,14 +4093,20 @@ function chessStartOnline(lobbyId,isHost){
 
 async function chessPollOnline(){
   if(!chessOn||!chessLobbyId)return;
+  if(chessMoveInFlight)return; // our move is still being sent — don't overwrite local state
   try{
     var res=await fetch(API_URL+'/api/lobby/'+chessLobbyId);
     if(!res.ok)return;
     var lobby=await res.json();
     var st=lobby.game_state;
     if(!st||!st.chessState)return;
-    // Only update when it's the opponent's move that was applied
-    if(!chessState||st.chessState.turn===chessMyColor&&JSON.stringify(chessState)!==JSON.stringify(st.chessState)){
+    // Only update when the server state differs AND it is now my turn (opponent just moved)
+    // Never overwrite when it's my turn locally — I may have already moved but server hasn't saved yet
+    var localIsMyTurn = chessState && chessState.turn === chessMyColor;
+    var serverIsMyTurn = st.chessState.turn === chessMyColor;
+    var statesDiffer = !chessState || JSON.stringify(chessState) !== JSON.stringify(st.chessState);
+    // Apply only when: no local state, OR (waiting for opponent AND server now has my turn)
+    if(!chessState || (!localIsMyTurn && serverIsMyTurn && statesDiffer)){
       chessState=st.chessState;
       if(st.lastFrom!==undefined)chessLastMoveFrom=st.lastFrom;
       if(st.lastTo!==undefined)chessLastMoveTo=st.lastTo;
