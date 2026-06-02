@@ -133,14 +133,19 @@ function refreshNotifToggle() {
   var prefOn = notifUserWantsOn();
   var effectivelyOn = (perm === 'granted' && prefOn);
   updateNotifToggleUI(effectivelyOn);
+  var testBtn = document.getElementById('notif-test-btn');
   if (perm === 'denied') {
-    setNotifHint('Im Browser blockiert. Gehe zu: Einstellungen → Datenschutz → Benachrichtigungen → ArcadeBox erlauben.');
+    setNotifHint('Im Browser blockiert → Einstellungen → Benachrichtigungen → ArcadeBox → Erlauben → Seite neu laden.');
+    if (testBtn) testBtn.style.display = 'none';
   } else if (perm === 'granted' && prefOn) {
-    setNotifHint('Benachrichtigungen aktiv ✓');
+    setNotifHint('Aktiv ✓ — du bekommst Benachrichtigungen bei Einladungen, Nachrichten und Freundschaftsanfragen.');
+    if (testBtn) testBtn.style.display = 'block';
   } else if (perm === 'granted' && !prefOn) {
-    setNotifHint('Deaktiviert — tippe um wieder zu aktivieren.');
+    setNotifHint('Deaktiviert — tippe nochmal um wieder zu aktivieren.');
+    if (testBtn) testBtn.style.display = 'none';
   } else {
     setNotifHint('Tippe um Benachrichtigungen zu aktivieren.');
+    if (testBtn) testBtn.style.display = 'none';
   }
 }
 
@@ -1466,21 +1471,31 @@ function startArcadeParticles() {
     }
   }
 
-  // ── Cabinet LED strip ──
+  // ── Cabinet LED strip — drawn BELOW the page (bottom of screen) ──
   function drawLEDs() {
-    var ledW = 6, ledH = 12, gap = 4;
+    var ledW = 6, ledH = 10, gap = 4;
     var numLeds = Math.floor(W / (ledW + gap));
+    var yBase = H - 14; // bottom strip only (not top — header covers it)
     for (var i = 0; i < numLeds; i++) {
       var phase = (t * 0.04 + i * 0.18) % (Math.PI * 2);
-      var bright = 0.15 + 0.55 * Math.abs(Math.sin(phase));
+      var bright = 0.2 + 0.6 * Math.abs(Math.sin(phase));
       var hue2 = (i * 15 + t * 0.5) % 360;
       var x2 = i * (ledW + gap) + 2;
       ctx.fillStyle = 'hsla(' + hue2 + ',100%,65%,' + bright + ')';
-      if (bright > 0.5) { ctx.shadowColor = 'hsl('+hue2+',100%,65%)'; ctx.shadowBlur = 8; }
+      if (bright > 0.55) { ctx.shadowColor = 'hsl('+hue2+',100%,65%)'; ctx.shadowBlur = 10; }
       ctx.beginPath();
-      ctx.roundRect ? ctx.roundRect(x2, 60, ledW, ledH, 2) : ctx.rect(x2, 60, ledW, ledH);
+      ctx.roundRect ? ctx.roundRect(x2, yBase, ledW, ledH, 2) : ctx.rect(x2, yBase, ledW, ledH);
       ctx.fill();
       ctx.shadowBlur = 0;
+    }
+    // Side accent strips (left and right thin bars)
+    for (var j = 0; j < Math.floor(H / 12); j++) {
+      var ph2 = (t * 0.03 + j * 0.25) % (Math.PI * 2);
+      var br2 = 0.1 + 0.3 * Math.abs(Math.sin(ph2));
+      var hu2 = (j * 20 + t * 0.4) % 360;
+      ctx.fillStyle = 'hsla(' + hu2 + ',100%,65%,' + br2 + ')';
+      ctx.fillRect(0, j * 12, 3, 8);
+      ctx.fillRect(W - 3, j * 12, 3, 8);
     }
   }
 
@@ -3066,25 +3081,17 @@ document.getElementById('notif-toggle-btn').addEventListener('click', async func
   }
 
   if (perm === 'granted') {
-    // Toggle between user preference on/off
+    // Toggle ON ↔ OFF (browser permission stays granted, only our pref changes)
     var currentlyOn = notifUserWantsOn();
     if (currentlyOn) {
-      // Turn OFF (browser permission stays, but we stop sending notifs)
       localStorage.setItem(NOTIF_PREF, 'false');
       refreshNotifToggle();
-      // Also unsubscribe from web push
-      try {
-        if (user) await fetch(API_URL + '/api/push/subscribe', { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ user_id: user.id }) });
-        if ('serviceWorker' in navigator && 'PushManager' in window) {
-          var reg2 = await navigator.serviceWorker.ready;
-          var sub2 = await reg2.pushManager.getSubscription();
-          if (sub2) await sub2.unsubscribe();
-        }
-      } catch(e) {}
+      setNotifHint('Deaktiviert — tippe nochmal um wieder zu aktivieren.');
     } else {
-      // Turn ON — permission already granted, just flip preference
+      // Re-enable: pref was 'false', flip back to 'true'
       localStorage.setItem(NOTIF_PREF, 'true');
       refreshNotifToggle();
+      setNotifHint('Aktiviert ✓');
       tryWebPushSubscribe();
     }
     return;
@@ -3102,9 +3109,25 @@ document.getElementById('notif-toggle-btn').addEventListener('click', async func
   }
 });
 
+// Test notification button
+document.getElementById('notif-test-btn').addEventListener('click', function() {
+  showLocalNotif('🔔 Test-Benachrichtigung', 'Benachrichtigungen funktionieren! 🎮');
+  setNotifHint('Test gesendet! Falls nichts erscheint → Browser blockiert die Seite.');
+});
+
 /* ================================================================
    NEUE MULTIPLAYER-SPIELE: CONNECT 4 / PONG / SCHERE STEIN PAPIER
    ================================================================ */
+
+// RPS round selection
+var rpsMaxRounds = 3;
+document.querySelectorAll('.rps-rounds').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.rps-rounds').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    rpsMaxRounds = parseInt(this.dataset.rounds);
+  });
+});
 
 /* ---- CONNECT 4 ---- */
 async function loadC4LobbyScreen() {
@@ -3727,17 +3750,23 @@ async function loadRpsLobbyScreen() {
 
 function rpsStart(diff) {
   rpsIsAI=true; rpsAiDiff=diff||rpsAiDiff; rpsIsHost=true; rpsOn=true;
-  rpsStartGame(true, rpsAiDiff, null, true);
+  rpsStartGame(true, rpsAiDiff, null, true, rpsMaxRounds||3);
 }
 
 function rpsStartOnline(lobbyId, isHost) {
   rpsLobbyId=lobbyId; rpsIsHost=isHost; rpsIsAI=false; rpsOn=true;
-  rpsStartGame(false, null, lobbyId, isHost);
+  var maxR = rpsMaxRounds || 3;
+  rpsStartGame(false, null, lobbyId, isHost, maxR);
   if(rpsPollInterval)clearInterval(rpsPollInterval);
   rpsPollInterval=setInterval(rpsPollOnline, 500);
+  // Host broadcasts maxRounds so joiner knows
+  if(isHost) {
+    fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:{maxRounds:maxR,round:1,hostChoice:null,guestChoice:null}})});
+  }
 }
 
-function rpsStartGame(isAI, diff, lobbyId, isHost) {
+function rpsStartGame(isAI, diff, lobbyId, isHost, maxRounds) {
   document.getElementById('rps-lobby-screen').style.display='none';
   var gs=document.getElementById('rps-game-screen');
   gs.style.display='block';
@@ -3751,41 +3780,49 @@ function rpsStartGame(isAI, diff, lobbyId, isHost) {
   document.getElementById('rps-round-result').style.display = 'none';
   document.getElementById('rps-waiting').style.display = 'none';
 
-  var mySc=0, oppSc=0, round=1, MAX=3;
+  var MAX = maxRounds || 3;  // wins needed: 3=best of ?, 5=first to 5, 10=first to 10... actually MAX=wins to win
+  // For "Best of 3": first to 2 wins. "Best of 5": first to 3. "First to 10": first to 10.
+  var winsNeeded = MAX === 3 ? 2 : MAX === 5 ? 3 : MAX;
+  var mySc=0, oppSc=0, round=1;
   var myChoice=null, roundActive=true, gameOn=true;
-  // Hand emojis for battle display — show real gestures not symbols
+  var resolving=false; // THE KEY FLAG — prevents multiple resolve() calls per round
+
   var handIcons={rock:'✊', paper:'🖐️', scissors:'✌️'};
-  var choiceIcons={rock:'🪨', paper:'📄', scissors:'✂️'};
   function beats(a,b){return(a==='rock'&&b==='scissors')||(a==='paper'&&b==='rock')||(a==='scissors'&&b==='paper');}
 
-  // Clear old event listeners by replacing buttons with fresh clones
+  // Replace buttons to clear old event listeners
   var choicesEl = document.getElementById('rps-choices');
   choicesEl.querySelectorAll('.rps-btn').forEach(function(btn) {
-    var fresh = btn.cloneNode(true);
-    btn.parentNode.replaceChild(fresh, btn);
+    var fresh = btn.cloneNode(true); btn.parentNode.replaceChild(fresh, btn);
   });
   var btns = choicesEl.querySelectorAll('.rps-btn');
   btns.forEach(function(b){b.disabled=false;b.classList.remove('chosen');});
 
+  // Update round label
+  function updateRoundLabel() {
+    var label = 'Runde ' + round;
+    if (MAX >= 5) label += '  (Ziel: ' + winsNeeded + ' Siege)';
+    document.getElementById('rps-round-info').textContent = label;
+  }
+  updateRoundLabel();
+
   function showBattle(mine, opp) {
     var arena = document.getElementById('rps-battle-arena');
-    var rrEl = document.getElementById('rps-round-result');
+    var rrEl  = document.getElementById('rps-round-result');
     var oppLbl = document.getElementById('rps-opp-label');
     if (oppLbl) oppLbl.textContent = isAI ? 'KI' : 'Gegner';
 
-    // Re-trigger fly-in animations by cloning the sides (preserves CSS animation restart)
+    // Restart fly-in animation by replacing nodes
     var mine2 = document.getElementById('rps-mine-side');
     var opp2  = document.getElementById('rps-opp-side');
-    if (mine2) { var m2 = mine2.cloneNode(true); mine2.parentNode.replaceChild(m2, mine2); }
-    if (opp2)  { var o2 = opp2.cloneNode(true);  opp2.parentNode.replaceChild(o2, opp2); }
-    // Re-fetch elements after clone
+    if (mine2) { var m2=mine2.cloneNode(true); mine2.parentNode.replaceChild(m2,mine2); }
+    if (opp2)  { var o2=opp2.cloneNode(true);  opp2.parentNode.replaceChild(o2,opp2); }
     var mineIconEl = document.getElementById('rps-mine-icon');
     var oppIconEl  = document.getElementById('rps-opp-icon');
-    if (mineIconEl) mineIconEl.textContent = handIcons[mine] || choiceIcons[mine] || mine;
-    if (oppIconEl)  oppIconEl.textContent  = handIcons[opp]  || choiceIcons[opp]  || opp;
+    if (mineIconEl) mineIconEl.textContent = handIcons[mine] || mine;
+    if (oppIconEl)  oppIconEl.textContent  = handIcons[opp]  || opp;
     if (arena) arena.style.display = 'flex';
 
-    // Determine winner and apply visuals
     var txt, col;
     if (mine === opp) {
       txt = '🤝 Unentschieden!'; col = 'var(--dim)';
@@ -3793,67 +3830,52 @@ function rpsStartGame(isAI, diff, lobbyId, isHost) {
       if (oppIconEl)  oppIconEl.classList.add('draw');
     } else if (beats(mine, opp)) {
       txt = '✅ Runde gewonnen!'; col = '#22c55e'; mySc++;
-      setTimeout(function() {
-        if (mineIconEl) mineIconEl.classList.add('winner');
-        if (oppIconEl)  oppIconEl.classList.add('loser');
-      }, 300);
+      setTimeout(function(){if(mineIconEl)mineIconEl.classList.add('winner');if(oppIconEl)oppIconEl.classList.add('loser');},300);
     } else {
       txt = '❌ Runde verloren!'; col = '#ef4444'; oppSc++;
-      setTimeout(function() {
-        if (oppIconEl)  oppIconEl.classList.add('winner');
-        if (mineIconEl) mineIconEl.classList.add('loser');
-      }, 300);
+      setTimeout(function(){if(oppIconEl)oppIconEl.classList.add('winner');if(mineIconEl)mineIconEl.classList.add('loser');},300);
     }
     document.getElementById('rps-my-score').textContent  = mySc;
     document.getElementById('rps-opp-score').textContent = oppSc;
     if (rrEl) { rrEl.textContent = txt; rrEl.style.color = col; rrEl.style.display = 'block'; }
 
-    if (mySc >= MAX || oppSc >= MAX) {
+    if (mySc >= winsNeeded || oppSc >= winsNeeded) {
       rpsOn = false;
       if (rpsPollInterval) { clearInterval(rpsPollInterval); rpsPollInterval = null; }
-      setTimeout(function() { rpsGameOver(mySc >= MAX ? 'win' : 'lose'); }, 1400);
+      setTimeout(function() { rpsGameOver(mySc >= winsNeeded ? 'win' : 'lose'); }, 1400);
     } else {
       round++;
-      document.getElementById('rps-round-info').textContent = 'Runde ' + round;
       setTimeout(function() {
         if (!gameOn) return;
+        updateRoundLabel();
         if (arena) arena.style.display = 'none';
         if (rrEl) rrEl.style.display = 'none';
-        myChoice = null; roundActive = true;
-        document.getElementById('rps-choices').style.display = 'flex';
+        // Reset for next round
+        myChoice = null; roundActive = true; resolving = false;
         btns.forEach(function(b) { b.disabled = false; b.classList.remove('chosen'); });
+        document.getElementById('rps-choices').style.display = 'flex';
+        document.getElementById('rps-waiting').style.display = 'none';
+        // Clear both server choices so next round starts clean
         if (!isAI && lobbyId) {
-          // Clear BOTH choices so stale server state doesn't trigger next round early
-          var patch = { round: round, hostChoice: null, guestChoice: null };
-          fetch(API_URL + '/api/lobby/state', {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lobby_id: lobbyId, user_id: user.id, patch: patch })
-          });
+          fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:{round:round,hostChoice:null,guestChoice:null}})});
         }
       }, 1800);
     }
   }
 
-  // ── Countdown: fist pumps 3× while words count "Schere → Stein → Papier!" ──
   function runCountdown(onDone) {
     var cd   = document.getElementById('rps-countdown');
     var hand = document.getElementById('rps-pump-hand');
     var word = document.getElementById('rps-pump-word');
-    var words = ['Schere', 'Stein', 'Papier!'];
     if (cd) cd.style.display = 'flex';
+    var words = ['Schere','Stein','Papier!'];
     var idx = 0;
     function doPump() {
-      if (!gameOn) return; // only abort if whole game stopped
-      if (idx >= 3) {
-        if (cd) cd.style.display = 'none';
-        onDone(); return;
-      }
+      if (!gameOn) { if(cd)cd.style.display='none'; return; }
+      if (idx >= 3) { if(cd)cd.style.display='none'; onDone(); return; }
       if (word) word.textContent = words[idx];
-      if (hand) {
-        hand.classList.remove('pumping');
-        void hand.offsetWidth; // force reflow to restart animation
-        hand.classList.add('pumping');
-      }
+      if (hand) { hand.classList.remove('pumping'); void hand.offsetWidth; hand.classList.add('pumping'); }
       idx++;
       setTimeout(doPump, 430);
     }
@@ -3861,67 +3883,59 @@ function rpsStartGame(isAI, diff, lobbyId, isHost) {
   }
 
   function resolve(mine, opp) {
-    // NOTE: do NOT set roundActive=false here — that would abort the countdown!
+    if (resolving) return; // ← THE KEY FIX: only resolve once per round
+    resolving = true;
+    roundActive = false;
     btns.forEach(function(b) { b.disabled = true; });
     document.getElementById('rps-choices').style.display = 'none';
-    var waiting = document.getElementById('rps-waiting');
-    if (waiting) waiting.style.display = 'none';
+    document.getElementById('rps-waiting').style.display = 'none';
     runCountdown(function() {
-      roundActive = false; // now safe to mark round inactive (after countdown)
       showBattle(mine, opp);
     });
   }
 
   function pick(choice) {
-    if (!roundActive || myChoice) return;
+    if (!roundActive || myChoice || resolving) return;
     myChoice = choice;
     btns.forEach(function(b) { b.classList.toggle('chosen', b.dataset.choice === choice); });
     if (isAI) {
-      var aiChoices = ['rock', 'paper', 'scissors'];
-      var opp;
-      if (diff === 'easy') {
-        // Easy: fully random — no pattern reading
-        opp = aiChoices[Math.floor(Math.random() * 3)];
-      } else if (diff === 'medium') {
-        // Medium: 20% chance to counter the player's choice — mostly fair
-        var wins = {rock:'paper', paper:'scissors', scissors:'rock'};
-        opp = Math.random() < 0.20 ? wins[choice] : aiChoices[Math.floor(Math.random()*3)];
-      } else {
-        // Hard: 35% chance to counter — challenging but beatable
-        var winsH = {rock:'paper', paper:'scissors', scissors:'rock'};
-        opp = Math.random() < 0.35 ? winsH[choice] : aiChoices[Math.floor(Math.random()*3)];
-      }
+      var aiC = ['rock','paper','scissors'];
+      var wins = {rock:'paper',paper:'scissors',scissors:'rock'};
+      var opp = diff==='easy' ? aiC[Math.floor(Math.random()*3)]
+        : diff==='medium' ? (Math.random()<0.20 ? wins[choice] : aiC[Math.floor(Math.random()*3)])
+        : (Math.random()<0.35 ? wins[choice] : aiC[Math.floor(Math.random()*3)]);
       resolve(choice, opp);
     } else {
-      var waiting = document.getElementById('rps-waiting');
-      if (waiting) waiting.style.display = 'block';
-      btns.forEach(function(b) { if (b.dataset.choice !== choice) b.disabled = true; });
-      var playerKey = isHost ? 'hostChoice' : 'guestChoice';
-      var patch = {}; patch[playerKey] = choice;
-      fetch(API_URL + '/api/lobby/state', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lobby_id: lobbyId, user_id: user.id, patch: patch })
-      });
+      document.getElementById('rps-waiting').style.display = 'block';
+      btns.forEach(function(b){ if(b.dataset.choice!==choice)b.disabled=true; });
+      var patch = {}; patch[isHost?'hostChoice':'guestChoice'] = choice;
+      fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:patch})});
     }
   }
 
-  btns.forEach(function(btn){ btn.addEventListener('click', function(){ pick(this.dataset.choice); }); });
+  btns.forEach(function(btn){ btn.addEventListener('click',function(){ pick(this.dataset.choice); }); });
 
   function checkServerState(state) {
-    if(!state || !roundActive || !myChoice) return;
-    // Reject stale state from a previous or future round
-    if(state.round !== undefined && state.round !== round) return;
+    if (!state || resolving || !roundActive || !myChoice) return;
+    // Sync maxRounds from server (joiner reads host's selection)
+    if (!isHost && state.maxRounds && state.maxRounds !== MAX) {
+      MAX = state.maxRounds;
+      winsNeeded = MAX===3 ? 2 : MAX===5 ? 3 : MAX;
+    }
+    // Reject stale state from a different round
+    if (state.round !== undefined && state.round !== round) return;
     var oppKey = isHost ? 'guestChoice' : 'hostChoice';
     var myKey  = isHost ? 'hostChoice'  : 'guestChoice';
-    var oppChoice = state[oppKey];
-    var myServerChoice = state[myKey];
-    // Only resolve when BOTH choices are present AND my server-side choice matches what I picked
-    if(oppChoice && myServerChoice === myChoice){
+    var oppChoice    = state[oppKey];
+    var myServChoice = state[myKey];
+    // Both must be present, and server must confirm my choice
+    if (oppChoice && myServChoice && myServChoice === myChoice) {
       resolve(myChoice, oppChoice);
     }
   }
 
-  game = { stop: function(){ gameOn=false; roundActive=false; }, applyState: checkServerState };
+  game = { stop: function(){ gameOn=false; roundActive=false; resolving=true; }, applyState: checkServerState };
 }
 
 async function rpsPollOnline() {

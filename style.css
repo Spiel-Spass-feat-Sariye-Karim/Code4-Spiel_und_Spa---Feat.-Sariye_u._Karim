@@ -281,12 +281,13 @@ header::after {
 }
 header > * { position: relative; z-index: 1; }
 
-/* ── Logo — neon glow pulse ─────────────────────── */
+/* ── Logo — pixel font + neon glow ─────────────────── */
 .logo {
-  font-size: 1.3rem;
-  font-weight: 800;
-  letter-spacing: 0.01em;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
   animation: logoGlow 3.5s ease-in-out infinite alternate;
+  text-transform: uppercase;
 }
 .logo span { color: var(--c1); }
 
@@ -530,6 +531,103 @@ body.light .arcade-corner { opacity: 0.2; }
   position: relative;
   z-index: 1;
 }
+/* ════════════════════════════════════════════════
+   RETRO ARCADE DESIGN EXTRAS
+   ════════════════════════════════════════════════ */
+
+/* Notification test button */
+.notif-test-btn {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  color: var(--dim);
+  font-family: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.notif-test-btn:hover { background: rgba(255,87,51,0.15); color: var(--tx); border-color: var(--c1); }
+body.light .notif-test-btn { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.10); color: #555; }
+
+/* Pixel corner accents on game category cards */
+.game-category::before,
+.game-category::after {
+  content: '';
+  position: absolute;
+  width: 10px; height: 10px;
+  pointer-events: none;
+  z-index: 2;
+}
+.game-category { position: relative; }
+.game-category::before {
+  top: 3px; left: 3px;
+  border-top: 2px solid rgba(255,87,51,0.4);
+  border-left: 2px solid rgba(255,87,51,0.4);
+  border-radius: 2px 0 0 0;
+}
+.game-category::after {
+  bottom: 3px; right: 3px;
+  border-bottom: 2px solid rgba(139,92,246,0.4);
+  border-right: 2px solid rgba(139,92,246,0.4);
+  border-radius: 0 0 2px 0;
+}
+
+/* Retro neon card border on hover with pixel-perfect glow */
+.card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r);
+  border: 1px solid transparent;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  pointer-events: none;
+}
+.card:hover::after {
+  border-color: rgba(255,87,51,0.35);
+  box-shadow: inset 0 0 20px rgba(255,87,51,0.06);
+}
+
+/* Score display — arcade font */
+#pts, #stat-total, #stat-rank {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 1rem !important;
+  line-height: 1.4;
+}
+
+/* ── Cat header with pixel font ───────────── */
+.cat-header .cat-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  color: #fff;
+}
+
+/* Retro "HIGH SCORE" section label */
+.hs-section-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: var(--c1);
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(255,87,51,0.5);
+  margin-bottom: 0.5rem;
+}
+
+/* Glowing neon divider */
+.arcade-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,87,51,0.5) 30%, rgba(139,92,246,0.5) 70%, transparent);
+  margin: 1rem 0;
+  animation: dividerPulse 3s ease-in-out infinite alternate;
+}
+@keyframes dividerPulse {
+  0%   { opacity: 0.4; }
+  100% { opacity: 1; filter: blur(0.5px); }
+}
+
 /* Category header button */
 .cat-header {
   width: 100%;
