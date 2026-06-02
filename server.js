@@ -714,16 +714,21 @@ app.get('/api/chat/unread/:user_id', async (req, res) => {
     const userId = parseInt(req.params.user_id);
     const { data, error } = await db
       .from('private_chat')
-      .select('sender_id')
+      .select('sender_id, message, created_at')
       .eq('receiver_id', userId)
-      .eq('is_read', false);
+      .eq('is_read', false)
+      .order('created_at', { ascending: false });
     if (error) throw error;
-    const counts = {};
+    // Group by sender, keep latest message preview
+    const map = {};
     (data || []).forEach(function(row) {
-      counts[row.sender_id] = (counts[row.sender_id] || 0) + 1;
+      if (!map[row.sender_id]) {
+        map[row.sender_id] = { count: 0, latest_message: row.message };
+      }
+      map[row.sender_id].count++;
     });
-    const result = Object.entries(counts).map(function([friend_id, count]) {
-      return { friend_id: parseInt(friend_id), count };
+    const result = Object.entries(map).map(function([friend_id, v]) {
+      return { friend_id: parseInt(friend_id), count: v.count, latest_message: v.latest_message };
     });
     res.json(result);
   } catch (err) {

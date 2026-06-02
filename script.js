@@ -29,15 +29,26 @@ var chessMoveInFlight=false; // true while our move is being sent to server (pre
 })();
 
 /* ════════════════════════════════════════════════
-   NOTIFICATIONS (Notification API + optional Web Push)
+   NOTIFICATIONS — vollständig neu
    ════════════════════════════════════════════════ */
 
-// Register service worker (needed for background notifications on iOS PWA)
+// Register service worker (needed for iOS PWA background push)
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(function(){});
 }
 
-// Show the custom permission dialog (called from settings toggle, not auto)
+// User preference key — separate from browser permission (browser perm can't be revoked via JS)
+var NOTIF_PREF = 'arcadebox_notif_on'; // 'true' | 'false' | null (not set)
+
+function notifUserWantsOn() {
+  // User wants notifications ON if:
+  // - They never set a preference (null) → treat as want ON if permission is granted
+  // - Or explicitly set to 'true'
+  var pref = localStorage.getItem(NOTIF_PREF);
+  return pref !== 'false'; // default to true
+}
+
+// Show the custom permission dialog
 function showNotifDialog(onAllow, onDeny) {
   var dialog = document.getElementById('notif-dialog');
   if (!dialog) return;
@@ -52,72 +63,41 @@ function showNotifDialog(onAllow, onDeny) {
   };
 }
 
-// Called on login — show permission dialog once if not yet decided
+// Called on login
 function initPushNotifications() {
   if (!('Notification' in window)) return;
-  if (Notification.permission === 'granted') {
-    updateNotifToggleUI(true);
+  var perm = Notification.permission;
+  if (perm === 'granted') {
+    refreshNotifToggle();
     tryWebPushSubscribe();
     return;
   }
-  if (Notification.permission === 'denied') {
-    updateNotifToggleUI(false);
-    return;
-  }
-  // Not yet decided — show our custom dialog ONCE
+  if (perm === 'denied') { refreshNotifToggle(); return; }
+  // Not yet asked → show dialog once
   if (localStorage.getItem('notif_asked')) return;
   localStorage.setItem('notif_asked', '1');
-  showNotifDialog(function() { requestNotifPermission(true); });
+  showNotifDialog(function() {
+    // Must call from user gesture (dialog button click counts)
+    Notification.requestPermission().then(function(p) {
+      localStorage.setItem(NOTIF_PREF, p === 'granted' ? 'true' : 'false');
+      refreshNotifToggle();
+      if (p === 'granted') tryWebPushSubscribe();
+    }).catch(function(){});
+  });
 }
 
-// Request browser permission — MUST be called from user gesture OR our dialog callback
-async function requestNotifPermission(fromDialog) {
-  if (!('Notification' in window)) {
-    setNotifHint('Dein Browser unterstützt keine Benachrichtigungen.');
-    return false;
-  }
-  try {
-    var perm;
-    if (fromDialog) {
-      perm = await Notification.requestPermission();
-    } else {
-      // Direct request needs user gesture — this path is the toggle button click
-      perm = await Notification.requestPermission();
-    }
-    var granted = perm === 'granted';
-    updateNotifToggleUI(granted);
-    if (granted) {
-      setNotifHint('Benachrichtigungen aktiv ✓');
-      tryWebPushSubscribe();
-    } else if (perm === 'denied') {
-      setNotifHint('Blockiert im Browser — in den Browser-Einstellungen aktivieren.');
-    }
-    return granted;
-  } catch(e) {
-    setNotifHint('Fehler beim Anfordern der Erlaubnis.');
-    return false;
-  }
-}
-
-// Try to set up Web Push subscription (optional — works only if DB table + VAPID keys set up)
+// Web Push subscription (optional fallback — requires DB table + VAPID keys on Render)
 async function tryWebPushSubscribe() {
   if (!user || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
   try {
     var r = await fetch(API_URL + '/api/push/vapid-public-key');
-    if (!r.ok) return; // VAPID not configured — that's OK
+    if (!r.ok) return;
     var data = await r.json();
     if (!data.key) return;
     var reg = await navigator.serviceWorker.ready;
-    var sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(data.key)
-    });
-    await fetch(API_URL + '/api/push/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: user.id, subscription: sub.toJSON() })
-    });
-  } catch(e) {} // Silently fail — basic Notification API still works
+    var sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(data.key) });
+    await fetch(API_URL + '/api/push/subscribe', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ user_id: user.id, subscription: sub.toJSON() }) });
+  } catch(e) {}
 }
 
 function urlBase64ToUint8Array(b64) {
@@ -129,7 +109,6 @@ function urlBase64ToUint8Array(b64) {
   return arr;
 }
 
-// Update toggle button UI to reflect current permission state
 function updateNotifToggleUI(on) {
   var btn = document.getElementById('notif-toggle-btn');
   var txt = document.getElementById('notif-toggle-text');
@@ -143,42 +122,53 @@ function setNotifHint(msg) {
   if (el) el.textContent = msg;
 }
 
-// Update toggle state when profile opens
+// Refresh toggle UI based on both browser permission AND user preference
 function refreshNotifToggle() {
   if (!('Notification' in window)) {
     var row = document.getElementById('notif-setting-row');
     if (row) row.style.display = 'none';
     return;
   }
-  updateNotifToggleUI(Notification.permission === 'granted');
-  if (Notification.permission === 'granted')  setNotifHint('Benachrichtigungen sind aktiv ✓');
-  else if (Notification.permission === 'denied') setNotifHint('Im Browser blockiert — Browsereinstellungen öffnen.');
-  else setNotifHint('Tippe auf den Schalter um Benachrichtigungen zu aktivieren.');
+  var perm = Notification.permission;
+  var prefOn = notifUserWantsOn();
+  var effectivelyOn = (perm === 'granted' && prefOn);
+  updateNotifToggleUI(effectivelyOn);
+  if (perm === 'denied') {
+    setNotifHint('Im Browser blockiert. Gehe zu: Einstellungen → Datenschutz → Benachrichtigungen → ArcadeBox erlauben.');
+  } else if (perm === 'granted' && prefOn) {
+    setNotifHint('Benachrichtigungen aktiv ✓');
+  } else if (perm === 'granted' && !prefOn) {
+    setNotifHint('Deaktiviert — tippe um wieder zu aktivieren.');
+  } else {
+    setNotifHint('Tippe um Benachrichtigungen zu aktivieren.');
+  }
 }
 
-// Show a system notification (works when tab is open OR in background)
-// Uses service worker for iOS PWA compatibility
+// ---- THE CORE: send a notification ----
+// Always attempts SW notification (works background iOS/Android PWA + desktop)
+// Falls back to direct new Notification() for desktop browsers
 function showLocalNotif(title, body) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  try {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then(function(reg) {
-        reg.showNotification(title, {
-          body: body,
-          icon: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%8E%AE%3C/text%3E%3C/svg%3E',
-          badge: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%8E%AE%3C/text%3E%3C/svg%3E',
-          vibrate: [100, 50, 100],
-          tag: 'arcadebox',
-          renotify: true
-        });
-      }).catch(function() {
-        // Fallback: direct notification if SW not ready
-        new Notification(title, { body: body });
+  if (!('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  if (!notifUserWantsOn()) return; // user turned off in our toggle
+  var tag = 'arcadebox-' + Date.now(); // unique tag so notifications stack
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(function(reg) {
+      return reg.showNotification(title, {
+        body: body,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        vibrate: [120, 60, 120],
+        tag: tag,
+        requireInteraction: false
       });
-    } else {
-      new Notification(title, { body: body });
-    }
-  } catch(e) {}
+    }).catch(function() {
+      // SW failed → try direct
+      try { new Notification(title, { body: body, icon: '/icon-192.png' }); } catch(e2) {}
+    });
+  } else {
+    try { new Notification(title, { body: body }); } catch(e) {}
+  }
 }
 
 /* ---- AUTO-LOGIN via Cookie ---- */
@@ -796,10 +786,11 @@ async function loadUnreadCounts() {
     data.forEach(function(item) {
       var prev = prevCounts[item.friend_id] || 0;
       if (item.count > prev && loadUnreadCounts._initialized) {
-        // Find friend name from friendsList
         var friend = friendsList.find(function(f) { return f.id === item.friend_id; });
-        var name = friend ? friend.name : 'Ein Freund';
-        showLocalNotif('💬 Neue Nachricht', name + ' hat dir geschrieben!');
+        var name = friend ? friend.name : 'Neue Nachricht';
+        // Show message preview if available (server now returns latest_message)
+        var preview = item.latest_message ? item.latest_message.slice(0, 80) : 'Hat dir geschrieben.';
+        showLocalNotif('💬 ' + name, preview);
       }
     });
     loadUnreadCounts._initialized = true;
@@ -1331,39 +1322,197 @@ document.getElementById("avatar").src =
 }
 
 /* ════════════════════════════════════════════════
-   ARCADE PARTICLE SYSTEM — floating emojis
+   ARCADE CANVAS — Outrun/Tron live background
    ════════════════════════════════════════════════ */
-var arcadeParticleTimer = null;
+var arcadeRaf = null;
+var arcadeCanvas = null;
 
 function startArcadeParticles() {
-  if (arcadeParticleTimer) return; // already running
-  var emojis = ['👾','🎮','🕹️','💥','⭐','🏆','🎯','💰','🔥','⚡','🪙','🌟','💫','🎲','🎪'];
-  var container = document.getElementById('arcade-particles');
-  if (!container) return;
+  if (arcadeCanvas) return;
+  var app = document.getElementById('app');
+  if (!app) return;
 
-  function spawnParticle() {
-    if (!container || document.hidden) return; // don't spawn when tab hidden
-    var el = document.createElement('span');
-    el.className = 'arcade-particle';
-    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
-    var left = 5 + Math.random() * 90; // 5%–95% of viewport width
-    var dur  = 4 + Math.random() * 5;  // 4–9 seconds
-    var delay = Math.random() * 0.5;
-    el.style.cssText = 'left:' + left + '%;bottom:' + (Math.random() * 10) + '%;animation-duration:' + dur + 's;animation-delay:' + delay + 's;font-size:' + (0.8 + Math.random() * 0.7) + 'rem;';
-    container.appendChild(el);
-    // Remove after animation completes
-    setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, (dur + delay + 0.5) * 1000);
+  // Create full-screen canvas
+  var cv = document.createElement('canvas');
+  cv.id = 'arcade-bg-canvas';
+  cv.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;';
+  app.prepend(cv);
+  arcadeCanvas = cv;
+
+  var ctx = cv.getContext('2d');
+  var W, H, t = 0;
+
+  function resize() {
+    W = cv.width  = window.innerWidth;
+    H = cv.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // ── Rain columns (Matrix-style but with arcade chars) ──
+  var COLS_RAIN = Math.floor(window.innerWidth / 18) || 30;
+  var rainChars = '♠♣♥♦★☆▲▼◆●○□■ABCDE01234'.split('');
+  var rain = [];
+  for (var i = 0; i < COLS_RAIN; i++) {
+    rain.push({ y: Math.random() * -100, speed: 0.4 + Math.random() * 0.7, bright: Math.random() > 0.85 });
   }
 
-  // Spawn a particle every 1.8 seconds
-  spawnParticle();
-  arcadeParticleTimer = setInterval(spawnParticle, 1800);
+  // ── Neon orbs ──
+  var orbs = [];
+  for (var o = 0; o < 8; o++) {
+    orbs.push({
+      x: Math.random() * 1000, y: Math.random() * 800,
+      vx: (Math.random()-0.5)*0.35, vy: (Math.random()-0.5)*0.35,
+      r: 60+Math.random()*80, hue: Math.random()*360,
+      phase: Math.random()*Math.PI*2
+    });
+  }
+
+  // ── Particles ──
+  var parts = [];
+  function addParticle() {
+    parts.push({
+      x: Math.random()*W, y: H + 10,
+      vx: (Math.random()-0.5)*1.2, vy: -0.6-Math.random()*1.4,
+      life: 1, decay: 0.006+Math.random()*0.008,
+      r: 1.5+Math.random()*2.5,
+      rgb: Math.random()>0.5 ? '255,87,51' : Math.random()>0.5 ? '139,92,246' : '251,191,36'
+    });
+  }
+
+  // ── Perspective grid ──
+  function drawGrid() {
+    var vx = W/2, vy = H*0.42;
+    var speed = (t * 0.0006) % 1;
+    // Horizontal lines scrolling toward viewer
+    for (var row = 0; row < 14; row++) {
+      var p = ((row / 13) + speed) % 1;
+      var gy = vy + (H - vy) * Math.pow(p, 1.6);
+      var hw = (H - vy) * Math.pow(p, 1.6) * 1.3;
+      var alpha = Math.pow(p, 0.7) * 0.18;
+      ctx.strokeStyle = 'rgba(255,87,51,' + alpha + ')';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(vx - hw, gy); ctx.lineTo(vx + hw, gy); ctx.stroke();
+    }
+    // Vertical convergence lines
+    for (var col = -7; col <= 7; col++) {
+      var xBot = vx + col * (W / 13);
+      ctx.beginPath(); ctx.moveTo(xBot, H); ctx.lineTo(vx, vy);
+      ctx.strokeStyle = 'rgba(139,92,246,0.09)';
+      ctx.lineWidth = 0.5; ctx.stroke();
+    }
+    // Horizon glow
+    var hg = ctx.createLinearGradient(0, vy-30, 0, vy+30);
+    hg.addColorStop(0, 'transparent');
+    hg.addColorStop(0.5, 'rgba(255,87,51,0.06)');
+    hg.addColorStop(1, 'transparent');
+    ctx.fillStyle = hg; ctx.fillRect(0, vy-30, W, 60);
+  }
+
+  // ── Character rain ──
+  function drawRain() {
+    COLS_RAIN = Math.max(1, Math.floor(W / 18));
+    while (rain.length < COLS_RAIN) rain.push({ y: Math.random()*-100, speed:0.4+Math.random()*0.7, bright:false });
+    for (var i = 0; i < Math.min(rain.length, COLS_RAIN); i++) {
+      var col = rain[i];
+      var cx = i * (W / COLS_RAIN) + (W / COLS_RAIN / 2);
+      col.y += col.speed;
+      if (col.y > H + 20) { col.y = -Math.random()*200; col.bright = Math.random()>0.85; col.speed = 0.4+Math.random()*0.7; }
+      var ch = rainChars[Math.floor(Math.random()*rainChars.length)];
+      if (col.bright) {
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.shadowColor = '#ff5733'; ctx.shadowBlur = 6;
+      } else {
+        ctx.fillStyle = 'rgba(255,87,51,0.18)';
+        ctx.shadowBlur = 0;
+      }
+      ctx.font = '11px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(ch, cx, col.y);
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  // ── Orbs ──
+  function drawOrbs() {
+    for (var i = 0; i < orbs.length; i++) {
+      var ob = orbs[i];
+      ob.x += ob.vx; ob.y += ob.vy;
+      if (ob.x < -ob.r) ob.x = W + ob.r;
+      if (ob.x > W + ob.r) ob.x = -ob.r;
+      if (ob.y < -ob.r) ob.y = H + ob.r;
+      if (ob.y > H + ob.r) ob.y = -ob.r;
+      ob.hue = (ob.hue + 0.1) % 360;
+      var pulse = 0.9 + 0.1 * Math.sin(t * 0.02 + ob.phase);
+      var gr = ctx.createRadialGradient(ob.x, ob.y, 0, ob.x, ob.y, ob.r * pulse);
+      var h = ob.hue;
+      gr.addColorStop(0, 'hsla(' + h + ',100%,70%,0.06)');
+      gr.addColorStop(1, 'hsla(' + h + ',100%,50%,0)');
+      ctx.fillStyle = gr;
+      ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r * pulse, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  // ── Particles ──
+  function drawParticles() {
+    if (t % 8 === 0) addParticle();
+    parts = parts.filter(function(p){ return p.life > 0; });
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba('+p.rgb+','+p.life*0.7+')'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx*7, p.y - p.vy*7);
+      ctx.strokeStyle = 'rgba('+p.rgb+','+p.life*0.25+')'; ctx.lineWidth=p.r*0.7; ctx.stroke();
+    }
+  }
+
+  // ── Cabinet LED strip ──
+  function drawLEDs() {
+    var ledW = 6, ledH = 12, gap = 4;
+    var numLeds = Math.floor(W / (ledW + gap));
+    for (var i = 0; i < numLeds; i++) {
+      var phase = (t * 0.04 + i * 0.18) % (Math.PI * 2);
+      var bright = 0.15 + 0.55 * Math.abs(Math.sin(phase));
+      var hue2 = (i * 15 + t * 0.5) % 360;
+      var x2 = i * (ledW + gap) + 2;
+      ctx.fillStyle = 'hsla(' + hue2 + ',100%,65%,' + bright + ')';
+      if (bright > 0.5) { ctx.shadowColor = 'hsl('+hue2+',100%,65%)'; ctx.shadowBlur = 8; }
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(x2, 60, ledW, ledH, 2) : ctx.rect(x2, 60, ledW, ledH);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  // ── Scan line ──
+  function drawScanline() {
+    var sy = (t * 1.8) % (H + 100) - 50;
+    var sg = ctx.createLinearGradient(0, sy, 0, sy + 50);
+    sg.addColorStop(0, 'rgba(255,255,255,0)');
+    sg.addColorStop(0.5, 'rgba(255,255,255,0.025)');
+    sg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sg; ctx.fillRect(0, sy, W, 50);
+  }
+
+  // ── Main loop ──
+  function frame() {
+    if (!arcadeCanvas) return;
+    ctx.clearRect(0, 0, W, H);
+    drawOrbs();
+    drawGrid();
+    drawRain();
+    drawParticles();
+    drawLEDs();
+    drawScanline();
+    t++;
+    arcadeRaf = requestAnimationFrame(frame);
+  }
+  frame();
 }
 
 function stopArcadeParticles() {
-  if (arcadeParticleTimer) { clearInterval(arcadeParticleTimer); arcadeParticleTimer = null; }
-  var container = document.getElementById('arcade-particles');
-  if (container) container.innerHTML = '';
+  if (arcadeRaf) { cancelAnimationFrame(arcadeRaf); arcadeRaf = null; }
+  if (arcadeCanvas) { arcadeCanvas.remove(); arcadeCanvas = null; }
 }
 
 document.getElementById("btn-logout").addEventListener("click",
@@ -2908,32 +3057,48 @@ document.getElementById('notif-toggle-btn').addEventListener('click', async func
     setNotifHint('Dein Browser unterstützt keine Benachrichtigungen.');
     return;
   }
-  if (Notification.permission === 'granted') {
-    // Turn off: unsubscribe from web push, clear local preference
-    updateNotifToggleUI(false);
-    setNotifHint('Benachrichtigungen deaktiviert.');
-    localStorage.setItem('notif_asked', '1');
-    if (user) {
+  var perm = Notification.permission;
+
+  if (perm === 'denied') {
+    // Can't re-enable via JS when browser blocked — only show helpful text
+    setNotifHint('Im Browser blockiert. Öffne: Einstellungen → Datenschutz/Benachrichtigungen → ArcadeBox → Erlauben, dann lade die Seite neu.');
+    return;
+  }
+
+  if (perm === 'granted') {
+    // Toggle between user preference on/off
+    var currentlyOn = notifUserWantsOn();
+    if (currentlyOn) {
+      // Turn OFF (browser permission stays, but we stop sending notifs)
+      localStorage.setItem(NOTIF_PREF, 'false');
+      refreshNotifToggle();
+      // Also unsubscribe from web push
       try {
-        await fetch(API_URL + '/api/push/subscribe', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: user.id })
-        });
+        if (user) await fetch(API_URL + '/api/push/subscribe', { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ user_id: user.id }) });
         if ('serviceWorker' in navigator && 'PushManager' in window) {
-          var reg = await navigator.serviceWorker.ready;
-          var sub = await reg.pushManager.getSubscription();
-          if (sub) await sub.unsubscribe();
+          var reg2 = await navigator.serviceWorker.ready;
+          var sub2 = await reg2.pushManager.getSubscription();
+          if (sub2) await sub2.unsubscribe();
         }
       } catch(e) {}
+    } else {
+      // Turn ON — permission already granted, just flip preference
+      localStorage.setItem(NOTIF_PREF, 'true');
+      refreshNotifToggle();
+      tryWebPushSubscribe();
     }
-    // Note: can't revoke Notification permission in JS — user must do it in browser settings
-    setNotifHint('Deaktiviert. Für Browser-Blockierung: Browser-Einstellungen öffnen.');
-  } else if (Notification.permission === 'denied') {
-    setNotifHint('Im Browser blockiert — Browser-Einstellungen → Benachrichtigungen → ArcadeBox zulassen.');
-  } else {
-    // Not yet decided — request permission
-    await requestNotifPermission(false);
+    return;
+  }
+
+  // permission === 'default' — request it (this IS a user gesture so browser allows it)
+  try {
+    var p = await Notification.requestPermission();
+    localStorage.setItem(NOTIF_PREF, p === 'granted' ? 'true' : 'false');
+    localStorage.setItem('notif_asked', '1');
+    refreshNotifToggle();
+    if (p === 'granted') tryWebPushSubscribe();
+  } catch(e) {
+    setNotifHint('Fehler beim Anfordern der Erlaubnis.');
   }
 });
 

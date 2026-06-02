@@ -220,7 +220,7 @@ body::after {
   display: block;
   position: relative;
 }
-/* Global scanlines overlay — very subtle, non-distracting */
+/* CRT scanlines — barely visible overlay */
 #app::before {
   content: '';
   position: fixed;
@@ -231,11 +231,11 @@ body::after {
     0deg,
     transparent,
     transparent 3px,
-    rgba(0,0,0,0.035) 3px,
-    rgba(0,0,0,0.035) 4px
+    rgba(0,0,0,0.028) 3px,
+    rgba(0,0,0,0.028) 4px
   );
 }
-/* Vignette — darkens corners like a CRT screen */
+/* Vignette — CRT corner darkening */
 #app::after {
   content: '';
   position: fixed;
@@ -243,12 +243,14 @@ body::after {
   pointer-events: none;
   z-index: 9998;
   background: radial-gradient(ellipse at center,
-    transparent 60%,
-    rgba(0,0,0,0.22) 100%
+    transparent 55%,
+    rgba(0,0,0,0.3) 100%
   );
 }
-body.light #app::before { background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.015) 3px, rgba(0,0,0,0.015) 4px); }
-body.light #app::after  { background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.08) 100%); }
+/* Arcade canvas sits at z-index 0, behind content but above body bg */
+#arcade-bg-canvas { z-index: 0; }
+body.light #app::before { opacity: 0.5; }
+body.light #app::after  { background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.06) 100%); }
 /* ════════════════════════════════════════════════
    HEADER — Arcade Neon Style
    ════════════════════════════════════════════════ */
@@ -260,6 +262,7 @@ header {
   border-bottom: 1px solid #222;
   position: relative;
   overflow: hidden;
+  z-index: 2; /* above arcade canvas */
 }
 /* Subtle animated scanline on header */
 header::after {
@@ -318,6 +321,7 @@ body.light .logo { animation: logoGlowLight 3.5s ease-in-out infinite alternate;
   text-align: center;
   padding: 2.2rem 1rem 0.8rem;
   position: relative;
+  z-index: 1;
 }
 
 /* Marquee-style decorative strip above hero */
@@ -523,6 +527,8 @@ body.light .arcade-corner { opacity: 0.2; }
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  position: relative;
+  z-index: 1;
 }
 /* Category header button */
 .cat-header {
@@ -743,8 +749,10 @@ canvas{display:block;/* scale to fill available space, maintain 380:420 aspect r
 
 .global-board {
   margin-top: 2rem;
-  max-width: 960px !important;  /* wider than regular hs-section */
+  max-width: 960px !important;
   padding: 0 1rem 2rem;
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Scoreboard — unified elegant table ─────────────────────── */
@@ -925,6 +933,8 @@ gap: 10px;
 max-width: 500px;
 margin: 1.5rem auto;
 padding: 0 1rem;
+position: relative;
+z-index: 1;
 }
 .stat-box {
 background: var(--s1);
