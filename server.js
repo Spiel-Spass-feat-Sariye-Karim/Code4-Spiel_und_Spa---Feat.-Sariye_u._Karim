@@ -962,16 +962,76 @@ async function saveNotification(userId, type, icon, title, body) {
   } catch(e) {} // Silently fail if table doesn't exist yet
 }
 
-// Fetch notifications for a user (last 50)
+// Fetch full notification history for a user:
+// Combines new notifications table + historical data from friendships + game_invites
 app.get('/api/notifications/:user_id', async (req, res) => {
+  const uid = parseInt(req.params.user_id);
   try {
-    const { data, error } = await db.from('notifications')
-      .select('*')
-      .eq('user_id', req.params.user_id)
-      .order('created_at', { ascending: false })
-      .limit(50);
-    if (error) throw error;
-    res.json(data || []);
+    const results = [];
+
+    // 1. New notifications table (from now on)
+    try {
+      const { data } = await db.from('notifications')
+        .select('id, type, icon, title, body, is_read, created_at')
+        .eq('user_id', uid)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      (data || []).forEach(n => results.push({
+        id: 'n_' + n.id,
+        icon: n.icon,
+        title: n.title,
+        body: n.body,
+        is_read: n.is_read,
+        created_at: n.created_at
+      }));
+    } catch(e) {}
+
+    // 2. Historical friend requests (from friendships table)
+    try {
+      const { data: fships } = await db.from('friendships')
+        .select('id, created_at, status, users!sender_id(name)')
+        .eq('receiver_id', uid)
+        .order('created_at', { ascending: false })
+        .limit(30);
+      (fships || []).forEach(f => {
+        const senderName = f.users?.name || 'Jemand';
+        const accepted = f.status === 'accepted';
+        results.push({
+          id: 'f_' + f.id,
+          icon: accepted ? '👥✓' : '👥',
+          title: 'Freundschaftsanfrage',
+          body: senderName + (accepted ? ' — Freundschaft angenommen' : ' möchte dich als Freund hinzufügen'),
+          is_read: true,
+          created_at: f.created_at
+        });
+      });
+    } catch(e) {}
+
+    // 3. Historical game invites (from game_invites table)
+    try {
+      const { data: invites } = await db.from('game_invites')
+        .select('id, created_at, status, game_lobbies!lobby_id(game_type), users!from_id(name)')
+        .eq('to_id', uid)
+        .order('created_at', { ascending: false })
+        .limit(30);
+      const gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', pong:'Pong', rps:'Schere Stein Papier', chess:'Schach' };
+      (invites || []).forEach(inv => {
+        const fromName = inv.users?.name || 'Jemand';
+        const gameName = gameNames[inv.game_lobbies?.game_type] || 'einem Spiel';
+        results.push({
+          id: 'i_' + inv.id,
+          icon: '⚔️',
+          title: 'Spieleinladung',
+          body: fromName + ' hat dich zu ' + gameName + ' eingeladen',
+          is_read: true,
+          created_at: inv.created_at
+        });
+      });
+    } catch(e) {}
+
+    // Sort all by date, newest first, deduplicate by id
+    results.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    res.json(results.slice(0, 80));
   } catch(err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }
