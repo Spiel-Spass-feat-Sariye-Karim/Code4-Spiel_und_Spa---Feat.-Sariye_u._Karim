@@ -782,6 +782,18 @@ try {
   console.warn('web-push not available, push notifications disabled:', e.message);
 }
 
+// Unsubscribe: remove all push subscriptions for a user (called on logout)
+app.delete('/api/push/subscribe', async (req, res) => {
+  const { user_id } = req.body;
+  if (!user_id) return res.status(400).json({ error: 'Fehlende Daten' });
+  try {
+    await db.from('push_subscriptions').delete().eq('user_id', user_id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
 // Return VAPID public key to client
 app.get('/api/push/vapid-public-key', (req, res) => {
   if (!vapidPublicKey) return res.status(503).json({ error: 'Push nicht konfiguriert' });

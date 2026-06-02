@@ -1263,11 +1263,30 @@ document.getElementById('sidebar').classList.remove('visible', 'expanded');
 document.getElementById('sidebar-mobile-btn').classList.remove('visible');
 document.getElementById('global-chat-btn').classList.remove('visible');
 document.getElementById('global-chat-panel').classList.remove('open');
+// Push-Subscription entfernen (kein Push mehr wenn ausgeloggt)
+if (user) {
+  try {
+    await fetch(API_URL + '/api/push/subscribe', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.id })
+    });
+  } catch(e) {}
+  // Auch im Browser unsubscribe
+  try {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      var reg = await navigator.serviceWorker.ready;
+      var sub = await reg.pushManager.getSubscription();
+      if (sub) await sub.unsubscribe();
+    }
+  } catch(e) {}
+}
 // Online-Status setzen
 if (user) {
   try { await fetch(API_URL + '/api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id }) }); } catch(e) {}
 }
 sessionStorage.setItem('logged_out', 'true');
+localStorage.removeItem('notif_asked'); // ask again next login
 document.cookie = 'arcadebox_user=; max-age=0';
 user = null;
 allUsersCache = []; friendIdsSet = new Set(); sentRequestIds = new Set();
