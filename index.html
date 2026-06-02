@@ -85,12 +85,47 @@
   <header>
     <div class="logo">Arcade<span>Box</span></div>
     <div class="user-info">
-<img id="avatar" class="avatar" src="" alt="">
-<span>Hallo, <strong id="username"></strong></span>
-<button class="btn-sm" id="btn-theme" title="Dark/Light Mode">🌙</button>
-<button class="btn-sm" id="btn-logout">Abmelden</button>
-</div>
+      <img id="avatar" class="avatar" src="" alt="">
+      <span>Hallo, <strong id="username"></strong></span>
+      <!-- Notification Center Bell -->
+      <button class="btn-sm notif-bell-btn" id="btn-notif-center" title="Mitteilungen">
+        🔔 <span class="notif-bell-badge" id="notif-bell-badge" style="display:none">0</span>
+      </button>
+      <button class="btn-sm" id="btn-theme" title="Dark/Light Mode">🌙</button>
+      <button class="btn-sm" id="btn-logout">Abmelden</button>
+    </div>
   </header>
+
+  <!-- Notification Center Modal -->
+  <div id="notif-center-overlay" class="notif-center-overlay" style="display:none">
+    <div class="notif-center-panel" id="notif-center-panel">
+      <div class="notif-center-header">
+        <span class="notif-center-title">📬 Mitteilungen</span>
+        <button class="notif-center-close" id="btn-close-notif-center">✕</button>
+      </div>
+      <div class="notif-center-tabs">
+        <button class="nc-tab active" data-tab="active">Aktiv</button>
+        <button class="nc-tab" data-tab="history">Verlauf</button>
+        <button class="nc-tab" data-tab="updates">Updates</button>
+      </div>
+      <div class="notif-center-body">
+        <div id="nc-active" class="nc-panel active"></div>
+        <div id="nc-history" class="nc-panel" style="display:none"></div>
+        <div id="nc-updates" class="nc-panel" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sticky Live Activity Widget -->
+  <div id="live-widget" class="live-widget">
+    <div class="live-widget-header" id="live-widget-toggle">
+      <span class="live-blink">●</span>
+      <span class="live-widget-label">Live</span>
+      <span id="live-count" class="live-count">0</span>
+      <span class="live-widget-chevron" id="live-widget-chevron">▲</span>
+    </div>
+    <div id="live-activity-list" class="live-activity-list live-widget-list"></div>
+  </div>
   <!-- Floating arcade particles container -->
   <div id="arcade-particles" aria-hidden="true"></div>
 
@@ -158,22 +193,7 @@
 
   </div>
 
-  <div class="arcade-divider" style="max-width:900px;margin:1rem auto;"></div>
-
-  <!-- Live Activity Panel -->
-  <div class="live-activity-panel" id="live-activity-panel">
-    <div class="live-activity-header">
-      <span class="live-blink">●</span>
-      <span>Live</span>
-      <span id="live-count" class="live-count">0</span>
-      <span>online</span>
-    </div>
-    <div id="live-activity-list" class="live-activity-list">
-      <div class="live-empty">Lädt...</div>
-    </div>
-  </div>
-
-  <div class="arcade-divider" style="max-width:900px;margin:0.5rem auto 1rem;"></div>
+  <div class="arcade-divider" style="max-width:900px;margin:1rem auto 1rem;"></div>
 
 <div class="stats-grid">
 <div class="stat-box">

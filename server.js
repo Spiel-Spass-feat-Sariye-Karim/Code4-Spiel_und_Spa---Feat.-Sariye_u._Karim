@@ -342,16 +342,77 @@ app.get('/api/users/search', async (req, res) => {
 
 // ============= HEARTBEAT =============
 
-// In-memory activity store — no DB column needed, resets on server restart (fine for live status)
+// In-memory activity store — no DB column needed
 const userActivities = new Map(); // user_id → activity string
+
+// SSE clients for real-time live activity push
+const liveSSEClients = new Map(); // clientId → res
+
+async function getLiveActivityData() {
+  const now = Date.now();
+  const { data: users } = await db.from('users')
+    .select('id, name, avatar_seed, last_seen')
+    .order('last_seen', { ascending: false })
+    .limit(50);
+  return (users || []).filter(u =>
+    u.last_seen && (now - new Date(u.last_seen).getTime()) < 3 * 60 * 1000
+  ).map(u => ({
+    id: u.id, name: u.name, avatar_seed: u.avatar_seed,
+    activity: userActivities.get(u.id) || 'main'
+  }));
+}
+
+async function broadcastLiveActivity() {
+  if (liveSSEClients.size === 0) return;
+  try {
+    const data = await getLiveActivityData();
+    const payload = `data: ${JSON.stringify(data)}\n\n`;
+    for (const [, res] of liveSSEClients) {
+      try { res.write(payload); } catch(e) {}
+    }
+  } catch(e) {}
+}
+
+app.get('/api/live-stream', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.flushHeaders();
+
+  const clientId = Date.now() + '_' + Math.random();
+  liveSSEClients.set(clientId, res);
+
+  // Send current data immediately
+  getLiveActivityData().then(data => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  }).catch(() => {});
+
+  // Keep-alive ping every 20s (prevents Render/proxy timeout)
+  const ping = setInterval(() => {
+    try { res.write(':ping\n\n'); } catch(e) { clearInterval(ping); }
+  }, 20000);
+
+  req.on('close', () => {
+    clearInterval(ping);
+    liveSSEClients.delete(clientId);
+  });
+});
 
 app.post('/api/users/heartbeat', async (req, res) => {
   const { user_id, activity } = req.body;
   if (!user_id) return res.status(400).json({ error: 'Fehlende Daten' });
-  // Store activity in memory
-  if (activity !== undefined) userActivities.set(parseInt(user_id), activity);
+  // Store activity in memory + broadcast immediately to SSE clients
+  if (activity !== undefined) {
+    const uid = parseInt(user_id);
+    const prev = userActivities.get(uid);
+    userActivities.set(uid, activity);
+    if (prev !== activity) broadcastLiveActivity(); // instant push when activity changes
+  }
   try {
     await db.from('users').update({ is_online: true, last_seen: new Date().toISOString() }).eq('id', user_id);
+    broadcastLiveActivity(); // also broadcast heartbeat (online status update)
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });

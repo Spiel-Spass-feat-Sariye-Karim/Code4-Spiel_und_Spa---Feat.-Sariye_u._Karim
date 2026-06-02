@@ -249,6 +249,165 @@ function getScoreTotal(u) {
   return (u.memory||0) + (u.stack||0) + (u.precision||0) + (u.guess||0) + (u.wordle||0) + (u.flappy||0);
 }
 
+/* ════════════════════════════════════════════════
+   NOTIFICATION CENTER
+   ════════════════════════════════════════════════ */
+var notifHistory = []; // in-memory event log
+
+function addNotifEvent(icon, title, sub, isNew) {
+  notifHistory.unshift({ icon: icon, title: title, sub: sub, isNew: isNew||false, time: Date.now() });
+  if (notifHistory.length > 50) notifHistory.length = 50;
+  updateNotifBadge();
+}
+
+function updateNotifBadge() {
+  var newCount = notifHistory.filter(function(n) { return n.isNew; }).length;
+  var badge = document.getElementById('notif-bell-badge');
+  if (badge) {
+    badge.textContent = newCount;
+    badge.style.display = newCount > 0 ? 'flex' : 'none';
+  }
+}
+
+var PATCHNOTES = [
+  { version: 'v3.0', date: 'Jun 2026', title: 'Live Activity & Push Notifications',
+    items: ['Live-Aktivitätswidget in Echtzeit (SSE)', 'Benachrichtigungen für Einladungen & Nachrichten', 'Notification Center Postfach', 'Pong: Smooth 60fps für beide Spieler + Countdown'] ,
+    tags: ['new','new','new','fix'] },
+  { version: 'v2.8', date: 'Jun 2026', title: 'Multiplayer Bugfixes',
+    items: ['4 Gewinnt: Verlierer-Screen immer sichtbar', 'TicTacToe & Schach: 1 Klick reicht jetzt', 'Schere Stein Papier: Runden 3/5/10 wählbar', 'Schach: 2D Brett + Board-Flip für Schwarz-Spieler'],
+    tags: ['fix','fix','new','improve'] },
+  { version: 'v2.5', date: 'Jun 2026', title: 'Arcade Design & Animationen',
+    items: ['Retro Canvas: Tron-Gitter, Neon-Orbs, Charakter-Regen', 'Press Start 2P Pixel-Font', 'Regenbogen-Marquee im Header', 'Scoreboard: Einheitliche Tabelle mit allen 7 Spielen'],
+    tags: ['new','new','improve','improve'] },
+  { version: 'v2.0', date: 'Jun 2026', title: 'Flappy Bird & Push Notifications',
+    items: ['Flappy Bird mit Neon Night-City Thema', 'Web Push Notifications (PWA)', 'Light Mode vollständig überarbeitet', 'Live-Aktivitätsstatus'],
+    tags: ['new','new','improve','new'] },
+  { version: 'v1.5', date: 'Jun 2026', title: 'Schach & Mehr',
+    items: ['Vollständige Schach-Engine mit KI (3 Schwierigkeiten)', 'Multiplayer für alle 5 Spiele', 'Globaler Chat', 'Freundesliste mit Online-Status'],
+    tags: ['new','new','new','new'] },
+  { version: 'v1.0', date: 'Jun 2026', title: 'Launch 🎮',
+    items: ['7 Singleplayer-Spiele', 'Login & Registrierung', 'Highscore-System', 'Profil & Avatar'],
+    tags: ['new','new','new','new'] }
+];
+
+function openNotifCenter() {
+  var overlay = document.getElementById('notif-center-overlay');
+  if (overlay) overlay.style.display = 'flex';
+  // Mark all as seen
+  notifHistory.forEach(function(n) { n.isNew = false; });
+  updateNotifBadge();
+  renderNotifCenter('active');
+}
+
+function closeNotifCenter() {
+  var overlay = document.getElementById('notif-center-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function renderNotifCenter(tab) {
+  // Update tab buttons
+  document.querySelectorAll('.nc-tab').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+  document.querySelectorAll('.nc-panel').forEach(function(p) { p.style.display='none'; });
+  var panel = document.getElementById('nc-' + tab);
+  if (panel) panel.style.display = 'flex';
+
+  if (tab === 'active') {
+    renderNotifActive();
+  } else if (tab === 'history') {
+    renderNotifHistory();
+  } else if (tab === 'updates') {
+    renderNotifUpdates();
+  }
+}
+
+function renderNotifActive() {
+  var panel = document.getElementById('nc-active');
+  if (!panel) return;
+  var html = '';
+  // Pending game invites
+  var pendingInvites = Array.from(seenInviteIds).length > 0 ? [] : [];
+  // Friend requests from recent events
+  var activeItems = notifHistory.filter(function(n) { return n.active; });
+  if (!activeItems.length && !html) {
+    panel.innerHTML = '<div class="nc-empty">Keine aktiven Benachrichtigungen</div>';
+    return;
+  }
+  panel.innerHTML = html || '<div class="nc-empty">Keine aktiven Benachrichtigungen</div>';
+}
+
+function renderNotifHistory() {
+  var panel = document.getElementById('nc-history');
+  if (!panel) return;
+  if (!notifHistory.length) {
+    panel.innerHTML = '<div class="nc-empty">Noch keine Benachrichtigungen</div>';
+    return;
+  }
+  var html = '';
+  notifHistory.forEach(function(n) {
+    var ago = timeAgo(n.time);
+    html += '<div class="nc-item' + (n.isNew ? ' nc-new' : '') + '">' +
+      '<span class="nc-item-icon">'+n.icon+'</span>' +
+      '<div class="nc-item-body">' +
+        '<div class="nc-item-title">'+escHtml(n.title)+'</div>' +
+        '<div class="nc-item-sub">'+escHtml(n.sub)+'</div>' +
+        '<div class="nc-item-time">'+ago+'</div>' +
+      '</div></div>';
+  });
+  panel.innerHTML = html;
+}
+
+function renderNotifUpdates() {
+  var panel = document.getElementById('nc-updates');
+  if (!panel) return;
+  var html = '';
+  PATCHNOTES.forEach(function(p, idx) {
+    var tagHtml = (p.tags || []).map(function(t, i) {
+      if (i >= (p.items || []).length) return '';
+      var cls = t==='new'?'tag-new':t==='fix'?'tag-fix':'tag-improve';
+      var lbl = t==='new'?'NEU':t==='fix'?'FIX':'UPDATE';
+      return '<li><span class="patch-tag '+cls+'">'+lbl+'</span>'+(p.items[i]||'')+'</li>';
+    }).join('');
+    html += '<div class="patch-item">' +
+      '<div class="patch-version">'+p.version+'</div>' +
+      '<div class="patch-date">'+p.date+'</div>' +
+      '<div class="patch-title">'+p.title+'</div>' +
+      '<ul class="patch-list">' + tagHtml + '</ul>' +
+      '</div>';
+  });
+  panel.innerHTML = html;
+}
+
+function timeAgo(ts) {
+  var diff = Date.now() - ts;
+  if (diff < 60000) return 'Gerade eben';
+  if (diff < 3600000) return Math.floor(diff/60000) + ' Min. ago';
+  if (diff < 86400000) return Math.floor(diff/3600000) + ' Std. ago';
+  return Math.floor(diff/86400000) + ' Tage ago';
+}
+
+// Wire up notification center buttons (runs after DOM loaded)
+document.addEventListener('DOMContentLoaded', function() {
+  var btnOpen = document.getElementById('btn-notif-center');
+  var btnClose = document.getElementById('btn-close-notif-center');
+  var overlay = document.getElementById('notif-center-overlay');
+  if (btnOpen) btnOpen.addEventListener('click', openNotifCenter);
+  if (btnClose) btnClose.addEventListener('click', closeNotifCenter);
+  if (overlay) overlay.addEventListener('click', function(e) { if(e.target===overlay) closeNotifCenter(); });
+  document.querySelectorAll('.nc-tab').forEach(function(btn) {
+    btn.addEventListener('click', function() { renderNotifCenter(this.dataset.tab); });
+  });
+  // Live widget toggle
+  var widgetToggle = document.getElementById('live-widget-toggle');
+  var widget = document.getElementById('live-widget');
+  if (widgetToggle && widget) {
+    widgetToggle.addEventListener('click', function() {
+      widget.classList.toggle('collapsed');
+    });
+  }
+});
+
 /* ---- HEARTBEAT + LIVE ACTIVITY ---- */
 function sendHeartbeat() {
   if (!user) return;
@@ -274,39 +433,68 @@ var activityLabels = {
   'multiplayer:schach': '♟️ Schach'
 };
 
+var liveEventSource = null;
+
+function startLiveStream() {
+  if (liveEventSource) { liveEventSource.close(); liveEventSource = null; }
+  if (!user) return;
+  try {
+    liveEventSource = new EventSource(API_URL + '/api/live-stream');
+    liveEventSource.onmessage = function(e) {
+      try {
+        var people = JSON.parse(e.data).filter(function(p) { return p.id !== user.id; });
+        renderLiveActivity(people);
+      } catch(err) {}
+    };
+    liveEventSource.onerror = function() {
+      // Reconnect after 3s if connection drops
+      if (liveEventSource) { liveEventSource.close(); liveEventSource = null; }
+      if (user) setTimeout(startLiveStream, 3000);
+    };
+  } catch(e) {}
+}
+
+function stopLiveStream() {
+  if (liveEventSource) { liveEventSource.close(); liveEventSource = null; }
+}
+
+function renderLiveActivity(people) {
+  var container = document.getElementById('live-activity-list');
+  var countEl = document.getElementById('live-count');
+  if (!container) return;
+  if (countEl) countEl.textContent = people.length;
+  if (!people.length) {
+    container.innerHTML = '<div class="live-empty">Niemand gerade online</div>';
+    return;
+  }
+  var html = '';
+  people.forEach(function(p) {
+    var seed = p.avatar_seed || p.name;
+    var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(seed);
+    var actLabel = activityLabels[p.activity] || p.activity || '🏠 Hauptseite';
+    var isMulti = p.activity && p.activity.startsWith('multiplayer');
+    var isSingle = p.activity && p.activity.startsWith('singleplayer');
+    var dotColor = isMulti ? '#f97316' : isSingle ? '#a78bfa' : '#4ade80';
+    html += '<div class="live-row">' +
+      '<img class="live-av" src="'+av+'" loading="lazy">' +
+      '<div class="live-info">' +
+        '<span class="live-name">'+escHtml(p.name)+'</span>' +
+        '<span class="live-status" style="color:'+dotColor+'">'+actLabel+'</span>' +
+      '</div>' +
+      '<span class="live-dot" style="background:'+dotColor+'"></span>' +
+      '</div>';
+  });
+  container.innerHTML = html;
+}
+
 async function loadLiveActivity() {
+  // Kept as fallback, but SSE is now primary
   if (!user) return;
   try {
     var res = await fetch(API_URL + '/api/live-activity');
     if (!res.ok) return;
     var people = await res.json();
-    // Exclude self
-    people = people.filter(function(p) { return p.id !== user.id; });
-    var container = document.getElementById('live-activity-list');
-    if (!container) return;
-    if (!people.length) {
-      container.innerHTML = '<div class="live-empty">Niemand gerade online</div>';
-      return;
-    }
-    var html = '';
-    people.forEach(function(p) {
-      var seed = p.avatar_seed || p.name;
-      var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(seed);
-      var actLabel = activityLabels[p.activity] || p.activity || '🏠 Hauptseite';
-      var isMulti = p.activity && p.activity.startsWith('multiplayer');
-      var isSingle = p.activity && p.activity.startsWith('singleplayer');
-      var dotColor = isMulti ? '#f97316' : isSingle ? '#a78bfa' : '#4ade80';
-      html += '<div class="live-row">' +
-        '<img class="live-av" src="'+av+'" loading="lazy">' +
-        '<div class="live-info">' +
-          '<span class="live-name">'+escHtml(p.name)+'</span>' +
-          '<span class="live-status" style="color:'+dotColor+'">'+actLabel+'</span>' +
-        '</div>' +
-        '<span class="live-dot" style="background:'+dotColor+'"></span>' +
-        '</div>';
-    });
-    container.innerHTML = html;
-    document.getElementById('live-count').textContent = people.length;
+    renderLiveActivity(people.filter(function(p) { return p.id !== user.id; }));
   } catch(e) {}
 }
 
@@ -495,10 +683,9 @@ async function checkGameInvites() {
       showInviteToast(inv);
       // Local push notification when tab is hidden
       var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', pong:'Pong', rps:'Schere Stein Papier', chess:'Schach' };
-      showLocalNotif(
-        '⚔️ Spieleinladung',
-        (inv.from_name || 'Jemand') + ' lädt dich zu ' + (gameNames[inv.game_type]||'einem Spiel') + ' ein!'
-      );
+      var inviteMsg = (inv.from_name || 'Jemand') + ' lädt dich zu ' + (gameNames[inv.game_type]||'einem Spiel') + ' ein!';
+      showLocalNotif('⚔️ Spieleinladung', inviteMsg);
+      addNotifEvent('⚔️', 'Spieleinladung', inviteMsg, true);
     });
   } catch (e) {}
 }
@@ -861,9 +1048,9 @@ async function loadUnreadCounts() {
       if (item.count > prev && loadUnreadCounts._initialized) {
         var friend = friendsList.find(function(f) { return f.id === item.friend_id; });
         var name = friend ? friend.name : 'Neue Nachricht';
-        // Show message preview if available (server now returns latest_message)
         var preview = item.latest_message ? item.latest_message.slice(0, 80) : 'Hat dir geschrieben.';
         showLocalNotif('💬 ' + name, preview);
+        addNotifEvent('💬', name, preview, true);
       }
     });
     loadUnreadCounts._initialized = true;
@@ -1102,7 +1289,9 @@ async function loadFriendRequests() {
     var prevCount = parseInt(loadFriendRequests._prevCount || 0);
     if (requests.length > prevCount && prevCount >= 0 && loadFriendRequests._prevCount !== undefined) {
       var newest = requests[0];
-      showLocalNotif('👥 Freundschaftsanfrage', (newest.name||'Jemand') + ' möchte dich als Freund hinzufügen!');
+      var frMsg = (newest.name||'Jemand') + ' möchte dich als Freund hinzufügen!';
+      showLocalNotif('👥 Freundschaftsanfrage', frMsg);
+      addNotifEvent('👥', 'Freundschaftsanfrage', frMsg, true);
     }
     loadFriendRequests._prevCount = requests.length;
     renderFriendRequests(requests);
@@ -1375,10 +1564,8 @@ document.getElementById("avatar").src =
   if (heartbeatInterval) clearInterval(heartbeatInterval);
   sendHeartbeat();
   heartbeatInterval = setInterval(sendHeartbeat, 20000);
-  // Live Activity Panel
-  loadLiveActivity();
-  if (window._liveActivityInterval) clearInterval(window._liveActivityInterval);
-  window._liveActivityInterval = setInterval(loadLiveActivity, 2000);
+  // Live Activity — SSE for instant real-time updates
+  startLiveStream();
   // Anfragen periodisch prüfen
   if (requestsInterval) clearInterval(requestsInterval);
   requestsInterval = setInterval(function() { loadFriendRequests(); }, 60000);
@@ -1614,7 +1801,8 @@ if (user) {
   try { await fetch(API_URL + '/api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id }) }); } catch(e) {}
 }
 sessionStorage.setItem('logged_out', 'true');
-localStorage.removeItem('notif_asked'); // ask again next login
+localStorage.removeItem('notif_asked');
+stopLiveStream();
 document.cookie = 'arcadebox_user=; max-age=0';
 user = null;
 allUsersCache = []; friendIdsSet = new Set(); sentRequestIds = new Set();
@@ -3626,16 +3814,21 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
   var PW=12, PH=80, BR=8, MAX=5;
   var on=true, raf=null;
   var lastPush=0, lastTs=null;
-  var TARGET_DT=1000/60; // 16.67ms = one frame at 60fps
-  // Ball speed by difficulty
+  var TARGET_DT=1000/60;
   var speedMap={easy:2.0, medium:3.2, hard:5.0};
   var baseSpeed=speedMap[diff]||3.2;
-  var ball={x:W/2,y:H/2,vx:(isHost||isAI)?baseSpeed:0,vy:baseSpeed*0.6};
-  var padL={x:20,y:H/2-PH/2};   // left = host
-  var padR={x:W-20-PW,y:H/2-PH/2}; // right = guest
+  var ball={x:W/2,y:H/2,vx:0,vy:0};  // ball starts stationary (countdown first)
+  var padL={x:20,y:H/2-PH/2};
+  var padR={x:W-20-PW,y:H/2-PH/2};
   var sc={l:0,r:0};
   var myPad=isHost?padL:padR;
   var srvState=null;
+  // Target ball for smooth interpolation (guest side)
+  var targetBall={x:W/2,y:H/2,vx:0,vy:0};
+  var targetBallAge=0; // ms since last server update
+  // Countdown
+  var cdCount = (!isAI&&lobbyId) ? 3 : 0; // 3-2-1 for online
+  var cdTs = null;
 
   function rrect(ctx,x,y,w,h,r){
     ctx.beginPath();
@@ -3645,27 +3838,32 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
     ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();
   }
 
-  function draw() {
+  function draw(cdNum) {
     ctx.clearRect(0,0,W,H);
     ctx.fillStyle='#030310'; ctx.fillRect(0,0,W,H);
-    // Center line
     ctx.setLineDash([8,10]); ctx.strokeStyle='rgba(255,255,255,0.12)'; ctx.lineWidth=2;
     ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke();
     ctx.setLineDash([]);
-    // Scores
     ctx.fillStyle='rgba(255,255,255,0.75)'; ctx.font='bold 36px sans-serif'; ctx.textAlign='center';
-    ctx.fillText(sc.l, W/4, 50);
-    ctx.fillText(sc.r, 3*W/4, 50);
+    ctx.fillText(sc.l, W/4, 50); ctx.fillText(sc.r, 3*W/4, 50);
     ctx.font='11px sans-serif'; ctx.fillStyle='rgba(255,255,255,0.3)';
     ctx.fillText(isHost?'← Du':'← Gegner', W/4, 65);
     ctx.fillText(isHost?'Gegner →':'Du →', 3*W/4, 65);
-    // Paddles
     ctx.fillStyle='#818cf8'; rrect(ctx,padL.x,padL.y,PW,PH,5); ctx.fill();
     ctx.fillStyle='#34d399'; rrect(ctx,padR.x,padR.y,PW,PH,5); ctx.fill();
-    // Ball
     ctx.beginPath(); ctx.arc(ball.x,ball.y,BR,0,Math.PI*2);
     ctx.fillStyle='#fff'; ctx.shadowColor='#fff'; ctx.shadowBlur=20;
     ctx.fill(); ctx.shadowBlur=0;
+    // Countdown overlay
+    if (cdNum > 0) {
+      ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle='#fff'; ctx.font='bold 80px sans-serif'; ctx.textAlign='center';
+      ctx.shadowColor='#ff5733'; ctx.shadowBlur=30;
+      ctx.fillText(cdNum, W/2, H/2+28);
+      ctx.shadowBlur=0;
+      ctx.font='14px sans-serif'; ctx.fillStyle='rgba(255,255,255,0.5)';
+      ctx.fillText('Spiel startet...', W/2, H/2+60);
+    }
   }
 
   function reset(dir) {
@@ -3695,62 +3893,87 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
 
   function loop(ts) {
     if(!on)return;
-    // Delta-time: normalise to 60fps so speed is frame-rate independent
-    var dt = lastTs ? Math.min((ts - lastTs) / TARGET_DT, 3) : 1;
+    var dt = lastTs ? Math.min((ts - lastTs) / TARGET_DT, 2) : 1;
     lastTs = ts;
+
+    // ── Countdown phase ──
+    if (cdCount > 0) {
+      if (!cdTs) cdTs = ts;
+      var remaining = Math.ceil(3 - (ts - cdTs) / 1000);
+      if (remaining <= 0) {
+        cdCount = 0;
+        ball.vx = (isHost||isAI) ? baseSpeed : (targetBall.vx || baseSpeed);
+        ball.vy = (isHost||isAI) ? baseSpeed*0.6 : (targetBall.vy || baseSpeed*0.6);
+        if (isHost && lobbyId) {
+          fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:{started:true,bx:ball.x,by:ball.y,bvx:ball.vx,bvy:ball.vy,lpy:padL.y,sl:0,sr:0}})});
+        }
+      } else {
+        draw(remaining); raf=requestAnimationFrame(loop); return;
+      }
+    }
+
+    // ── HOST / AI physics ──
     if(isHost||isAI){
       physics(dt);
       if(isAI){
-        var aiSpd=baseSpeed*0.65; // AI paddle speed scales with ball speed
+        var aiSpd=baseSpeed*0.65;
         var tgt=ball.y-PH/2;
         padR.y+=Math.sign(tgt-padR.y)*Math.min(aiSpd*dt,Math.abs(tgt-padR.y));
         padR.y=Math.max(0,Math.min(H-PH,padR.y));
       }
       if(!isAI&&lobbyId){
         var now=Date.now();
-        if(now-lastPush>45){
+        if(now-lastPush>20){ // 50fps push — more frequent for smoother guest
           lastPush=now;
-          fetch(API_URL+'/api/lobby/state',{
-            method:'PUT',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:{bx:Math.round(ball.x),by:Math.round(ball.y),bvx:ball.vx,bvy:ball.vy,lpy:Math.round(padL.y),rpy:Math.round(padR.y),sl:sc.l,sr:sc.r}})
+          fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:{started:true,bx:Math.round(ball.x*10)/10,by:Math.round(ball.y*10)/10,bvx:Math.round(ball.vx*100)/100,bvy:Math.round(ball.vy*100)/100,lpy:Math.round(padL.y),rpy:Math.round(padR.y),sl:sc.l,sr:sc.r}})
           });
         }
       }
       if(sc.l>=MAX||sc.r>=MAX){
-        // Force push final score so guest sees game end
-        if(!isAI&&lobbyId){
-          fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:{bx:Math.round(ball.x),by:Math.round(ball.y),sl:sc.l,sr:sc.r,gameOver:true}})});
-        }
-        on=false; pongOn=false;
+        if(!isAI&&lobbyId) fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:{bx:ball.x,by:ball.y,sl:sc.l,sr:sc.r,gameOver:true}})});
+        on=false;pongOn=false;
         if(pongPollInterval){clearInterval(pongPollInterval);pongPollInterval=null;}
         var win=(sc.l>=MAX&&isHost)||(sc.r>=MAX&&!isHost);
         if(raf)cancelAnimationFrame(raf);
-        draw(); setTimeout(function(){pongGameOver(win?'win':'lose');},400); return;
+        draw(0); setTimeout(function(){pongGameOver(win?'win':'lose');},400); return;
       }
-    } else if(!isAI&&srvState){
-      // Snap to server position when we have new state
-      if(srvState.bx!==undefined){ ball.x=srvState.bx; ball.vx=srvState.bvx||ball.vx; }
-      if(srvState.by!==undefined){ ball.y=srvState.by; ball.vy=srvState.bvy||ball.vy; }
-      if(srvState.lpy!==undefined)padL.y=srvState.lpy;
-      if(srvState.sl!==undefined)sc.l=srvState.sl;
-      if(srvState.sr!==undefined)sc.r=srvState.sr;
-      document.getElementById('pts').textContent=sc.r;
-      if(sc.l>=MAX||sc.r>=MAX||srvState.gameOver){
-        on=false;pongOn=false;
-        if(pongPollInterval){clearInterval(pongPollInterval);pongPollInterval=null;}
-        if(raf)cancelAnimationFrame(raf);
-        draw(); setTimeout(function(){pongGameOver(sc.r>=MAX?'win':'lose');},400); return;
+
+    // ── GUEST: smooth interpolation + local extrapolation ──
+    } else if(!isAI){
+      if(srvState){
+        if(srvState.sl!==undefined)sc.l=srvState.sl;
+        if(srvState.sr!==undefined)sc.r=srvState.sr;
+        if(srvState.lpy!==undefined)padL.y=srvState.lpy;
+        document.getElementById('pts').textContent=sc.r;
+
+        if(!srvState.started){draw(3);raf=requestAnimationFrame(loop);return;}
+
+        if(srvState.bx!==undefined){
+          // Snap if ball is very far (score reset / new point)
+          var dx=srvState.bx-ball.x, dy=srvState.by-ball.y;
+          if(Math.abs(dx)>100||Math.abs(dy)>100){ball.x=srvState.bx;ball.y=srvState.by;}
+          // Update velocity from server
+          ball.vx=srvState.bvx||ball.vx;
+          ball.vy=srvState.bvy||ball.vy;
+          targetBall.x=srvState.bx; targetBall.y=srvState.by;
+        }
+        if(sc.l>=MAX||sc.r>=MAX||srvState.gameOver){
+          on=false;pongOn=false;
+          if(pongPollInterval){clearInterval(pongPollInterval);pongPollInterval=null;}
+          if(raf)cancelAnimationFrame(raf);
+          draw(0); setTimeout(function(){pongGameOver(sc.r>=MAX?'win':'lose');},400); return;
+        }
       }
-      // Client-side extrapolation: run local physics between server snapshots
-      // This makes the ball move smoothly at 60fps instead of jerking every 80ms
-      ball.x += ball.vx * dt;
-      ball.y += ball.vy * dt;
-      // Bounce off top/bottom locally (can't score locally — host handles that)
+      // Local extrapolation at 60fps
+      ball.x+=ball.vx*dt; ball.y+=ball.vy*dt;
+      // Soft correction toward server target (reduces drift)
+      if(targetBall.x){ ball.x+=(targetBall.x-ball.x)*0.06; ball.y+=(targetBall.y-ball.y)*0.06; }
       if(ball.y-BR<=0){ball.y=BR;ball.vy=Math.abs(ball.vy);}
       if(ball.y+BR>=H){ball.y=H-BR;ball.vy=-Math.abs(ball.vy);}
     }
-    draw();
+    draw(0);
     raf=requestAnimationFrame(loop);
   }
 
@@ -4397,8 +4620,9 @@ function chessStartOnline(lobbyId,isHost){
   document.getElementById('chess-lobby-screen').style.display='none';
   document.getElementById('chess-game-screen').style.display='flex';
   document.getElementById('ttt-overlay').classList.remove('show');
-  if(isHost){chessState=chessInitState();chessSelected=-1;chessValidMoves=[];chessLastMoveFrom=-1;chessLastMoveTo=-1;}
-  buildChessBoard();if(chessState)renderChessBoard();
+  // Both players initialize with the standard start position — chess always starts the same
+  chessState=chessInitState();chessSelected=-1;chessValidMoves=[];chessLastMoveFrom=-1;chessLastMoveTo=-1;
+  buildChessBoard();renderChessBoard();
   document.getElementById('chess-player-info').innerHTML=
     '<span class="chess-you">'+(isHost?'♔ Du (Weiß)':'♚ Du (Schwarz)')+'</span>';
   document.getElementById('btn-again').style.display='none';
