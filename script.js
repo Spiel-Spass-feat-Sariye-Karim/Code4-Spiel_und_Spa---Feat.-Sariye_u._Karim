@@ -2,6 +2,7 @@
 var API_URL = 'https://code4-spiel-und-spa-feat-sariye-u-karim.onrender.com';
 
 var game=null,which='',user=null;
+var currentActivity='main'; // tracks what the user is doing for live status
 var heartbeatInterval=null,requestsInterval=null,chatInterval=null;
 var lastChatCount=0;
 var allUsersCache=[],friendIdsSet=new Set(),sentRequestIds=new Set();
@@ -10,6 +11,7 @@ var friendsList=[],unreadCounts={};
 var inviteInterval=null,seenInviteIds=new Set(),inviteFirstCheck=true,lobbyAiDiff='easy',hostWaitInterval=null;
 var tttBoard=Array(9).fill(''),tttOn=false,tttIsAI=false,tttAiDiff='easy';
 var tttCurrentTurn='X',tttMySymbol='X',tttIsHost=true,tttLobbyId=null,tttPollInterval=null,tttLastPlaced=-1;
+var tttMoveInFlight=false; // prevents poll from overwriting local state mid-send
 // Connect 4
 var c4PollInterval=null,c4LobbyId=null,c4IsHost=false,c4IsAI=false,c4AiDiff='easy',c4MySymbol='R',c4On=false;
 // Pong
@@ -245,6 +247,67 @@ function getRank(total) {
 }
 function getScoreTotal(u) {
   return (u.memory||0) + (u.stack||0) + (u.precision||0) + (u.guess||0) + (u.wordle||0) + (u.flappy||0);
+}
+
+/* ---- HEARTBEAT + LIVE ACTIVITY ---- */
+function sendHeartbeat() {
+  if (!user) return;
+  fetch(API_URL + '/api/users/heartbeat', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: user.id, activity: currentActivity })
+  });
+}
+
+var activityLabels = {
+  main: '🏠 Hauptseite',
+  'singleplayer:memory': '🧠 Farb-Gedächtnis',
+  'singleplayer:stack': '🧱 Turm-Stapler',
+  'singleplayer:reaktion': '⚡ Reaktionstest',
+  'singleplayer:bubble': '🫧 Bubble Pop',
+  'singleplayer:zahlen': '🔢 Zahlen-Raten',
+  'singleplayer:wordle': '💻 Info-Wordle',
+  'singleplayer:flappy': '🐦 Flappy Bird',
+  'multiplayer:tictactoe': '⚔️ TicTacToe',
+  'multiplayer:connect4': '🔴 4 Gewinnt',
+  'multiplayer:pong': '🏓 Pong',
+  'multiplayer:rps': '✊ Schere Stein Papier',
+  'multiplayer:schach': '♟️ Schach'
+};
+
+async function loadLiveActivity() {
+  if (!user) return;
+  try {
+    var res = await fetch(API_URL + '/api/live-activity');
+    if (!res.ok) return;
+    var people = await res.json();
+    // Exclude self
+    people = people.filter(function(p) { return p.id !== user.id; });
+    var container = document.getElementById('live-activity-list');
+    if (!container) return;
+    if (!people.length) {
+      container.innerHTML = '<div class="live-empty">Niemand gerade online</div>';
+      return;
+    }
+    var html = '';
+    people.forEach(function(p) {
+      var seed = p.avatar_seed || p.name;
+      var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(seed);
+      var actLabel = activityLabels[p.activity] || p.activity || '🏠 Hauptseite';
+      var isMulti = p.activity && p.activity.startsWith('multiplayer');
+      var isSingle = p.activity && p.activity.startsWith('singleplayer');
+      var dotColor = isMulti ? '#f97316' : isSingle ? '#a78bfa' : '#4ade80';
+      html += '<div class="live-row">' +
+        '<img class="live-av" src="'+av+'" loading="lazy">' +
+        '<div class="live-info">' +
+          '<span class="live-name">'+escHtml(p.name)+'</span>' +
+          '<span class="live-status" style="color:'+dotColor+'">'+actLabel+'</span>' +
+        '</div>' +
+        '<span class="live-dot" style="background:'+dotColor+'"></span>' +
+        '</div>';
+    });
+    container.innerHTML = html;
+    document.getElementById('live-count').textContent = people.length;
+  } catch(e) {}
 }
 
 /* ---- ONLINE STATUS ---- */
@@ -535,6 +598,7 @@ function tttStartOnline(lobbyId, isHost) {
 
 async function tttPollOnline() {
   if (!tttOn || !tttLobbyId || tttIsAI) return;
+  if (tttMoveInFlight) return; // our move hasn't reached server yet — don't overwrite
   if (tttCurrentTurn === tttMySymbol) return;
   try {
     var res = await fetch(API_URL + '/api/lobby/' + tttLobbyId);
@@ -612,10 +676,14 @@ function tttClick(idx) {
     document.getElementById('ttt-status').textContent = 'KI überlegt...';
     setTimeout(tttAiMove, 380);
   } else {
-    // Online: Zug IMMER zuerst senden (auch bei Spielende), damit Gegner das Ergebnis sieht
+    // Online: send move first, then check for win — loser must see our move
+    tttMoveInFlight = true;
     fetch(API_URL + '/api/lobby/move', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lobby_id: tttLobbyId, user_id: user.id, move: idx })
+    }).finally(function() {
+      // Keep in-flight long enough for Supabase to propagate the write
+      setTimeout(function() { tttMoveInFlight = false; }, 600);
     });
     if (result) { tttGameOver(result); return; }
     document.getElementById('ttt-status').textContent = 'Gegner ist dran...';
@@ -1305,10 +1373,12 @@ document.getElementById("avatar").src =
   unreadInterval = setInterval(loadUnreadCounts, 5000);
   // Heartbeat starten
   if (heartbeatInterval) clearInterval(heartbeatInterval);
-  fetch(API_URL + '/api/users/heartbeat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id }) });
-  heartbeatInterval = setInterval(function() {
-    if (user) fetch(API_URL + '/api/users/heartbeat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id }) });
-  }, 30000);
+  sendHeartbeat();
+  heartbeatInterval = setInterval(sendHeartbeat, 20000);
+  // Live Activity Panel
+  loadLiveActivity();
+  if (window._liveActivityInterval) clearInterval(window._liveActivityInterval);
+  window._liveActivityInterval = setInterval(loadLiveActivity, 2000);
   // Anfragen periodisch prüfen
   if (requestsInterval) clearInterval(requestsInterval);
   requestsInterval = setInterval(function() { loadFriendRequests(); }, 60000);
@@ -2077,7 +2147,13 @@ function openG(id) {
     chessArea.classList.add('active');
   }
   document.getElementById('popup').classList.add('on');
-  stopArcadeParticles(); // pause particles while in-game
+  stopArcadeParticles();
+  // Track activity for live status
+  var activityMap = { memory:'singleplayer:memory', stack:'singleplayer:stack', reaction:'singleplayer:reaktion',
+    bubble:'singleplayer:bubble', guess:'singleplayer:zahlen', wordle:'singleplayer:wordle', flappy:'singleplayer:flappy',
+    multiplayer:'multiplayer:tictactoe', connect4:'multiplayer:connect4', pong:'multiplayer:pong',
+    rps:'multiplayer:rps', chess:'multiplayer:schach' };
+  currentActivity = activityMap[id] || ('singleplayer:'+id);
   runG();
 }
 
@@ -2092,7 +2168,8 @@ function closeG() {
   tttOn = false; c4On = false; pongOn = false; rpsOn = false; chessOn = false;
   document.getElementById('ttt-overlay').classList.remove('show');
   document.getElementById('popup').classList.remove('on');
-  startArcadeParticles(); // resume particles on main screen
+  currentActivity = 'main';
+  startArcadeParticles();
   document.getElementById('memory-pads').classList.remove('active');
   document.getElementById('memory-status').classList.remove('active');
   document.getElementById('reaction-area').classList.remove('active');
@@ -3323,6 +3400,14 @@ function connect4Game(cv, isAI, diff, isHost, lobbyId) {
     animateDrop(col, row, mySym, function() {
       board[row*COLS+col] = mySym;
       draw();
+      // For ONLINE: ALWAYS send move to server FIRST, before any win check!
+      // If we check win first and return, loser never receives the winning move.
+      if (!isAI && lobbyId) {
+        fetch(API_URL+'/api/lobby/move', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({lobby_id:lobbyId, user_id:user.id, move:col})
+        });
+      }
       if (checkWin(board, row, col, mySym)) {
         on = false; c4On = false;
         if (c4PollInterval) { clearInterval(c4PollInterval); c4PollInterval = null; }
@@ -3343,11 +3428,6 @@ function connect4Game(cv, isAI, diff, isHost, lobbyId) {
           }
           if (isDraw(board)) { on=false; c4On=false; setTimeout(function(){c4GameOver('draw');},300); return; }
           myTurn = true; draw();
-        });
-      } else {
-        fetch(API_URL+'/api/lobby/move', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({lobby_id:lobbyId, user_id:user.id, move:col})
         });
       }
     });
@@ -3525,7 +3605,7 @@ function pongStartOnline(lobbyId,isHost) {
   if(game){game.stop();game=null;}
   game=pongGame(cv,false,pongAiDiff,isHost,lobbyId);
   if(pongPollInterval)clearInterval(pongPollInterval);
-  pongPollInterval=setInterval(pongPollOnline, isHost?50:80);
+  pongPollInterval=setInterval(pongPollOnline, isHost?50:40);
 }
 
 async function pongPollOnline() {
@@ -3647,8 +3727,9 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
         draw(); setTimeout(function(){pongGameOver(win?'win':'lose');},400); return;
       }
     } else if(!isAI&&srvState){
-      if(srvState.bx!==undefined)ball.x=srvState.bx;
-      if(srvState.by!==undefined)ball.y=srvState.by;
+      // Snap to server position when we have new state
+      if(srvState.bx!==undefined){ ball.x=srvState.bx; ball.vx=srvState.bvx||ball.vx; }
+      if(srvState.by!==undefined){ ball.y=srvState.by; ball.vy=srvState.bvy||ball.vy; }
       if(srvState.lpy!==undefined)padL.y=srvState.lpy;
       if(srvState.sl!==undefined)sc.l=srvState.sl;
       if(srvState.sr!==undefined)sc.r=srvState.sr;
@@ -3659,6 +3740,13 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
         if(raf)cancelAnimationFrame(raf);
         draw(); setTimeout(function(){pongGameOver(sc.r>=MAX?'win':'lose');},400); return;
       }
+      // Client-side extrapolation: run local physics between server snapshots
+      // This makes the ball move smoothly at 60fps instead of jerking every 80ms
+      ball.x += ball.vx * dt;
+      ball.y += ball.vy * dt;
+      // Bounce off top/bottom locally (can't score locally — host handles that)
+      if(ball.y-BR<=0){ball.y=BR;ball.vy=Math.abs(ball.vy);}
+      if(ball.y+BR>=H){ball.y=H-BR;ball.vy=-Math.abs(ball.vy);}
     }
     draw();
     raf=requestAnimationFrame(loop);
@@ -4169,6 +4257,9 @@ function chessBestMove(state,diff){
 function buildChessBoard(){
   var board=document.getElementById('chess-board');
   board.innerHTML='';
+  // Apply/remove flip for black player — shows own pieces at bottom
+  var wrap=document.querySelector('.chess-board-wrap');
+  if(wrap) wrap.classList.toggle('flipped', chessMyColor==='b');
   for(var i=0;i<64;i++){
     var sq=document.createElement('div');
     var r=i>>3,c=i&7;
@@ -4216,10 +4307,14 @@ function chessDoMove(from,to){
   chessState=chessApplyMove(chessState,from,to);
   chessSelected=-1;chessValidMoves=[];
   if(!chessIsAI&&chessLobbyId){
-    chessMoveInFlight=true; // block poll from overwriting until server confirms
+    chessMoveInFlight=true; // block poll from overwriting until server confirms + propagates
     fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({lobby_id:chessLobbyId,user_id:user.id,patch:{chessState:chessState,lastFrom:from,lastTo:to}})
-    }).finally(function(){ chessMoveInFlight=false; });
+    }).finally(function(){
+      // Wait 600ms after server confirms — Supabase needs time to propagate the write
+      // to the read path so the next poll won't return a stale pre-move state
+      setTimeout(function(){ chessMoveInFlight=false; }, 600);
+    });
   }
   renderChessBoard();
   var opp=chessState.turn,oppMoves=chessAllLegalMoves(chessState,opp);

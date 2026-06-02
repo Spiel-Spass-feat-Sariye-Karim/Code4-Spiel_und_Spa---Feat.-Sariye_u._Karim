@@ -319,7 +319,7 @@ app.get('/api/users/search', async (req, res) => {
   const q = (req.query.q || '').trim();
   const me = parseInt(req.query.me);
   try {
-    let query = db.from('users').select('id, name, avatar_seed, is_online, last_seen').limit(100);
+    let query = db.from('users').select('id, name, avatar_seed, is_online, last_seen, activity').limit(100);
     if (q) query = query.ilike('name', '%' + q + '%');
     else query = query.order('name');
     const { data: users, error } = await query;
@@ -343,10 +343,13 @@ app.get('/api/users/search', async (req, res) => {
 // ============= HEARTBEAT =============
 
 app.post('/api/users/heartbeat', async (req, res) => {
-  const { user_id } = req.body;
+  const { user_id, activity } = req.body;
   if (!user_id) return res.status(400).json({ error: 'Fehlende Daten' });
   try {
-    await db.from('users').update({ is_online: true, last_seen: new Date().toISOString() }).eq('id', user_id);
+    const updates = { is_online: true, last_seen: new Date().toISOString() };
+    // activity: 'main' | 'singleplayer:memory' | 'multiplayer:connect4' etc
+    if (activity !== undefined) updates.activity = activity;
+    await db.from('users').update(updates).eq('id', user_id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
@@ -766,6 +769,33 @@ app.post('/api/chat/global', async (req, res) => {
       .single();
     if (error) throw error;
     res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+// ============= LIVE ACTIVITY =============
+
+app.get('/api/live-activity', async (req, res) => {
+  try {
+    const now = Date.now();
+    const { data: users, error } = await db
+      .from('users')
+      .select('id, name, avatar_seed, last_seen, activity')
+      .order('last_seen', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    // Only users active within last 3 minutes
+    const active = (users || []).filter(u =>
+      u.last_seen && (now - new Date(u.last_seen).getTime()) < 3 * 60 * 1000
+    ).map(u => ({
+      id: u.id,
+      name: u.name,
+      avatar_seed: u.avatar_seed,
+      activity: u.activity || 'main',
+      last_seen: u.last_seen
+    }));
+    res.json(active);
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }
