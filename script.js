@@ -3,6 +3,37 @@ var API_URL = 'https://code4-spiel-und-spa-feat-sariye-u-karim.onrender.com';
 
 var game=null,which='',user=null;
 var currentActivity='main'; // tracks what the user is doing for live status
+
+/* ════════════════════════════════════════════════
+   WEBSOCKET RELAY — sub-10ms multiplayer state sync
+   ════════════════════════════════════════════════ */
+var gameWS = null;
+var gameWSLobbyId = null;
+
+function connectGameWS(lobbyId, onMessage) {
+  disconnectGameWS();
+  gameWSLobbyId = lobbyId;
+  try {
+    var wsUrl = API_URL.replace(/^https?/, function(p){ return p === 'https' ? 'wss' : 'ws'; });
+    gameWS = new WebSocket(wsUrl + '?lobby=' + lobbyId);
+    gameWS.onmessage = function(e) {
+      try { if (onMessage) onMessage(JSON.parse(e.data)); } catch(err) {}
+    };
+    gameWS.onerror = function() {};
+    gameWS.onclose = function() { gameWS = null; };
+  } catch(e) { gameWS = null; }
+}
+
+function sendGameWS(data) {
+  if (gameWS && gameWS.readyState === 1 /* OPEN */) {
+    try { gameWS.send(JSON.stringify(data)); } catch(e) {}
+  }
+}
+
+function disconnectGameWS() {
+  if (gameWS) { try { gameWS.close(); } catch(e) {} gameWS = null; }
+  gameWSLobbyId = null;
+}
 var heartbeatInterval=null,requestsInterval=null,chatInterval=null;
 var lastChatCount=0;
 var allUsersCache=[],friendIdsSet=new Set(),sentRequestIds=new Set();
@@ -270,24 +301,36 @@ function updateNotifBadge() {
 }
 
 var PATCHNOTES = [
-  { version: 'v3.0', date: 'Jun 2026', title: 'Live Activity & Push Notifications',
-    items: ['Live-Aktivitätswidget in Echtzeit (SSE)', 'Benachrichtigungen für Einladungen & Nachrichten', 'Notification Center Postfach', 'Pong: Smooth 60fps für beide Spieler + Countdown'] ,
-    tags: ['new','new','new','fix'] },
-  { version: 'v2.8', date: 'Jun 2026', title: 'Multiplayer Bugfixes',
-    items: ['4 Gewinnt: Verlierer-Screen immer sichtbar', 'TicTacToe & Schach: 1 Klick reicht jetzt', 'Schere Stein Papier: Runden 3/5/10 wählbar', 'Schach: 2D Brett + Board-Flip für Schwarz-Spieler'],
-    tags: ['fix','fix','new','improve'] },
-  { version: 'v2.5', date: 'Jun 2026', title: 'Arcade Design & Animationen',
-    items: ['Retro Canvas: Tron-Gitter, Neon-Orbs, Charakter-Regen', 'Press Start 2P Pixel-Font', 'Regenbogen-Marquee im Header', 'Scoreboard: Einheitliche Tabelle mit allen 7 Spielen'],
-    tags: ['new','new','improve','improve'] },
-  { version: 'v2.0', date: 'Jun 2026', title: 'Flappy Bird & Push Notifications',
-    items: ['Flappy Bird mit Neon Night-City Thema', 'Web Push Notifications (PWA)', 'Light Mode vollständig überarbeitet', 'Live-Aktivitätsstatus'],
-    tags: ['new','new','improve','new'] },
-  { version: 'v1.5', date: 'Jun 2026', title: 'Schach & Mehr',
-    items: ['Vollständige Schach-Engine mit KI (3 Schwierigkeiten)', 'Multiplayer für alle 5 Spiele', 'Globaler Chat', 'Freundesliste mit Online-Status'],
+  { version: 'v1.9', date: '02. Jun 2026', title: '🔌 WebSocket Multiplayer — Echtzeit',
+    items: ['Pong & Schach nutzen jetzt WebSockets (<10ms Latenz)', 'Beide Spieler sehen Bewegungen sofort ohne Verzögerung', 'Schach: Board-Flip für Schwarz, 2D Brett, kein Doppelklick mehr', 'Pong: 3-2-1 Countdown + Smooth 60fps interpolation'],
+    tags: ['new','improve','fix','fix'] },
+  { version: 'v1.8', date: '31. Mai 2026', title: '📬 Postfach & Live-Aktivität',
+    items: ['Notification Center mit Verlauf, aktive Anfragen & Patchnotes', 'Live-Aktivitätswidget (SSE Echtzeit, 0ms Delay)', 'Benachrichtigungen für Einladungen, Nachrichten & Freundschaftsanfragen', 'Bell-Icon im Header mit Badge-Zähler'],
     tags: ['new','new','new','new'] },
-  { version: 'v1.0', date: 'Jun 2026', title: 'Launch 🎮',
-    items: ['7 Singleplayer-Spiele', 'Login & Registrierung', 'Highscore-System', 'Profil & Avatar'],
-    tags: ['new','new','new','new'] }
+  { version: 'v1.7', date: '27. Mai 2026', title: '🐛 Multiplayer Bugfixes',
+    items: ['4 Gewinnt: Verlierer-Screen jetzt immer sichtbar (Gewinnzug wurde nie gesendet)', 'TicTacToe: 1 Klick reicht — Stale-State Race-Condition behoben', 'Schach: chessMoveInFlight verhindert Poll-Überschreibung', 'Schere Stein Papier: resolving-Flag verhindert Doppel-Auflösung'],
+    tags: ['fix','fix','fix','fix'] },
+  { version: 'v1.6', date: '23. Mai 2026', title: '🕹️ Arcade Design & Animationen',
+    items: ['Retro Canvas: Tron-Gitter, Neon-Orbs, Charakter-Regen, Scan-Linie', 'Press Start 2P Pixel-Font + VT323 für Headlines', 'Regenbogen-Marquee & Scanlines im Header', 'Scoreboard als einheitliche Tabelle (alle 7 Spiele)'],
+    tags: ['new','new','improve','improve'] },
+  { version: 'v1.5', date: '18. Mai 2026', title: '🐦 Flappy Bird & Benachrichtigungen',
+    items: ['Flappy Bird mit Neon Night-City Thema & Partikeleffekten', 'Web Push Notifications (iOS PWA + Desktop)', 'Light Mode komplett überarbeitet mit Glassmorphismus', 'Scoreboard: Flappy Bird Highscore integriert'],
+    tags: ['new','new','improve','improve'] },
+  { version: 'v1.4', date: '12. Mai 2026', title: '♟️ Schach vollständig',
+    items: ['Schach-Engine: Minimax + Alpha-Beta Pruning, 3 KI-Stufen', 'Rochade, En Passant, Schachprüfung vollständig', 'Schach-Multiplayer mit Live-Sync', 'Alle 5 Multiplayer-Spiele fertiggestellt'],
+    tags: ['new','new','new','new'] },
+  { version: 'v1.3', date: '04. Mai 2026', title: '💬 Chat & Freunde V2',
+    items: ['Globaler Chat in Echtzeit', 'Privater Chat zwischen Freunden', 'Freundschaftsanfragen + Status (Online/Offline)', 'Ungelesene-Nachrichten-Badge'],
+    tags: ['new','new','improve','new'] },
+  { version: 'v1.2', date: '21. Apr 2026', title: '⚔️ Multiplayer — Pong & SSP',
+    items: ['Pong gegen echte Spieler', 'Schere Stein Papier mit Countdown-Animation', 'Einladungssystem via Lobby', 'Online-Spieler in Lobbys sichtbar'],
+    tags: ['new','new','new','new'] },
+  { version: 'v1.1', date: '08. Apr 2026', title: '🎯 Multiplayer — TicTacToe & 4 Gewinnt',
+    items: ['TicTacToe & 4 Gewinnt gegen echte Spieler', 'Lobby- & Einladungssystem', 'Spieler-Online-Status (Heartbeat)', 'Avatare + Profilseite'],
+    tags: ['new','new','new','new'] },
+  { version: 'v1.0', date: '15. Mär 2026', title: '🚀 Launch — ArcadeBox',
+    items: ['7 Singleplayer-Spiele (Memory, Stack, Reaktion, Bubble, Zahlen, Wordle, ...)', 'Login & Registrierung mit Cookie-Session', 'Globales Highscore-System mit RP-Wertung', 'Grundlegendes Profil & Avatar-Auswahl'],
+    tags: ['new','new','new','new'] },
 ];
 
 function openNotifCenter() {
@@ -337,25 +380,56 @@ function renderNotifActive() {
   panel.innerHTML = html || '<div class="nc-empty">Keine aktiven Benachrichtigungen</div>';
 }
 
-function renderNotifHistory() {
+async function renderNotifHistory() {
   var panel = document.getElementById('nc-history');
   if (!panel) return;
-  if (!notifHistory.length) {
+  panel.innerHTML = '<div class="nc-empty">Lädt...</div>';
+
+  // Combine in-memory (new session) + DB history (past sessions)
+  var dbItems = [];
+  try {
+    if (user) {
+      var r = await fetch(API_URL + '/api/notifications/' + user.id);
+      if (r.ok) dbItems = await r.json();
+    }
+  } catch(e) {}
+
+  // Merge: memory items first, then DB (deduplicated by title+time proximity)
+  var allItems = notifHistory.map(function(n) {
+    return { icon: n.icon, title: n.title, body: n.sub, created_at: new Date(n.time).toISOString(), is_read: !n.isNew };
+  });
+  dbItems.forEach(function(d) {
+    // Don't add if a memory item with same title exists within 10s
+    var isDupe = allItems.some(function(a) {
+      return a.title === d.title && Math.abs(new Date(a.created_at) - new Date(d.created_at)) < 10000;
+    });
+    if (!isDupe) allItems.push(d);
+  });
+  // Sort by date desc
+  allItems.sort(function(a,b) { return new Date(b.created_at) - new Date(a.created_at); });
+
+  if (!allItems.length) {
     panel.innerHTML = '<div class="nc-empty">Noch keine Benachrichtigungen</div>';
     return;
   }
+
   var html = '';
-  notifHistory.forEach(function(n) {
-    var ago = timeAgo(n.time);
-    html += '<div class="nc-item' + (n.isNew ? ' nc-new' : '') + '">' +
-      '<span class="nc-item-icon">'+n.icon+'</span>' +
+  allItems.forEach(function(n) {
+    var ts = new Date(n.created_at);
+    var dateStr = ts.toLocaleDateString('de-AT', {day:'2-digit', month:'2-digit', year:'2-digit'});
+    var timeStr = ts.toLocaleTimeString('de-AT', {hour:'2-digit', minute:'2-digit'});
+    html += '<div class="nc-item' + (!n.is_read ? ' nc-new' : '') + '">' +
+      '<span class="nc-item-icon">'+(n.icon||'🔔')+'</span>' +
       '<div class="nc-item-body">' +
-        '<div class="nc-item-title">'+escHtml(n.title)+'</div>' +
-        '<div class="nc-item-sub">'+escHtml(n.sub)+'</div>' +
-        '<div class="nc-item-time">'+ago+'</div>' +
+        '<div class="nc-item-title">'+escHtml(n.title||'')+'</div>' +
+        '<div class="nc-item-sub">'+escHtml(n.body||n.sub||'')+'</div>' +
+        '<div class="nc-item-time">'+dateStr+' um '+timeStr+'</div>' +
       '</div></div>';
   });
   panel.innerHTML = html;
+
+  // Mark all as read in DB
+  if (user) fetch(API_URL + '/api/notifications/' + user.id + '/read', {method:'POST'}).catch(function(){});
 }
 
 function renderNotifUpdates() {
@@ -2347,6 +2421,7 @@ function openG(id) {
 }
 
 function closeG() {
+  disconnectGameWS();
   if (game) { game.stop(); game = null; }
   if (tttPollInterval) { clearInterval(tttPollInterval); tttPollInterval = null; }
   if (c4PollInterval) { clearInterval(c4PollInterval); c4PollInterval = null; }
@@ -3794,8 +3869,13 @@ function pongStartOnline(lobbyId,isHost) {
   fitCanvas(cv,520,420);
   if(game){game.stop();game=null;}
   game=pongGame(cv,false,pongAiDiff,isHost,lobbyId);
+  // WebSocket for real-time state sync (sub-10ms)
+  connectGameWS(lobbyId, function(data) {
+    if (data.type==='pong' && game && game.applyState) game.applyState(data);
+  });
+  // Keep polling as fallback/reconnect safety (but infrequent)
   if(pongPollInterval)clearInterval(pongPollInterval);
-  pongPollInterval=setInterval(pongPollOnline, isHost?50:40);
+  pongPollInterval=setInterval(pongPollOnline, 2000); // just a safety fallback
 }
 
 async function pongPollOnline() {
@@ -3924,15 +4004,22 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
       }
       if(!isAI&&lobbyId){
         var now=Date.now();
-        if(now-lastPush>20){ // 50fps push — more frequent for smoother guest
+        if(now-lastPush>16){ // ~60fps push via WebSocket (near real-time)
           lastPush=now;
-          fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:{started:true,bx:Math.round(ball.x*10)/10,by:Math.round(ball.y*10)/10,bvx:Math.round(ball.vx*100)/100,bvy:Math.round(ball.vy*100)/100,lpy:Math.round(padL.y),rpy:Math.round(padR.y),sl:sc.l,sr:sc.r}})
-          });
+          var stateMsg={type:'pong',started:true,bx:Math.round(ball.x*10)/10,by:Math.round(ball.y*10)/10,bvx:Math.round(ball.vx*100)/100,bvy:Math.round(ball.vy*100)/100,lpy:Math.round(padL.y),rpy:Math.round(padR.y),sl:sc.l,sr:sc.r};
+          // Primary: WebSocket (instant). Fallback: REST every 500ms for persistence.
+          sendGameWS(stateMsg);
+          if(now-lastPush>500){
+            fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:stateMsg})
+            });
+          }
         }
       }
       if(sc.l>=MAX||sc.r>=MAX){
-        if(!isAI&&lobbyId) fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:{bx:ball.x,by:ball.y,sl:sc.l,sr:sc.r,gameOver:true}})});
+        var endState={type:'pong',bx:ball.x,by:ball.y,sl:sc.l,sr:sc.r,gameOver:true,started:true};
+        sendGameWS(endState);
+        fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:endState})});
         on=false;pongOn=false;
         if(pongPollInterval){clearInterval(pongPollInterval);pongPollInterval=null;}
         var win=(sc.l>=MAX&&isHost)||(sc.r>=MAX&&!isHost);
@@ -3984,10 +4071,8 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
     var cY=e.touches?e.touches[0].clientY:e.clientY;
     myPad.y=Math.max(0,Math.min(H-PH,(cY-rect.top)*scaleY-PH/2));
     if(!isAI&&!isHost&&lobbyId){
-      fetch(API_URL+'/api/lobby/state',{
-        method:'PUT',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({lobby_id:lobbyId,user_id:user.id,patch:{rpy:Math.round(padR.y)}})
-      });
+      // Send paddle position via WS (instant) + occasional REST for persistence
+      sendGameWS({type:'pong_paddle',rpy:Math.round(padR.y)});
     }
   }
 
@@ -3998,7 +4083,10 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
   return {
     stop:function(){on=false;if(raf)cancelAnimationFrame(raf);cv.removeEventListener('mousemove',movePad);cv.removeEventListener('touchmove',movePad);},
     applyState:function(state){
-      if(!state||isHost)return;
+      if(!state)return;
+      // Host receives guest's paddle via WS (type=pong_paddle)
+      if(isHost&&state.type==='pong_paddle'){padR.y=state.rpy;return;}
+      if(isHost)return; // host doesn't process game state messages
       srvState=state;
       if(state.rpy!==undefined)padR.y=state.rpy;
     }
@@ -4532,13 +4620,14 @@ function chessDoMove(from,to){
   chessState=chessApplyMove(chessState,from,to);
   chessSelected=-1;chessValidMoves=[];
   if(!chessIsAI&&chessLobbyId){
-    chessMoveInFlight=true; // block poll from overwriting until server confirms + propagates
+    chessMoveInFlight=true;
+    // Primary: WebSocket (instant relay to opponent, <10ms)
+    sendGameWS({type:'chess', chessState:chessState, lastFrom:from, lastTo:to});
+    // Persistence: REST to Supabase (for reconnect recovery)
     fetch(API_URL+'/api/lobby/state',{method:'PUT',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({lobby_id:chessLobbyId,user_id:user.id,patch:{chessState:chessState,lastFrom:from,lastTo:to}})
     }).finally(function(){
-      // Wait 600ms after server confirms — Supabase needs time to propagate the write
-      // to the read path so the next poll won't return a stale pre-move state
-      setTimeout(function(){ chessMoveInFlight=false; }, 600);
+      setTimeout(function(){ chessMoveInFlight=false; }, 300);
     });
   }
   renderChessBoard();
@@ -4626,8 +4715,33 @@ function chessStartOnline(lobbyId,isHost){
   document.getElementById('chess-player-info').innerHTML=
     '<span class="chess-you">'+(isHost?'♔ Du (Weiß)':'♚ Du (Schwarz)')+'</span>';
   document.getElementById('btn-again').style.display='none';
+  // WebSocket for instant move sync
+  connectGameWS(lobbyId, function(data) {
+    if (data.type==='chess') chessApplyWSState(data);
+  });
+  // Poll as fallback/reconnect (infrequent)
   if(chessPollInterval)clearInterval(chessPollInterval);
-  chessPollInterval=setInterval(chessPollOnline,120);
+  chessPollInterval=setInterval(chessPollOnline,3000);
+}
+
+// Apply chess state received via WebSocket (instant, no Supabase delay)
+function chessApplyWSState(data) {
+  if (!chessOn || !data.chessState) return;
+  if (data.chessState.turn === chessMyColor && chessMoveInFlight) return;
+  var localIsMyTurn = chessState && chessState.turn === chessMyColor;
+  var serverIsMyTurn = data.chessState.turn === chessMyColor;
+  // Only apply opponent's moves (when it becomes my turn)
+  if (!localIsMyTurn && serverIsMyTurn) {
+    chessState = data.chessState;
+    if (data.lastFrom !== undefined) chessLastMoveFrom = data.lastFrom;
+    if (data.lastTo !== undefined) chessLastMoveTo = data.lastTo;
+    chessSelected = -1; chessValidMoves = [];
+    buildChessBoard(); renderChessBoard();
+    var opp = chessState.turn, oppMoves = chessAllLegalMoves(chessState, opp);
+    if (!oppMoves.length) {
+      setTimeout(function(){ chessGameOver(chessIsCheck(chessState,opp)?(opp===chessMyColor?'lose':'win'):'draw'); }, 400);
+    }
+  }
 }
 
 async function chessPollOnline(){

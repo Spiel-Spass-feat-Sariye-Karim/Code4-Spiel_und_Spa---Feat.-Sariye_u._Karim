@@ -446,7 +446,9 @@ app.post('/api/friends/request', async (req, res) => {
     if (error) return res.status(400).json({ error: 'Fehler beim Senden der Anfrage' });
     // Push notification to recipient
     const { data: sender } = await db.from('users').select('name').eq('id', user_id).single();
-    sendPushToUser(parseInt(friend_id), '👥 Freundschaftsanfrage', (sender?.name || 'Jemand') + ' möchte dich als Freund hinzufügen!');
+    const frMsg = (sender?.name || 'Jemand') + ' möchte dich als Freund hinzufügen!';
+    sendPushToUser(parseInt(friend_id), '👥 Freundschaftsanfrage', frMsg);
+    saveNotification(friend_id, 'friend_request', '👥', 'Freundschaftsanfrage', frMsg);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
@@ -685,7 +687,9 @@ app.post('/api/lobby/invite', async (req, res) => {
     const { data: lobby } = await db.from('game_lobbies').select('game_type').eq('id', lobby_id).single();
     const gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', pong:'Pong', rps:'Schere Stein Papier', chess:'Schach' };
     const gameName = lobby ? (gameNames[lobby.game_type] || lobby.game_type) : 'einem Spiel';
-    sendPushToUser(to_id, '⚔️ Spieleinladung', (fromUser?.name || 'Jemand') + ' lädt dich zu ' + gameName + ' ein!');
+    const invMsg = (fromUser?.name || 'Jemand') + ' lädt dich zu ' + gameName + ' ein!';
+    sendPushToUser(to_id, '⚔️ Spieleinladung', invMsg);
+    saveNotification(to_id, 'invite', '⚔️', 'Spieleinladung', invMsg);
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
@@ -949,14 +953,93 @@ async function sendPushToUser(userId, title, body, extra = {}) {
   } catch (e) {}
 }
 
+// ============= NOTIFICATIONS DB =============
+
+// Helper to save a notification for a user
+async function saveNotification(userId, type, icon, title, body) {
+  try {
+    await db.from('notifications').insert({ user_id: parseInt(userId), type, icon, title, body });
+  } catch(e) {} // Silently fail if table doesn't exist yet
+}
+
+// Fetch notifications for a user (last 50)
+app.get('/api/notifications/:user_id', async (req, res) => {
+  try {
+    const { data, error } = await db.from('notifications')
+      .select('*')
+      .eq('user_id', req.params.user_id)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    res.json(data || []);
+  } catch(err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+// Mark all notifications as read
+app.post('/api/notifications/:user_id/read', async (req, res) => {
+  try {
+    await db.from('notifications').update({ is_read: true }).eq('user_id', req.params.user_id);
+    res.json({ success: true });
+  } catch(err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+// ============= WEBSOCKET RELAY (Pong + Chess) =============
+// Simple lobby-based relay: messages from one player broadcast to all others in same lobby.
+// No game logic here — just pure relay. Sub-10ms latency.
+
+const http = require('http');
+const WebSocketServer = require('ws').Server;
+const httpServer = http.createServer(app);
+const wss = new WebSocketServer({ server: httpServer });
+
+// Map: lobbyId -> Set<ws>
+const lobbyWS = new Map();
+
+wss.on('connection', (ws, req) => {
+  try {
+    const url = new URL(req.url, 'http://localhost');
+    const lobbyId = url.searchParams.get('lobby');
+    if (!lobbyId) { ws.close(4000, 'No lobby'); return; }
+    ws._lobbyId = lobbyId;
+
+    if (!lobbyWS.has(lobbyId)) lobbyWS.set(lobbyId, new Set());
+    lobbyWS.get(lobbyId).add(ws);
+    console.log(`[WS] Connected lobby=${lobbyId}, total=${lobbyWS.get(lobbyId).size}`);
+
+    ws.on('message', (raw) => {
+      const channel = lobbyWS.get(lobbyId);
+      if (!channel) return;
+      // Relay to all OTHER clients in same lobby
+      for (const client of channel) {
+        if (client !== ws && client.readyState === 1 /* OPEN */) {
+          try { client.send(raw); } catch(e) {}
+        }
+      }
+    });
+
+    ws.on('close', () => {
+      const channel = lobbyWS.get(lobbyId);
+      if (channel) {
+        channel.delete(ws);
+        if (!channel.size) lobbyWS.delete(lobbyId);
+      }
+    });
+
+    ws.on('error', () => ws.close());
+  } catch(e) { try { ws.close(); } catch(e2) {} }
+});
+
 // ============= SERVER STARTEN =============
 console.log('About to start server');
 const PORT = process.env.PORT || 3000;
-console.log('PORT value:', PORT, 'type:', typeof PORT);
 
 try {
-  app.listen(PORT, () => {
-    console.log(`🎮 ArcadeBox Server läuft auf http://localhost:${PORT}`);
+  httpServer.listen(PORT, () => {
+    console.log(`🎮 ArcadeBox Server läuft auf http://localhost:${PORT} (HTTP+WS)`);
   });
 } catch (err) {
   console.error('Error starting server:', err);

@@ -1,4 +1,8 @@
-:root{--c1:#ff5733;--c2:#1b9e77;--bg:#111;--s1:#1a1a1a;--s2:#222;--tx:#eee;--dim:#777;--r:12px}
+:root{
+  --c1:#ff5733;--c2:#1b9e77;--bg:#111;--s1:#1a1a1a;--s2:#222;--tx:#eee;--dim:#777;--r:12px;
+  --retro-font: 'VT323', monospace;
+  --pixel-font: 'Press Start 2P', monospace;
+}
 *{margin:0;padding:0;box-sizing:border-box}
 body {
   font-family: 'Bricolage Grotesque', sans-serif;
@@ -7,6 +11,18 @@ body {
   background: #080810;
   overflow-x: hidden;
 }
+
+/* ── Retro VT323 for headings & labels ───────────────── */
+h1, h2, h3, .card h3, .cat-title, .pbot b,
+.ttt-status, .chess-status, .rps-round-info,
+.lobby-online-count, .diff-label,
+.sidebar-label, .pbox .ptop span {
+  font-family: var(--retro-font);
+  letter-spacing: 0.04em;
+}
+/* VT323 at larger size looks great */
+.card h3 { font-size: 1.2rem; }
+.cat-title { font-size: 0.8rem !important; }
 
 body::before,
 body::after {
