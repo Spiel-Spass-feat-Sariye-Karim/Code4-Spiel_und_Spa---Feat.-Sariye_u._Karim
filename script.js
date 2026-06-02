@@ -2154,6 +2154,7 @@ function openG(id) {
     multiplayer:'multiplayer:tictactoe', connect4:'multiplayer:connect4', pong:'multiplayer:pong',
     rps:'multiplayer:rps', chess:'multiplayer:schach' };
   currentActivity = activityMap[id] || ('singleplayer:'+id);
+  sendHeartbeat(); // instant activity update
   runG();
 }
 
@@ -2169,6 +2170,7 @@ function closeG() {
   document.getElementById('ttt-overlay').classList.remove('show');
   document.getElementById('popup').classList.remove('on');
   currentActivity = 'main';
+  sendHeartbeat(); // instant activity update
   startArcadeParticles();
   document.getElementById('memory-pads').classList.remove('active');
   document.getElementById('memory-status').classList.remove('active');

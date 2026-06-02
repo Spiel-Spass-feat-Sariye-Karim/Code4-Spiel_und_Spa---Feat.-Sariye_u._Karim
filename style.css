@@ -281,6 +281,36 @@ header::after {
 }
 header > * { position: relative; z-index: 1; }
 
+/* ════════════════════════════════════════════════
+   RETRO ARCADE HEADER — cabinet-style neon frame
+   ════════════════════════════════════════════════ */
+
+/* Animated neon top-border on header — like cabinet marquee lighting */
+header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    #ff5733 15%,
+    #fbbf24 30%,
+    #a78bfa 45%,
+    #38bdf8 60%,
+    #4ade80 75%,
+    #ff5733 90%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: headerRainbow 3s linear infinite;
+  z-index: 0;
+}
+@keyframes headerRainbow {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
+}
+body.light header::before { opacity: 0.5; }
+
 /* ── Logo — pixel font + neon glow ─────────────────── */
 .logo {
   font-family: 'Press Start 2P', monospace;
@@ -821,6 +851,117 @@ body.light .hero::after { color: rgba(200,60,20,0.25); }
 .stat-box:hover {
   box-shadow: 0 0 0 1px rgba(255,87,51,0.3), 0 0 16px rgba(255,87,51,0.1);
 }
+
+/* ════════════════════════════════════════════════
+   MORE RETRO ARCADE ELEMENTS
+   ════════════════════════════════════════════════ */
+
+/* ── Hero h1 retro neon style ────────────────── */
+.hero h1 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  position: relative;
+  display: inline-block;
+  /* Subtle neon text-shadow on the heading */
+  text-shadow: 0 0 20px rgba(255,87,51,0.15), 0 0 60px rgba(255,87,51,0.06);
+}
+body.light .hero h1 { text-shadow: none; }
+
+/* ── Retro pixel-art "INSERT COIN" block above cats ── */
+.arcade-divider::before {
+  content: '× × × × × × × × × × × × × × × × × × × × × × × × × × × × × × × ×';
+  display: block;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.28rem;
+  color: rgba(255,87,51,0.20);
+  letter-spacing: 0.08em;
+  text-align: center;
+  overflow: hidden;
+  height: 1px;
+  margin: 0;
+}
+
+/* ── Neon "HI SCORE" text in game category headers ── */
+.cat-badge {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.05em;
+  animation: badgePulse 5s ease-in-out infinite;
+}
+
+/* ── Retro terminal glow on stat boxes ─────────── */
+.stat-box {
+  border: 1px solid rgba(255,255,255,0.06);
+  background: var(--s1);
+  border-radius: 8px;
+  padding: 0.8rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.stat-box::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--c1), transparent);
+  transform: scaleX(0);
+  transition: transform 0.3s;
+}
+.stat-box:hover::after { transform: scaleX(1); }
+.stat-val { font-family: 'Press Start 2P', monospace; font-size: 1.1rem !important; color: var(--c1); }
+.stat-lbl { font-size: 0.58rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 0.3rem; }
+body.light .stat-box { border-color: rgba(0,0,0,0.08); }
+
+/* ── Retro marquee on the cards wrap ─────────── */
+.cards::before {
+  content: 'SELECT YOUR GAME ▼';
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.38rem;
+  color: rgba(255,87,51,0.25);
+  letter-spacing: 0.2em;
+  padding: 0.3rem 0 0;
+  animation: blinkStart 2.5s step-end infinite;
+}
+body.light .cards::before { color: rgba(200,60,20,0.18); }
+
+/* ── Game card retro pixel outline on hover ─── */
+.card:hover {
+  outline: 1px solid rgba(255,87,51,0.15);
+  outline-offset: 3px;
+}
+
+/* ── Scrollable high score ticker at bottom of hero ── */
+.hero-ticker {
+  width: 100%;
+  max-width: 700px;
+  margin: 0.6rem auto 0;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,87,51,0.15);
+  border-radius: 4px;
+  padding: 4px 0;
+}
+.hero-ticker-inner {
+  display: inline-block;
+  white-space: nowrap;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.35rem;
+  color: rgba(255,87,51,0.6);
+  letter-spacing: 0.15em;
+  animation: heroTicker 20s linear infinite;
+}
+@keyframes heroTicker {
+  0%   { transform: translateX(100vw); }
+  100% { transform: translateX(-100%); }
+}
+body.light .hero-ticker { background: rgba(0,0,0,0.04); border-color: rgba(200,60,20,0.12); }
+body.light .hero-ticker-inner { color: rgba(200,60,20,0.45); }
 
 /* ---- LIVE ACTIVITY PANEL ---- */
 .live-activity-panel {

@@ -319,7 +319,7 @@ app.get('/api/users/search', async (req, res) => {
   const q = (req.query.q || '').trim();
   const me = parseInt(req.query.me);
   try {
-    let query = db.from('users').select('id, name, avatar_seed, is_online, last_seen, activity').limit(100);
+    let query = db.from('users').select('id, name, avatar_seed, is_online, last_seen').limit(100);
     if (q) query = query.ilike('name', '%' + q + '%');
     else query = query.order('name');
     const { data: users, error } = await query;
@@ -342,14 +342,16 @@ app.get('/api/users/search', async (req, res) => {
 
 // ============= HEARTBEAT =============
 
+// In-memory activity store — no DB column needed, resets on server restart (fine for live status)
+const userActivities = new Map(); // user_id → activity string
+
 app.post('/api/users/heartbeat', async (req, res) => {
   const { user_id, activity } = req.body;
   if (!user_id) return res.status(400).json({ error: 'Fehlende Daten' });
+  // Store activity in memory
+  if (activity !== undefined) userActivities.set(parseInt(user_id), activity);
   try {
-    const updates = { is_online: true, last_seen: new Date().toISOString() };
-    // activity: 'main' | 'singleplayer:memory' | 'multiplayer:connect4' etc
-    if (activity !== undefined) updates.activity = activity;
-    await db.from('users').update(updates).eq('id', user_id);
+    await db.from('users').update({ is_online: true, last_seen: new Date().toISOString() }).eq('id', user_id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
@@ -781,7 +783,7 @@ app.get('/api/live-activity', async (req, res) => {
     const now = Date.now();
     const { data: users, error } = await db
       .from('users')
-      .select('id, name, avatar_seed, last_seen, activity')
+      .select('id, name, avatar_seed, last_seen')
       .order('last_seen', { ascending: false })
       .limit(50);
     if (error) throw error;
@@ -792,7 +794,8 @@ app.get('/api/live-activity', async (req, res) => {
       id: u.id,
       name: u.name,
       avatar_seed: u.avatar_seed,
-      activity: u.activity || 'main',
+      // Activity from in-memory map (updated via heartbeat)
+      activity: userActivities.get(u.id) || 'main',
       last_seen: u.last_seen
     }));
     res.json(active);
