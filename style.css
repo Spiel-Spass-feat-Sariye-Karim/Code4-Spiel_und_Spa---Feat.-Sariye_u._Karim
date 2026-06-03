@@ -3529,7 +3529,7 @@ body.light .rank-info-btn      { background: #f0f0f0; border-color: #ddd; color:
   cursor: pointer;
   transition: all 0.18s;
 }
-.diff-btn.active { border-color: var(--c1); color: var(--c1); background: rgba(255,87,51,0.1); }
+.diff-btn.active { border-color: var(--c1); color: #fff !important; background: var(--c1); }
 .btn-vs-ai {
   width: 100%;
   padding: 0.65rem;
@@ -4317,7 +4317,8 @@ body.light .ptop { background: rgba(248,248,252,0.95); }
 
 /* ── Diff buttons retro ───────────────────────────────── */
 .diff-btn.active {
-  background: linear-gradient(135deg, var(--c1), #ff8c00);
+  background: linear-gradient(135deg, var(--c1), #ff8c00) !important;
+  color: #fff !important;
   box-shadow: 0 2px 10px rgba(255,87,51,0.35);
 }
 
@@ -4674,4 +4675,168 @@ body.light .bs-cell.bs-ship { background: rgba(60,120,60,0.4); }
 body.light .bs-cell.bs-hit { background: rgba(200,50,50,0.55); }
 body.light .bs-cell.bs-miss { background: rgba(100,150,220,0.35); }
 body.light .bs-cell.bs-clickable:hover { background: rgba(255,180,0,0.2); }
+
+
+/* ════════════════════════════════════════════════
+   HERO — improved retro design
+   ════════════════════════════════════════════════ */
+.hero-top-label {
+  font-family: var(--pixel-font);
+  font-size: 0.48rem;
+  letter-spacing: 0.22em;
+  color: var(--c1);
+  margin-bottom: 0.6rem;
+  text-shadow: 0 0 12px rgba(255,87,51,0.5);
+  position: relative; z-index: 1;
+}
+.hero-sub {
+  font-family: var(--retro-font);
+  font-size: 1rem;
+  color: rgba(255,255,255,0.45);
+  margin-top: 0.2rem;
+  position: relative; z-index: 1;
+}
+.hero-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--retro-font);
+  font-size: 0.9rem;
+  color: rgba(255,255,255,0.5);
+  margin: 0.4rem 0 0.2rem;
+  position: relative; z-index: 1;
+}
+.hero-stat-div { color: rgba(255,87,51,0.4); }
+/* Pixel corner decorations on hero */
+.hero-corner {
+  position: absolute;
+  width: 16px; height: 16px;
+  pointer-events: none; z-index: 1;
+}
+.hero-corner-tl { top:10px; left:10px; border-top:2px solid rgba(255,87,51,0.5); border-left:2px solid rgba(255,87,51,0.5); }
+.hero-corner-tr { top:10px; right:10px; border-top:2px solid rgba(139,92,246,0.5); border-right:2px solid rgba(139,92,246,0.5); }
+.hero-corner-bl { bottom:10px; left:10px; border-bottom:2px solid rgba(59,130,246,0.4); border-left:2px solid rgba(59,130,246,0.4); }
+.hero-corner-br { bottom:10px; right:10px; border-bottom:2px solid rgba(74,222,128,0.4); border-right:2px solid rgba(74,222,128,0.4); }
+/* Scanlines overlay on hero */
+.hero-scanlines {
+  position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background: repeating-linear-gradient(0deg,
+    transparent, transparent 3px,
+    rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px
+  );
+}
+/* Remove old press-start */
+.hero-press-start { display: none; }
+/* Remove old badges */
+.hero-badges { display: none; }
+
+/* ════════════════════════════════════════════════
+   REAKTIONS-DUELL
+   ════════════════════════════════════════════════ */
+#rd-game-screen {
+  display: none; flex-direction: column; align-items: center;
+  gap: 0.7rem; width: 100%; max-width: 360px; padding: 0.3rem 0;
+}
+.rd-score-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 0 0.5rem;
+}
+.rd-score-box { text-align: center; }
+.rd-wins { display: block; font-family: var(--pixel-font); font-size: 1.8rem; color: var(--c1); line-height: 1; }
+.rd-label { font-family: var(--retro-font); font-size: 0.85rem; color: var(--dim); }
+.rd-rounds { font-family: var(--retro-font); font-size: 1rem; color: var(--dim); }
+
+.rd-arena {
+  width: min(280px, 85vw);
+  height: min(280px, 85vw);
+  border-radius: 50%;
+  background: radial-gradient(circle, #0a0a1a 60%, #12122a 100%);
+  border: 3px solid rgba(255,87,51,0.2);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.5rem;
+  transition: border-color 0.2s, background 0.2s;
+  position: relative;
+}
+.rd-arena.rd-go {
+  border-color: #fbbf24;
+  background: radial-gradient(circle, #1a1500 60%, #2a2000 100%);
+  animation: rdPulse 0.4s ease-out;
+  box-shadow: 0 0 40px rgba(251,191,36,0.25);
+}
+@keyframes rdPulse {
+  0% { transform: scale(0.96); }
+  50% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+.rd-signal { font-size: 4rem; line-height: 1; transition: color 0.1s; }
+.rd-status { font-family: var(--retro-font); font-size: 1.1rem; text-align: center; color: rgba(255,255,255,0.6); }
+
+.rd-tap-btn {
+  width: min(220px, 80vw);
+  padding: 1rem;
+  background: rgba(255,255,255,0.08);
+  border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  color: rgba(255,255,255,0.4);
+  font-family: var(--pixel-font);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.08s;
+  -webkit-tap-highlight-color: transparent;
+}
+.rd-tap-btn:not(:disabled):hover { background: rgba(255,255,255,0.14); }
+.rd-tap-btn:not(:disabled):active { transform: scale(0.95); }
+
+.rd-result {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border-radius: 14px;
+  padding: 0.8rem;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.rd-times { display: flex; align-items: center; justify-content: center; gap: 0.8rem; margin-bottom: 0.5rem; }
+.rd-time-box { text-align: center; }
+.rd-time-box span { font-family: var(--retro-font); font-size: 0.8rem; color: var(--dim); display: block; }
+.rd-time-box strong { font-family: var(--pixel-font); font-size: 0.8rem; color: var(--tx); }
+.rd-time-vs { font-family: var(--retro-font); font-size: 1rem; color: var(--dim); }
+.rd-verdict { font-family: var(--retro-font); font-size: 1.1rem; text-align: center; color: var(--tx); }
+
+/* ════════════════════════════════════════════════
+   ZAHLEN-RATEN — Range Bar HUD
+   ════════════════════════════════════════════════ */
+.guess-range-wrap {
+  margin: 0.4rem 0;
+  padding: 0 0.3rem;
+}
+.guess-range-bar {
+  height: 10px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 5px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.guess-range-fill {
+  position: absolute;
+  top: 0; bottom: 0;
+  background: linear-gradient(90deg, #3b82f6, #22c55e, #f97316);
+  border-radius: 5px;
+  transition: left 0.4s, right 0.4s;
+}
+.guess-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--retro-font);
+  font-size: 0.8rem;
+  color: var(--dim);
+}
+#guess-mid { color: var(--c1); font-weight: 700; }
+.guess-entry { font-family: var(--retro-font); font-size: 0.95rem; margin: 3px 0; display: flex; align-items: center; gap: 8px; }
+.ge-num { font-family: var(--pixel-font); font-size: 0.7rem; color: var(--tx); min-width: 28px; }
+.ge-tag { font-size: 0.85rem; }
+.ge-correct { color: #4ade80; }
+.ge-low { color: #60a5fa; }
+.ge-high { color: #fb923c; }
+body.light .guess-range-bar { background: rgba(0,0,0,0.08); }
 

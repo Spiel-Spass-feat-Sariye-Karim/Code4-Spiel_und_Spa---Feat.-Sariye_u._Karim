@@ -134,18 +134,25 @@
   <div class="arcade-corner arcade-corner-tr" aria-hidden="true"></div>
 
   <div class="hero hero-enhanced">
-    <!-- Pixel grid background -->
     <div class="hero-grid" aria-hidden="true"></div>
+    <!-- Retro pixel scanlines effect -->
+    <div class="hero-scanlines" aria-hidden="true"></div>
+    <div class="hero-corner hero-corner-tl" aria-hidden="true"></div>
+    <div class="hero-corner hero-corner-tr" aria-hidden="true"></div>
+    <div class="hero-corner hero-corner-bl" aria-hidden="true"></div>
+    <div class="hero-corner hero-corner-br" aria-hidden="true"></div>
+    <div class="hero-top-label" aria-hidden="true">✦ ARCADEBOX ✦</div>
     <h1 data-text="Bereit zum Zocken?">Bereit zum <em>Zocken</em>?</h1>
-    <p>Zwölf Spiele — solo oder im Duell. Dein Highscore wird gespeichert.</p>
-    <div class="hero-badges">
-      <span class="hero-badge">🏆 Highscores</span>
-      <span class="hero-badge">👥 Multiplayer</span>
-      <span class="hero-badge">🎯 12 Spiele</span>
+    <p class="hero-sub">12 Spiele — solo oder im Duell. Highscores gespeichert.</p>
+    <div class="hero-stat-row" aria-hidden="true">
+      <span>🏆&nbsp;Highscores</span>
+      <span class="hero-stat-div">|</span>
+      <span>👥&nbsp;Multiplayer</span>
+      <span class="hero-stat-div">|</span>
+      <span>🎮&nbsp;12&nbsp;Spiele</span>
     </div>
-    <div class="hero-press-start">🕹️ &nbsp;Press Start</div>
     <div class="hero-ticker" aria-hidden="true">
-      <span class="hero-ticker-inner">★ ARCADEBOX ★ TOP SCORE ★ REACT FAST ★ BUILD HIGH ★ POP ALL ★ MATCH WORDS ★ FLY BIRDIE ★ STACK IT ★ BEAT YOUR FRIEND ★ ARCADEBOX ★ TOP SCORE ★ REACT FAST ★ BUILD HIGH ★</span>
+      <span class="hero-ticker-inner">⬛ REACT FAST ⬛ BUILD HIGH ⬛ SINK SHIPS ⬛ FIND WORDS ⬛ FLY BIRD ⬛ STACK IT ⬛ BEAT YOUR FRIEND ⬛ REACT FAST ⬛ BUILD HIGH ⬛ SINK SHIPS ⬛ FIND WORDS ⬛</span>
     </div>
   </div>
 
@@ -186,7 +193,7 @@
         <div class="cards cards-multi">
           <div class="card" id="card-multiplayer"><div class="em">⚔️</div><h3>TicTacToe Duell</h3><p>Klassisches TicTacToe gegen KI oder Freunde</p></div>
           <div class="card" id="card-connect4"><div class="em">🔴</div><h3>4 Gewinnt</h3><p>Verbinde als Erster 4 Steine in einer Reihe</p></div>
-          <div class="card" id="card-elfmeter"><div class="em">🚢</div><h3>Schiffe versenken</h3><p>Platziere deine Flotte und versenke die des Gegners Schuss für Schuss!</p></div>
+          <div class="card" id="card-elfmeter"><div class="em">⚡</div><h3>Reaktions-Duell</h3><p>Wer reagiert schneller? 5 Runden — reiner Reflex gegen KI oder Freunde!</p></div>
           <div class="card" id="card-rps"><div class="em">✊</div><h3>Schere Stein Papier</h3><p>Best of 5 Runden — wer zuerst 3 gewinnt</p></div>
           <div class="card" id="card-chess"><div class="em">♟️</div><h3>Schach</h3><p>Klassisches Schach gegen KI oder Freunde</p></div>
           <div class="card" id="card-math"><div class="em">🧮</div><h3>Rechen-Duell</h3><p>Wer rechnet schneller? Direkt gegen KI oder Freunde!</p></div>
@@ -514,9 +521,8 @@
         </div>
       </div>
 
-      <!-- Schiffe versenken (Battleship) -->
+      <!-- Reaktions-Duell -->
       <div id="elfmeter-area" class="elfmeter-area">
-        <!-- Lobby -->
         <div id="elfmeter-lobby-screen">
           <div class="lobby-online-count"><span id="elfmeter-online-num">0</span> Spieler gerade online</div>
           <div class="lobby-difficulty">
@@ -531,36 +537,25 @@
           <div class="lobby-divider">— oder Freund einladen —</div>
           <div id="elfmeter-users-list" class="lobby-users-list"></div>
         </div>
-        <!-- Setup phase: place ships -->
-        <div id="bs-setup-screen" style="display:none">
-          <div class="bs-setup-title">⚓ Schiffe platzieren</div>
-          <div class="bs-setup-hint">Deine Schiffe (zufällig platziert) — passe sie an oder starte!</div>
-          <div id="bs-my-setup-grid" class="bs-grid bs-setup-grid"></div>
-          <div class="bs-setup-btns">
-            <button id="bs-shuffle-btn" class="bs-btn-secondary">🔀 Neu würfeln</button>
-            <button id="bs-ready-btn" class="bs-btn-primary">✓ Bereit!</button>
-          </div>
-          <div id="bs-waiting-msg" class="bs-waiting-msg" style="display:none">⏳ Warte auf Gegner...</div>
-        </div>
-        <!-- Battle phase -->
-        <div id="bs-battle-screen" style="display:none">
-          <div class="bs-battle-header">
-            <div class="bs-turn-indicator" id="bs-turn-indicator">Dein Zug 🎯</div>
-            <div class="bs-sunk-count">
-              Du: <span id="bs-my-sunk">0</span>/4 &nbsp;|&nbsp; Gegner: <span id="bs-opp-sunk">0</span>/4
+        <!-- Game screen -->
+        <div id="rd-game-screen" style="display:none">
+          <div class="rd-score-bar">
+            <div class="rd-score-box">
+              <span class="rd-wins" id="rd-my-wins">0</span>
+              <span class="rd-label">Du</span>
+            </div>
+            <div class="rd-rounds" id="rd-round-info">Runde 1/5</div>
+            <div class="rd-score-box">
+              <span class="rd-wins" id="rd-opp-wins">0</span>
+              <span class="rd-label" id="rd-opp-label">Gegner</span>
             </div>
           </div>
-          <div class="bs-grids-wrap">
-            <div class="bs-grid-section">
-              <div class="bs-grid-label">🎯 Gegner (anklicken)</div>
-              <div id="bs-opp-grid" class="bs-grid bs-attack-grid"></div>
-            </div>
-            <div class="bs-grid-section">
-              <div class="bs-grid-label">🚢 Deine Flotte</div>
-              <div id="bs-own-grid" class="bs-grid bs-own-grid"></div>
-            </div>
+          <div class="rd-arena" id="rd-arena">
+            <div class="rd-signal" id="rd-signal">●</div>
+            <div class="rd-status" id="rd-status">Bereit?</div>
           </div>
-          <div class="bs-status" id="bs-status">Klicke auf Gegner-Grid!</div>
+          <button class="rd-tap-btn" id="rd-tap-btn">DRÜCKEN!</button>
+          <div class="rd-result" id="rd-result" style="display:none"></div>
         </div>
       </div>
 

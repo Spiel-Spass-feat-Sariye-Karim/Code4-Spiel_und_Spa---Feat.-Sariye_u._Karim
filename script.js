@@ -2420,7 +2420,7 @@ document.getElementById('pc-input').addEventListener('keydown', function(e) { if
 
 function openG(id) {
   which = id;
-  var titles = { memory: 'Farb-Gedächtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest', bubble: 'Bubble Pop', guess: 'Zahlen-Raten', wordle: 'Info-Wordle', flappy: '🐦 Flappy Bird', multiplayer: '⚔️ TicTacToe Duell', connect4: '🔴 4 Gewinnt', elfmeter: '🚢 Schiffe versenken', rps: '✊ Schere Stein Papier', chess: '♟️ Schach', snake: '🐍 Schlange', wortblitz: '⌨️ Wort-Blitz', math: '🧮 Rechen-Duell' };
+  var titles = { memory: 'Farb-Gedächtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest', bubble: 'Bubble Pop', guess: 'Zahlen-Raten', wordle: 'Info-Wordle', flappy: '🐦 Flappy Bird', multiplayer: '⚔️ TicTacToe Duell', connect4: '🔴 4 Gewinnt', elfmeter: '⚡ Reaktions-Duell', rps: '✊ Schere Stein Papier', chess: '♟️ Schach', snake: '🐍 Schlange', wortblitz: '⌨️ Wort-Blitz', math: '🧮 Rechen-Duell' };
   document.getElementById('gtitle').textContent = titles[id] || id;
   document.getElementById('pts').textContent = '0';
   var canvas = document.getElementById('c');
@@ -2736,41 +2736,110 @@ p.removeEventListener('click', padClick); }); } }; }
 
 /* ---- SPIEL 2: TURM-STAPLER ---- */
 function stack(cv){
-  var ctx=cv.getContext('2d'),W=380,H=420,on=true,raf,sc=0;
+  var ctx=cv.getContext('2d'),W=cv._W||380,H=cv._H||420,on=true,raf,sc=0;
   var ly=[{x:W/2-60,w:120}];
-  var cur={x:0,w:120,dir:1,spd:2};
+  var cur={x:0,w:120,dir:1};
   var bY=H-25,lH=22;
   var co=['#e8573a','#e88a3a','#e8c83a','#3ae87a','#3ab8e8','#6a3ae8','#e83a9b'];
+  // Delta-time for frame-rate independence
+  var lastT=null, TARGET_FPS=60;
+  // Crumble particles
+  var crumbs=[];
+  // Speed: pixels/second (not pixels/frame!) — much slower start
+  var SPD_BASE=60, SPD_MAX=180;
 
-  function loop(){
-    if(!on)return;raf=requestAnimationFrame(loop);
-    cur.x+=cur.dir*cur.spd;
-    if(cur.x+cur.w>W||cur.x<0)cur.dir*=-1;
-    // Zeichnen
-    ctx.fillStyle='#0c0c14';ctx.fillRect(0,0,W,H);
-    ctx.fillStyle='#333';for(var i=0;i<25;i++)ctx.fillRect((i*67)%W,(i*43)%H,1.5,1.5);
-    for(var i=0;i<ly.length;i++){ctx.fillStyle=co[i%co.length];ctx.fillRect(ly[i].x,bY-i*lH,ly[i].w,lH-2)}
+  function loop(ts){
+    if(!on)return;
+    raf=requestAnimationFrame(loop);
+    var dt = lastT ? Math.min((ts-lastT)/1000,0.05) : 1/60; // seconds, capped at 50ms
+    lastT=ts;
+
+    // Move current block using seconds-based speed
+    var spd = Math.min(SPD_MAX, SPD_BASE + sc*2.5); // pixels/second
+    cur.x += cur.dir * spd * dt;
+    if(cur.x+cur.w>W){cur.x=W-cur.w;cur.dir=-1;}
+    if(cur.x<0){cur.x=0;cur.dir=1;}
+
+    // Update crumbs
+    for(var i=crumbs.length-1;i>=0;i--){
+      var c=crumbs[i];
+      c.x+=c.vx*dt; c.y+=c.vy*dt; c.vy+=400*dt; c.life-=dt*1.5;
+      if(c.y>H+20||c.life<=0) crumbs.splice(i,1);
+    }
+
+    // Draw
+    ctx.fillStyle='#080810'; ctx.fillRect(0,0,W,H);
+    // Subtle grid dots
+    ctx.fillStyle='rgba(255,255,255,0.025)';
+    for(var gi=0;gi<20;gi++) ctx.fillRect((gi*71)%W,(gi*53)%H,1.5,1.5);
+
+    // Stacked layers
+    for(var i=0;i<ly.length;i++){
+      var col=co[i%co.length];
+      ctx.fillStyle=col;
+      // Subtle glow on top layer
+      if(i===ly.length-1){ctx.shadowColor=col;ctx.shadowBlur=8;}
+      ctx.fillRect(ly[i].x,bY-i*lH,ly[i].w,lH-2);
+      ctx.shadowBlur=0;
+    }
+    // Current moving block
     var cy=bY-ly.length*lH;
-    ctx.fillStyle=co[ly.length%co.length];ctx.shadowColor=co[ly.length%co.length];ctx.shadowBlur=10;
-    ctx.fillRect(cur.x,cy,cur.w,lH-2);ctx.shadowBlur=0;
+    var blockCol=co[ly.length%co.length];
+    ctx.fillStyle=blockCol; ctx.shadowColor=blockCol; ctx.shadowBlur=12;
+    ctx.fillRect(cur.x,cy,cur.w,lH-2);
+    ctx.shadowBlur=0;
+
+    // Draw crumb particles
+    crumbs.forEach(function(c){
+      ctx.globalAlpha=Math.max(0,c.life);
+      ctx.fillStyle=c.col;
+      ctx.fillRect(c.x,c.y,c.w,c.h);
+    });
+    ctx.globalAlpha=1;
+  }
+
+  function spawnCrumbs(x,y,w,col){
+    var numCrumbs=Math.max(3,Math.floor(w/4));
+    for(var i=0;i<numCrumbs;i++){
+      crumbs.push({
+        x:x+Math.random()*w, y:y,
+        vx:(Math.random()-0.5)*80, vy:-30-Math.random()*80,
+        w:3+Math.random()*4, h:3+Math.random()*4,
+        col:col, life:1
+      });
+    }
   }
 
   function drop(){
     if(!on)return;
     var p=ly[ly.length-1];
     var oL=Math.max(cur.x,p.x),oR=Math.min(cur.x+cur.w,p.x+p.w),oW=oR-oL;
-    if(oW<=0){on=false;saveHS('stack',sc);gg(ctx,W,H,sc);return}
-    ly.push({x:oL,w:oW});sc++;document.getElementById('pts').textContent=sc;
-    cur.w=oW;cur.x=Math.random()<0.5?0:W-cur.w;
-    cur.dir=cur.x<W/2?1:-1;cur.spd=Math.min(5,2+sc*0.12);
+    var blockCol=co[ly.length%co.length];
+    if(oW<=0){
+      // Completely missed — spawn crumbs for whole block then game over
+      spawnCrumbs(cur.x, bY-ly.length*lH, cur.w, blockCol);
+      on=false; saveHS('stack',sc);
+      setTimeout(function(){ if(raf)cancelAnimationFrame(raf); gg(ctx,W,H,sc); },600);
+      return;
+    }
+    // Spawn crumbs for the overhanging part
+    var overL=p.x-cur.x, overR=(cur.x+cur.w)-(p.x+p.w);
+    if(overL>0) spawnCrumbs(cur.x, bY-ly.length*lH, overL, blockCol);
+    if(overR>0) spawnCrumbs(p.x+p.w, bY-ly.length*lH, overR, blockCol);
+
+    ly.push({x:oL,w:oW}); sc++;
+    document.getElementById('pts').textContent=sc;
+    cur.w=oW; cur.x=Math.random()<0.5?0:W-cur.w;
+    cur.dir=cur.x<W/2?1:-1;
     if(ly.length*lH>H-80)bY+=lH;
   }
 
   function keyDrop(e){if(e.code==='Space'||e.key===' '){e.preventDefault();drop();}}
   cv.addEventListener('click',drop);
+  cv.addEventListener('touchstart',function(e){e.preventDefault();drop();},{passive:false});
   document.addEventListener('keydown',keyDrop);
-  loop();
-  return{stop:function(){on=false;cancelAnimationFrame(raf);cv.removeEventListener('click',drop);document.removeEventListener('keydown',keyDrop);}};
+  raf=requestAnimationFrame(loop);
+  return{stop:function(){on=false;if(raf)cancelAnimationFrame(raf);cv.removeEventListener('click',drop);document.removeEventListener('keydown',keyDrop);}};
 }
 
 /* ---- SPIEL 3: REAKTIONSTEST ---- */
@@ -3130,6 +3199,7 @@ function guessGame() {
   var on = true;
   var secret = Math.floor(Math.random() * 100) + 1;
   var tries = 0;
+  var lo = 1, hi = 100; // known range (narrows after each guess)
   var statusEl = document.getElementById('guess-status');
   var input = document.getElementById('guess-input');
   var btn = document.getElementById('guess-btn');
@@ -3137,59 +3207,110 @@ function guessGame() {
 
   input.value = ''; input.disabled = false; btn.disabled = false;
   history.innerHTML = '';
+
+  // Create visual range bar
+  var barWrap = document.createElement('div');
+  barWrap.className = 'guess-range-wrap';
+  barWrap.innerHTML =
+    '<div class="guess-range-bar"><div class="guess-range-fill" id="guess-range-fill"></div>' +
+    '<div class="guess-range-marker" id="guess-range-marker"></div></div>' +
+    '<div class="guess-range-labels"><span id="guess-lo">1</span><span id="guess-mid">?</span><span id="guess-hi">100</span></div>';
+  statusEl.parentNode.insertBefore(barWrap, statusEl.nextSibling);
+
+  function updateBar() {
+    var fillEl=document.getElementById('guess-range-fill');
+    var markerEl=document.getElementById('guess-range-marker');
+    if(fillEl){fillEl.style.left=(lo-1)+'%';fillEl.style.right=(100-hi)+'%';}
+    if(markerEl){markerEl.style.left=(secret-1)+'%';} // hidden — just for visual
+    var loEl=document.getElementById('guess-lo'), hiEl=document.getElementById('guess-hi');
+    var midEl=document.getElementById('guess-mid');
+    if(loEl)loEl.textContent=lo; if(hiEl)hiEl.textContent=hi;
+    if(midEl)midEl.textContent=Math.round((lo+hi)/2);
+  }
+  updateBar();
   statusEl.textContent = 'Errate die Zahl zwischen 1 und 100!';
+  statusEl.style.cssText='';
 
   function handleGuess() {
     if (!on) return;
     var val = parseInt(input.value);
     if (isNaN(val) || val < 1 || val > 100) {
-      statusEl.textContent = '⚠️ Zahl zwischen 1 und 100 eingeben!'; return;
+      statusEl.textContent = '⚠️ Zahl 1–100 eingeben!'; return;
     }
     tries++;
     input.value = '';
+    input.focus();
     var entry = document.createElement('div');
     entry.className = 'guess-entry';
+
     if (val === secret) {
       on = false;
       var score = Math.max(0, 100 - (tries - 1) * 10);
-      entry.textContent = val + ' ✅ Richtig!'; entry.style.color = '#4caf50';
-      history.appendChild(entry); history.scrollTop = history.scrollHeight;
-      statusEl.textContent = '🎉 Gefunden in ' + tries + ' Versuch' + (tries > 1 ? 'en' : '') + '! +' + score + ' Punkte';
+      entry.innerHTML = '<span class="ge-num">'+val+'</span><span class="ge-tag ge-correct">✅ RICHTIG!</span>';
+      history.appendChild(entry); history.scrollTop=history.scrollHeight;
+      statusEl.textContent = '🎉 In '+tries+' Versuch'+(tries>1?'en':'')+' gefunden! +'+score+' Punkte';
+      statusEl.style.color='#4ade80';
       document.getElementById('pts').textContent = score;
       btn.disabled = true; input.disabled = true;
       sounds.highscore(); saveHS('guess', score);
     } else {
-      var hint = val < secret ? val + ' ⬇️ Zu niedrig!' : val + ' ⬆️ Zu hoch!';
-      entry.textContent = hint; entry.style.color = val < secret ? '#42a5f5' : '#ff7043';
-      history.appendChild(entry); history.scrollTop = history.scrollHeight;
-      var remaining = 10 - tries;
-      statusEl.textContent = 'Versuch ' + tries + '/10 — noch ' + remaining + ' übrig';
-      document.getElementById('pts').textContent = Math.max(0, 100 - tries * 10);
-      if (tries >= 10) {
-        on = false;
-        statusEl.textContent = '💀 Game Over! Die Zahl war ' + secret;
-        btn.disabled = true; input.disabled = true;
-        saveHS('guess', 0);
+      var tooLow = val < secret;
+      if(tooLow&&val>lo)lo=val+1; else if(!tooLow&&val<hi)hi=val-1;
+      updateBar();
+      entry.innerHTML = '<span class="ge-num">'+val+'</span><span class="ge-tag '+(tooLow?'ge-low':'ge-high')+'">'+(tooLow?'⬆️ Höher!':'⬇️ Tiefer!')+'</span>';
+      history.appendChild(entry); history.scrollTop=history.scrollHeight;
+      var remaining=10-tries;
+      statusEl.textContent='Versuch '+tries+'/10 — noch '+remaining+' übrig';
+      statusEl.style.color=remaining<=3?'#ef4444':remaining<=5?'#f97316':'';
+      document.getElementById('pts').textContent=Math.max(0,100-tries*10);
+      if(tries>=10){
+        on=false;
+        statusEl.textContent='💀 Game Over! Die Zahl war '+secret;
+        statusEl.style.color='#ef4444';
+        btn.disabled=true; input.disabled=true;
+        saveHS('guess',0);
       }
     }
   }
 
   btn.addEventListener('click', handleGuess);
-  function keyHandler(e) { if (e.key === 'Enter') { e.preventDefault(); handleGuess(); } }
+  function keyHandler(e){if(e.key==='Enter'){e.preventDefault();handleGuess();}}
   input.addEventListener('keydown', keyHandler);
 
   return {
     stop: function() {
-      on = false;
-      btn.removeEventListener('click', handleGuess);
-      input.removeEventListener('keydown', keyHandler);
-      btn.disabled = false; input.disabled = false;
+      on=false;
+      btn.removeEventListener('click',handleGuess);
+      input.removeEventListener('keydown',keyHandler);
+      btn.disabled=false; input.disabled=false;
+      if(barWrap.parentNode) barWrap.parentNode.removeChild(barWrap);
     }
   };
 }
 
 /* ---- SPIEL 6: INFO-WORDLE ---- */
-var WORDLE_WORDS = ['PIXEL', 'BYTES', 'CLICK', 'DATEN', 'NETZT', 'VIRUS', 'CACHE', 'LOGIN', 'MAILS', 'CLOUD', 'CODES', 'INPUT', 'LINKS', 'MEDIA', 'SHARE', 'SCOUT', 'SMART', 'TASTE', 'WLANS', 'HANDY'];
+var WORDLE_WORDS = [
+  // Digitale Grundbildung / einfache Informatik
+  'PIXEL','BYTES','CLICK','DATEN','VIRUS','CACHE','LOGIN','MAILS','CLOUD','CODES',
+  'INPUT','LINKS','MEDIA','SMART','HANDY','ALBUM','ARCHIV','AUDIO','BENUT','BINÄR',
+  'DATEI','DRUCKER','ENTER','FEHLER','GRAFIK','INTERNET','KABEL','MAUS',
+  // 5 Buchstaben, Informatik/Schule
+  'MUSIK','POWER','RESET','SCHUL','SEITE','SPELL','TASTE','TOUCH','WLANS',
+  'ALBUM','BRIEF','DRUCK','GERÄTS','ICONS','MODUL','NETZT','PAKET','PFEIL',
+  'PROBE','SCOUT','SHARE','SPALTE','TABELLE','VIREN','VOLLE','ZEILE',
+  // Einfache Informatik-Grundschule Begriffe (5 Buchstaben)
+  'MODUS','FENST','NETZE','DATEI','SCANS','BYTES','PIXEL','LAYER','QUEUE',
+  'STACK','ARRAY','LOOPS','TOKEN','ROUTE','SERVE','QUERY','INDEX','CLASS',
+  'BLOCK','BUILD','CRASH','DEBUG','FLOAT','FRAME','LOCAL','NODES','PARSE',
+  'PRINT','PROTO','SCOPE','STATE','STORE','TRACE','TYPES','VALID','VALUE',
+  'WATCH','WRITE','BREAK','AWAIT','CONST','SUPER','YIELD','SPAWN',
+  // Deutsche einfache Wörter
+  'ABEND','ALTER','AMPEL','APFEL','ATLAS','BITTE','BLATT','BLUME','BODEN',
+  'ESSEN','FEUER','FISCH','FLUSS','HILFE','KATZE','KREUZ','KRONE','LICHT',
+  'LIEBE','METER','MITTE','NACHT','PFEIL','PLATZ','REISE','RUNDE','SEITE',
+  'STADT','STERN','STROM','STUHL','TISCH','VOGEL','WOLKE','LEBEN','SPIEL',
+  'BREIT','STARK','OFFEN','WOCHE','KRAFT','FARBE','MARKT','WILLE','STUFE'
+];
 
 // Alle gültigen Ratewörter (Lösungen + erweitertes Vokabular)
 var WORDLE_VALID_WORDS = new Set(WORDLE_WORDS.concat([
@@ -3293,7 +3414,9 @@ function wordleGame() {
     if (k === 'ENTER') {
       if (currentGuess.length < wordLen) { statusEl.textContent = 'Noch ' + (wordLen - currentGuess.length) + ' Buchstaben fehlen!'; return; }
       var guessWord = currentGuess.join('');
-      if (!WORDLE_VALID_WORDS.has(guessWord)) {
+      // Accept: words in our list, OR any 5-letter word consisting of A-Z (open dictionary)
+      var isValidWord = WORDLE_VALID_WORDS.has(guessWord) || /^[A-Z]{5}$/.test(guessWord);
+      if (!isValidWord) {
         statusEl.textContent = '❌ Kein gültiges Wort!';
         var rowEl = cells[currentRow][0].parentElement;
         rowEl.classList.remove('shake');
@@ -3589,8 +3712,13 @@ function c4StartOnline(lobbyId, isHost) {
   fitCanvas(cv, 420, 400);
   if (game) { game.stop(); game = null; }
   game = connect4Game(cv, false, null, isHost, lobbyId);
+  // WebSocket for instant move sync
+  connectGameWS(lobbyId, function(data) {
+    if (data.type==='c4' && game && game.applyState) game.applyState(data.state);
+  });
+  // Poll as fallback (3s)
   if (c4PollInterval) clearInterval(c4PollInterval);
-  c4PollInterval = setInterval(c4PollOnline, 400);
+  c4PollInterval = setInterval(c4PollOnline, 3000);
 }
 
 async function c4PollOnline() {
@@ -3773,9 +3901,14 @@ function connect4Game(cv, isAI, diff, isHost, lobbyId) {
       // For ONLINE: ALWAYS send move to server FIRST, before any win check!
       // If we check win first and return, loser never receives the winning move.
       if (!isAI && lobbyId) {
+        // Primary: WS instant relay. Secondary: REST for persistence.
         fetch(API_URL+'/api/lobby/move', {
           method:'POST', headers:{'Content-Type':'application/json'},
           body:JSON.stringify({lobby_id:lobbyId, user_id:user.id, move:col})
+        }).then(async function(r){
+          // After server processes, broadcast updated board via WS
+          var j = await r.json().catch(function(){return null;});
+          if (j && j.game_state) sendGameWS({type:'c4', state:j.game_state});
         });
       }
       if (checkWin(board, row, col, mySym)) {
@@ -5376,12 +5509,9 @@ function flappyBird(cv) {
 }
 
 /* ================================================================
-   SCHIFFE VERSENKEN (BATTLESHIP)
+   REAKTIONS-DUELL (REACTION TIME DUEL)
+   via WebSocket — both receive trigger simultaneously
    ================================================================ */
-
-var BS = 8; // grid size 8x8
-// Ships: [4, 3, 3, 2] = Battleship, Destroyer, Destroyer, Submarine
-var BS_SHIPS = [4, 3, 3, 2];
 
 document.querySelectorAll('.elfmeter-diff').forEach(function(btn) {
   btn.addEventListener('click', function() {
@@ -5396,8 +5526,7 @@ document.getElementById('btn-elfmeter-ai').addEventListener('click', function() 
 
 async function loadElfmeterLobbyScreen() {
   document.getElementById('elfmeter-lobby-screen').style.display = 'block';
-  document.getElementById('bs-setup-screen').style.display = 'none';
-  document.getElementById('bs-battle-screen').style.display = 'none';
+  document.getElementById('rd-game-screen').style.display = 'none';
   try {
     var res = await fetch(API_URL + '/api/users/search?me=' + user.id);
     var users = await res.json();
@@ -5418,329 +5547,246 @@ async function loadElfmeterLobbyScreen() {
   } catch(e) {}
 }
 
-// ── Board helpers ──────────────────────────────────────────────
-function bsNewBoard() { return Array(BS*BS).fill(0); }
-function bsIdx(r,c) { return r*BS+c; }
-
-// Place ships randomly on a board, returns new board (0=empty, 1=ship)
-function bsRandomBoard() {
-  var board = bsNewBoard();
-  BS_SHIPS.forEach(function(len) {
-    var placed = false;
-    var attempts = 0;
-    while (!placed && attempts++ < 500) {
-      var horiz = Math.random() > 0.5;
-      var r = Math.floor(Math.random() * (horiz ? BS : BS - len + 1));
-      var c = Math.floor(Math.random() * (horiz ? BS - len + 1 : BS));
-      var ok = true;
-      for (var i = 0; i < len; i++) {
-        var nr = r + (horiz ? 0 : i), nc = c + (horiz ? i : 0);
-        if (board[bsIdx(nr,nc)] !== 0) { ok = false; break; }
-        // Check neighbors
-        for (var dr=-1;dr<=1;dr++) for (var dc=-1;dc<=1;dc++) {
-          var nnr=nr+dr, nnc=nc+dc;
-          if (nnr>=0&&nnr<BS&&nnc>=0&&nnc<BS&&board[bsIdx(nnr,nnc)]!==0) { ok=false; }
-        }
-      }
-      if (ok) {
-        for (var i=0; i<len; i++) board[bsIdx(r+(horiz?0:i), c+(horiz?i:0))] = 1;
-        placed = true;
-      }
-    }
-  });
-  return board;
-}
-
-// AI shot: returns [r,c] to shoot at
-function bsAiShot(diff, oppShots, oppShipBoard) {
-  // oppShots: {idx: 'hit'|'miss'}
-  var untried = [];
-  for (var i=0; i<BS*BS; i++) if (!oppShots[i]) untried.push(i);
-  if (!untried.length) return null;
-
-  if (diff === 'easy') {
-    var pick = untried[Math.floor(Math.random()*untried.length)];
-    return [Math.floor(pick/BS), pick%BS];
-  }
-  if (diff === 'medium') {
-    // Checkerboard pattern: only shoot cells where (r+c)%2===0
-    var parity = untried.filter(function(i){ return ((Math.floor(i/BS)+i%BS)%2===0); });
-    if (!parity.length) parity = untried;
-    // Also hunt if there are hits
-    var hits = Object.keys(oppShots).filter(function(k){ return oppShots[k]==='hit'; }).map(Number);
-    if (hits.length > 0) {
-      var adjacent = [];
-      hits.forEach(function(h) {
-        var r=Math.floor(h/BS), c=h%BS;
-        [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(function(p) {
-          if (p[0]>=0&&p[0]<BS&&p[1]>=0&&p[1]<BS&&!oppShots[bsIdx(p[0],p[1])]) adjacent.push(bsIdx(p[0],p[1]));
-        });
-      });
-      if (adjacent.length) {
-        var pick2 = adjacent[Math.floor(Math.random()*adjacent.length)];
-        return [Math.floor(pick2/BS), pick2%BS];
-      }
-    }
-    var pick3 = parity[Math.floor(Math.random()*parity.length)];
-    return [Math.floor(pick3/BS), pick3%BS];
-  }
-  // Hard: hunt-and-target
-  var hits2 = Object.keys(oppShots).filter(function(k){ return oppShots[k]==='hit'; }).map(Number);
-  if (hits2.length > 0) {
-    // Find longest run of hits and target end
-    var adjacent2 = [];
-    hits2.forEach(function(h) {
-      var r=Math.floor(h/BS), c=h%BS;
-      [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(function(p) {
-        var idx = bsIdx(p[0],p[1]);
-        if (p[0]>=0&&p[0]<BS&&p[1]>=0&&p[1]<BS&&!oppShots[idx]&&adjacent2.indexOf(idx)<0) adjacent2.push(idx);
-      });
-    });
-    // Prefer cells in line with multiple hits
-    if (hits2.length >= 2 && adjacent2.length > 0) {
-      var inLine = adjacent2.filter(function(idx) {
-        var r=Math.floor(idx/BS), c=idx%BS;
-        return hits2.some(function(h) { return Math.floor(h/BS)===r; }) ||
-               hits2.some(function(h) { return h%BS===c; });
-      });
-      if (inLine.length) {
-        var pick4 = inLine[Math.floor(Math.random()*inLine.length)];
-        return [Math.floor(pick4/BS), pick4%BS];
-      }
-    }
-    if (adjacent2.length) {
-      var pick5 = adjacent2[Math.floor(Math.random()*adjacent2.length)];
-      return [Math.floor(pick5/BS), pick5%BS];
-    }
-  }
-  var pick6 = untried[Math.floor(Math.random()*untried.length)];
-  return [Math.floor(pick6/BS), pick6%BS];
-}
-
-// ── Render grids ───────────────────────────────────────────────
-function bsRenderGrid(containerId, shipBoard, shots, clickable, onShot) {
-  var el = document.getElementById(containerId);
-  if (!el) return;
-  el.innerHTML = '';
-  for (var r=0; r<BS; r++) {
-    for (var c=0; c<BS; c++) {
-      var cell = document.createElement('div');
-      cell.className = 'bs-cell';
-      var idx = bsIdx(r,c);
-      var shot = shots[idx];
-      var hasShip = shipBoard && shipBoard[idx]===1;
-      if (shot === 'hit')  { cell.classList.add('bs-hit');  cell.textContent = '💥'; }
-      else if (shot === 'miss') { cell.classList.add('bs-miss'); cell.textContent = '🌊'; }
-      else if (hasShip && !clickable) cell.classList.add('bs-ship'); // only show own ships
-      if (clickable && !shot) {
-        cell.classList.add('bs-clickable');
-        (function(row, col) {
-          cell.addEventListener('click', function() { onShot(row, col); });
-        })(r, c);
-      }
-      el.appendChild(cell);
-    }
-  }
-}
-
-function bsCountSunk(shipBoard, shots) {
-  // Count how many complete ships are fully hit
-  var sunk = 0;
-  BS_SHIPS.forEach(function(len) {
-    // Simple: count contiguous groups of hits that match a ship length
-  });
-  // Actually count total hit cells as proxy
-  var hits = Object.values(shots).filter(function(v){ return v==='hit'; }).length;
-  // Total ship cells = sum of ships
-  var total = BS_SHIPS.reduce(function(a,b){return a+b;},0);
-  return Math.floor(hits / (total / BS_SHIPS.length)); // approx
-}
-
-function bsAllSunk(shipBoard, shots) {
-  for (var i=0; i<BS*BS; i++) {
-    if (shipBoard[i]===1 && !shots[i]) return false;
-  }
-  return true;
-}
-
-// ── Start game ─────────────────────────────────────────────────
 function elfmeterStart(diff) {
   elfmIsAI = true; elfmAiDiff = diff; elfmIsHost = true; elfmOn = true;
-  bsStartGame(true, diff, null, true);
+  rdStartGame(true, diff, null, true);
 }
 
 function elfmeterStartOnline(lobbyId, isHost) {
   elfmLobbyId = lobbyId; elfmIsHost = isHost; elfmIsAI = false; elfmOn = true;
-  bsStartGame(false, null, lobbyId, isHost);
+  rdStartGame(false, null, lobbyId, isHost);
+  // WS for simultaneous trigger
+  connectGameWS(lobbyId, function(data) {
+    if (game && game.onWS) game.onWS(data);
+  });
   if (elfmPollInterval) clearInterval(elfmPollInterval);
-  elfmPollInterval = setInterval(bsPollOnline, 800);
+  // Minimal poll as fallback
+  elfmPollInterval = setInterval(function() {
+    if (!elfmOn) clearInterval(elfmPollInterval);
+  }, 5000);
 }
 
-async function bsPollOnline() {
-  if (!elfmOn || !elfmLobbyId) return;
-  try {
-    var res = await fetch(API_URL + '/api/lobby/' + elfmLobbyId);
-    if (!res.ok) return;
-    var lobby = await res.json();
-    if (lobby.game_state && game && game.applyState) game.applyState(lobby.game_state);
-  } catch(e) {}
-}
-
-function bsStartGame(isAI, diff, lobbyId, isHost) {
+function rdStartGame(isAI, diff, lobbyId, isHost) {
   document.getElementById('elfmeter-lobby-screen').style.display = 'none';
-  document.getElementById('bs-battle-screen').style.display = 'none';
+  document.getElementById('rd-game-screen').style.display = 'flex';
 
-  var myBoard = bsRandomBoard();
-  var myShots = {}, oppShots = {};
-  var oppBoard = isAI ? bsRandomBoard() : null; // AI board known locally
-  var myTurn = isHost; // host goes first
-  var gameOver = false;
-  var myReady = false, oppReady = !isAI ? false : true;
+  var myWins = 0, oppWins = 0;
+  var round = 1, MAX_ROUNDS = 5;
+  var phase = 'waiting'; // waiting | countdown | ready | triggered | result
+  var triggerTs = null, myTime = null, oppTime = null;
+  var countdownTimer = null, autoTimer = null, resolveTimer = null;
+  var gameEnded = false;
 
-  function showSetup() {
-    document.getElementById('bs-setup-screen').style.display = 'flex';
-    renderSetup();
-    document.getElementById('bs-ready-btn').disabled = false;
-    document.getElementById('bs-waiting-msg').style.display = 'none';
+  var arenaEl = document.getElementById('rd-arena');
+  var signalEl = document.getElementById('rd-signal');
+  var statusEl = document.getElementById('rd-status');
+  var tapBtn = document.getElementById('rd-tap-btn');
+  var resultEl = document.getElementById('rd-result');
+
+  // AI response times
+  var aiTimes = { easy:[550,950], medium:[280,460], hard:[150,260] };
+
+  function updateHeader() {
+    document.getElementById('rd-my-wins').textContent = myWins;
+    document.getElementById('rd-opp-wins').textContent = oppWins;
+    document.getElementById('rd-round-info').textContent = 'Runde '+round+'/'+MAX_ROUNDS;
+    document.getElementById('rd-opp-label').textContent = isAI ? 'KI' : 'Gegner';
   }
 
-  function renderSetup() {
-    bsRenderGrid('bs-my-setup-grid', myBoard, {}, false, null);
+  function startRound() {
+    if (gameEnded) return;
+    phase = 'countdown';
+    myTime = null; oppTime = null;
+    resultEl.style.display = 'none';
+    tapBtn.disabled = true;
+    tapBtn.style.background = '';
+    arenaEl.className = 'rd-arena';
+    signalEl.textContent = '●';
+    signalEl.style.color = 'rgba(255,255,255,0.2)';
+    updateHeader();
+
+    // Countdown 3-2-1
+    var cnt = 3;
+    statusEl.textContent = 'Bereit...';
+    countdownTimer = setInterval(function() {
+      if (!elfmOn || gameEnded) { clearInterval(countdownTimer); return; }
+      cnt--;
+      if (cnt > 0) {
+        statusEl.textContent = cnt + '...';
+      } else {
+        clearInterval(countdownTimer);
+        waitForTrigger();
+      }
+    }, 800);
   }
 
-  document.getElementById('bs-shuffle-btn').onclick = function() {
-    if (myReady) return;
-    myBoard = bsRandomBoard();
-    renderSetup();
-  };
-
-  document.getElementById('bs-ready-btn').onclick = function() {
-    if (myReady) return;
-    myReady = true;
-    document.getElementById('bs-ready-btn').disabled = true;
-    if (!isAI) {
-      document.getElementById('bs-waiting-msg').style.display = 'block';
-      // Send my board to server
-      fetch(API_URL + '/api/lobby/state', {
-        method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ lobby_id: lobbyId, user_id: user.id, patch: {
-          [isHost ? 'hostBoard' : 'guestBoard']: myBoard,
-          [isHost ? 'hostReady' : 'guestReady']: true
-        }})
-      });
-    } else {
-      startBattle();
-    }
-  };
-
-  function startBattle() {
-    document.getElementById('bs-setup-screen').style.display = 'none';
-    document.getElementById('bs-battle-screen').style.display = 'flex';
-    updateBattle();
-  }
-
-  function updateBattle() {
-    var oppGrid = oppBoard || bsNewBoard();
-    bsRenderGrid('bs-opp-grid', oppGrid, myShots, myTurn && !gameOver, function(r,c) {
-      if (!myTurn || gameOver) return;
-      doShot(r, c);
-    });
-    bsRenderGrid('bs-own-grid', myBoard, oppShots, false, null);
-    var turEl = document.getElementById('bs-turn-indicator');
-    turEl.textContent = gameOver ? '🏁 Spiel beendet' : (myTurn ? '🎯 Dein Zug!' : '⏳ Gegner schießt...');
-    turEl.style.color = myTurn ? '#fbbf24' : '#60a5fa';
-    document.getElementById('bs-status').textContent = '';
-    // Sunk count
-    var mySunk = Object.values(myShots).filter(function(v){return v==='hit';}).length;
-    var oppSunkHits = Object.values(oppShots).filter(function(v){return v==='hit';}).length;
-    document.getElementById('bs-my-sunk').textContent = Math.min(4, Math.floor(mySunk / (12/BS_SHIPS.length)));
-    document.getElementById('bs-opp-sunk').textContent = Math.min(4, Math.floor(oppSunkHits / (12/BS_SHIPS.length)));
-  }
-
-  function doShot(r, c) {
-    var idx = bsIdx(r,c);
-    if (myShots[idx] || gameOver) return;
-    var hit = oppBoard && oppBoard[idx]===1;
-    myShots[idx] = hit ? 'hit' : 'miss';
-    var statusEl = document.getElementById('bs-status');
-    statusEl.textContent = hit ? '💥 Treffer!' : '🌊 Daneben!';
-    statusEl.style.color = hit ? '#fbbf24' : '#60a5fa';
-
-    if (!isAI) {
-      // Online: send shot to server
-      var shotsKey = isHost ? 'hostShots' : 'guestShots';
-      var newShots = Object.assign({}, myShots);
-      fetch(API_URL + '/api/lobby/state', {
-        method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ lobby_id: lobbyId, user_id: user.id, patch: {
-          [shotsKey]: newShots, currentTurn: isHost ? 'guest' : 'host'
-        }})
-      });
-    }
-
-    if (oppBoard && bsAllSunk(oppBoard, myShots)) {
-      finishGame(true); return;
-    }
-    myTurn = false;
-    updateBattle();
+  function waitForTrigger() {
+    if (!elfmOn || gameEnded) return;
+    phase = 'ready';
+    statusEl.textContent = '⚡ Gleich...';
+    signalEl.textContent = '●';
+    signalEl.style.color = 'rgba(255,87,51,0.3)';
 
     if (isAI) {
-      setTimeout(function() {
-        if (!elfmOn || gameOver) return;
-        var shot = bsAiShot(diff, oppShots, myBoard);
-        if (!shot) return;
-        var aidx = bsIdx(shot[0],shot[1]);
-        var aiHit = myBoard[aidx]===1;
-        oppShots[aidx] = aiHit ? 'hit' : 'miss';
-        var sEl = document.getElementById('bs-status');
-        sEl.textContent = aiHit ? '💥 KI trifft dich!' : '🌊 KI daneben';
-        sEl.style.color = aiHit ? '#ef4444' : '#4ade80';
-        if (bsAllSunk(myBoard, oppShots)) { finishGame(false); return; }
-        myTurn = true;
-        updateBattle();
-      }, 800 + Math.random() * (diff==='hard'?400:diff==='medium'?800:1200));
+      // Random delay 1-3s then trigger
+      var delay = 1000 + Math.random() * 2000;
+      autoTimer = setTimeout(function() {
+        if (!elfmOn || gameEnded || phase !== 'ready') return;
+        triggerNow();
+        // AI reacts after its delay
+        var r = aiTimes[diff]||aiTimes.medium;
+        var aiMs = r[0] + Math.random()*(r[1]-r[0]);
+        setTimeout(function(){
+          if(phase==='triggered') oppTime = Math.round(aiMs);
+          checkBothDone();
+        }, aiMs);
+      }, delay);
+    } else {
+      if (isHost) {
+        // Host sends trigger after random delay
+        var hostDelay = 1000 + Math.random() * 2500;
+        autoTimer = setTimeout(function() {
+          if (!elfmOn || gameEnded || phase !== 'ready') return;
+          var triggerAt = Date.now();
+          sendGameWS({ type:'rd_trigger', at: triggerAt });
+          triggerAt_local = triggerAt;
+          triggerNow();
+        }, hostDelay);
+      }
+      // Guest waits for WS trigger (handled in onWS)
     }
   }
 
-  function finishGame(iWon) {
-    gameOver = true; elfmOn = false;
+  var triggerAt_local = null;
+
+  function triggerNow() {
+    if (phase !== 'ready') return;
+    phase = 'triggered';
+    triggerTs = Date.now();
+    signalEl.textContent = '⚡';
+    signalEl.style.color = '#fbbf24';
+    arenaEl.classList.add('rd-go');
+    tapBtn.disabled = false;
+    tapBtn.style.background = 'linear-gradient(135deg,#22c55e,#16a34a)';
+    statusEl.textContent = 'JETZT DRÜCKEN!';
+    // Auto-miss after 2s
+    autoTimer = setTimeout(function() {
+      if (phase==='triggered' && !myTime) {
+        myTime = 9999; // missed
+        checkBothDone();
+      }
+    }, 2000);
+  }
+
+  function onTap() {
+    if (phase !== 'triggered' || myTime) return;
+    myTime = Date.now() - triggerTs;
+    tapBtn.disabled = true;
+    tapBtn.style.background = 'linear-gradient(135deg,#3b82f6,#1d4ed8)';
+    statusEl.textContent = '⏱ ' + myTime + 'ms — warte auf Gegner...';
+    if (!isAI) {
+      sendGameWS({ type:'rd_result', ms: myTime });
+    }
+    checkBothDone();
+  }
+
+  tapBtn.addEventListener('click', onTap);
+  document.addEventListener('keydown', function kHandler(e) {
+    if (!elfmOn) { document.removeEventListener('keydown', kHandler); return; }
+    if (e.code==='Space'||e.key===' ') { e.preventDefault(); onTap(); }
+  });
+
+  function checkBothDone() {
+    if (!myTime) return; // not done yet
+    if (!isAI && !oppTime) return; // waiting for opponent
+    showResult();
+  }
+
+  function showResult() {
+    if (gameEnded) return;
+    clearTimeout(autoTimer);
+    phase = 'result';
+    tapBtn.disabled = true;
+    arenaEl.classList.remove('rd-go');
+
+    var myMs = myTime === 9999 ? '—' : myTime + 'ms';
+    var oppMs = oppTime === 9999 ? '—' : (oppTime || '?') + 'ms';
+
+    var iWon, isDraw = false;
+    if (!isAI && !oppTime) { iWon = false; } // opponent didn't respond
+    else if (myTime === 9999 && oppTime === 9999) isDraw = true;
+    else if (myTime === 9999) iWon = false;
+    else if (oppTime === 9999) iWon = true;
+    else iWon = myTime <= oppTime;
+
+    if (!isDraw) {
+      if (iWon) myWins++; else oppWins++;
+    }
+    updateHeader();
+
+    signalEl.textContent = iWon ? '🏅' : isDraw ? '🤝' : '😔';
+    signalEl.style.color = iWon ? '#fbbf24' : isDraw ? '#60a5fa' : '#ef4444';
+
+    resultEl.style.display = 'block';
+    resultEl.innerHTML =
+      '<div class="rd-times">' +
+        '<div class="rd-time-box rd-time-me"><span>Du</span><strong>' + myMs + '</strong></div>' +
+        '<div class="rd-time-vs">VS</div>' +
+        '<div class="rd-time-box rd-time-opp"><span>'+(isAI?'KI':'Gegner')+'</span><strong>'+oppMs+'</strong></div>' +
+      '</div>' +
+      '<div class="rd-verdict">' + (isDraw?'🤝 Gleichstand!':(iWon?'⚡ Du warst schneller!':'😔 Gegner war schneller!')) + '</div>';
+
+    statusEl.textContent = isDraw?'Unentschieden':iWon?'Runde gewonnen!':'Runde verloren!';
+    statusEl.style.color = isDraw?'#60a5fa':iWon?'#4ade80':'#ef4444';
+
+    resolveTimer = setTimeout(function() {
+      if (!elfmOn) return;
+      round++;
+      if (round > MAX_ROUNDS) {
+        endGame();
+      } else {
+        startRound();
+      }
+    }, 2500);
+  }
+
+  function endGame() {
+    gameEnded = true; elfmOn = false;
     if (elfmPollInterval) { clearInterval(elfmPollInterval); elfmPollInterval = null; }
     var overlay = document.getElementById('ttt-overlay');
     var msg = document.getElementById('ttt-overlay-msg');
-    if (iWon) { msg.innerHTML = '🏆<br>Du hast gewonnen!<br><small style="font-size:0.6em;opacity:0.7">Schiffe versenken</small>'; sounds.highscore(); }
-    else { msg.innerHTML = '😔<br>Du hast verloren.<br><small style="font-size:0.6em;opacity:0.7">Schiffe versenken</small>'; }
+    var sub = '<small style="font-size:0.6em;opacity:0.7">Reaktions-Duell '+myWins+':'+oppWins+'</small>';
+    if (myWins > oppWins) { msg.innerHTML='🏆<br>Du hast gewonnen!<br>'+sub; sounds.highscore(); }
+    else if (myWins < oppWins) { msg.innerHTML='😔<br>Du hast verloren.<br>'+sub; }
+    else { msg.innerHTML='🤝<br>Unentschieden!<br>'+sub; }
     overlay.classList.add('show');
   }
 
-  // Online: receive state from server
-  function applyState(st) {
-    if (!elfmOn || gameOver) return;
-    // Setup phase: check if both ready
-    if (!myReady) return;
-    if (st.hostReady && st.guestReady && document.getElementById('bs-battle-screen').style.display === 'none') {
-      oppBoard = isHost ? st.guestBoard : st.hostBoard;
-      if (oppBoard) startBattle();
-    }
-    if (document.getElementById('bs-battle-screen').style.display === 'none') return;
-    // Battle: sync opponent shots
-    var oppShotsKey = isHost ? 'guestShots' : 'hostShots';
-    var newOppShots = st[oppShotsKey] || {};
-    var changed = false;
-    Object.keys(newOppShots).forEach(function(k) {
-      if (!oppShots[k]) { oppShots[k] = newOppShots[k]; changed = true; }
-    });
-    // Check server turn
-    var serverTurn = st.currentTurn; // 'host' or 'guest'
-    var shouldBeMyTurn = (serverTurn === (isHost ? 'host' : 'guest'));
-    if (shouldBeMyTurn !== myTurn) { myTurn = shouldBeMyTurn; changed = true; }
-    if (changed) {
-      if (bsAllSunk(myBoard, oppShots)) { finishGame(false); return; }
-      updateBattle();
+  function onWS(data) {
+    if (gameEnded) return;
+    if (data.type === 'rd_trigger') {
+      // Guest receives trigger from host
+      if (phase === 'ready') {
+        clearTimeout(autoTimer);
+        triggerTs = Date.now(); // use local time for fairness
+        triggerNow();
+      }
+    } else if (data.type === 'rd_result') {
+      oppTime = data.ms;
+      checkBothDone();
     }
   }
 
-  game = { stop: function() { elfmOn=false; }, applyState: applyState };
-  showSetup();
+  game = {
+    stop: function() {
+      elfmOn = false; gameEnded = true;
+      clearInterval(countdownTimer); clearTimeout(autoTimer); clearTimeout(resolveTimer);
+      tapBtn.removeEventListener('click', onTap);
+    },
+    onWS: onWS
+  };
+
+  startRound();
 }
 
 /* ================================================================
