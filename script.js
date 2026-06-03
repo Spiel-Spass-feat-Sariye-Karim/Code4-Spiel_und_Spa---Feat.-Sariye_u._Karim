@@ -1731,13 +1731,13 @@ function startArcadeParticles() {
     rain.push({ y: Math.random() * -100, speed: 0.4 + Math.random() * 0.7, bright: Math.random() > 0.85 });
   }
 
-  // ── Neon orbs ──
+  // ── Neon orbs (reduced to 5 for performance) ──
   var orbs = [];
-  for (var o = 0; o < 8; o++) {
+  for (var o = 0; o < 5; o++) {
     orbs.push({
       x: Math.random() * 1000, y: Math.random() * 800,
-      vx: (Math.random()-0.5)*0.35, vy: (Math.random()-0.5)*0.35,
-      r: 60+Math.random()*80, hue: Math.random()*360,
+      vx: (Math.random()-0.5)*0.3, vy: (Math.random()-0.5)*0.3,
+      r: 80+Math.random()*100, hue: Math.random()*360,
       phase: Math.random()*Math.PI*2
     });
   }
@@ -1783,31 +1783,30 @@ function startArcadeParticles() {
     ctx.fillStyle = hg; ctx.fillRect(0, vy-30, W, 60);
   }
 
-  // ── Character rain ──
+  // ── Character rain (no shadowBlur — too expensive) ──
   function drawRain() {
-    COLS_RAIN = Math.max(1, Math.floor(W / 18));
-    while (rain.length < COLS_RAIN) rain.push({ y: Math.random()*-100, speed:0.4+Math.random()*0.7, bright:false });
+    COLS_RAIN = Math.max(1, Math.floor(W / 22)); // fewer columns
+    while (rain.length < COLS_RAIN) rain.push({ y: Math.random()*-100, speed:0.3+Math.random()*0.6, bright:false, ch:'' });
+    ctx.font = '11px monospace'; ctx.textAlign = 'center';
     for (var i = 0; i < Math.min(rain.length, COLS_RAIN); i++) {
       var col = rain[i];
       var cx = i * (W / COLS_RAIN) + (W / COLS_RAIN / 2);
       col.y += col.speed;
-      if (col.y > H + 20) { col.y = -Math.random()*200; col.bright = Math.random()>0.85; col.speed = 0.4+Math.random()*0.7; }
-      var ch = rainChars[Math.floor(Math.random()*rainChars.length)];
-      if (col.bright) {
-        ctx.fillStyle = 'rgba(255,255,255,0.7)';
-        ctx.shadowColor = '#ff5733'; ctx.shadowBlur = 6;
-      } else {
-        ctx.fillStyle = 'rgba(255,87,51,0.18)';
-        ctx.shadowBlur = 0;
+      if (col.y > H + 20) {
+        col.y = -Math.random()*200;
+        col.bright = Math.random()>0.9;
+        col.speed = 0.3+Math.random()*0.6;
+        col.ch = rainChars[Math.floor(Math.random()*rainChars.length)];
       }
-      ctx.font = '11px monospace'; ctx.textAlign = 'center';
-      ctx.fillText(ch, cx, col.y);
-      ctx.shadowBlur = 0;
+      if (!col.ch) col.ch = rainChars[Math.floor(Math.random()*rainChars.length)];
+      ctx.fillStyle = col.bright ? 'rgba(255,255,255,0.65)' : 'rgba(255,87,51,0.15)';
+      ctx.fillText(col.ch, cx, col.y);
     }
   }
 
-  // ── Orbs ──
+  // ── Orbs (no gradients every frame — use cached simple circles) ──
   function drawOrbs() {
+    ctx.save();
     for (var i = 0; i < orbs.length; i++) {
       var ob = orbs[i];
       ob.x += ob.vx; ob.y += ob.vy;
@@ -1815,29 +1814,27 @@ function startArcadeParticles() {
       if (ob.x > W + ob.r) ob.x = -ob.r;
       if (ob.y < -ob.r) ob.y = H + ob.r;
       if (ob.y > H + ob.r) ob.y = -ob.r;
-      ob.hue = (ob.hue + 0.1) % 360;
-      var pulse = 0.9 + 0.1 * Math.sin(t * 0.02 + ob.phase);
-      var gr = ctx.createRadialGradient(ob.x, ob.y, 0, ob.x, ob.y, ob.r * pulse);
-      var h = ob.hue;
-      gr.addColorStop(0, 'hsla(' + h + ',100%,70%,0.06)');
-      gr.addColorStop(1, 'hsla(' + h + ',100%,50%,0)');
-      ctx.fillStyle = gr;
-      ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r * pulse, 0, Math.PI*2); ctx.fill();
+      ob.hue = (ob.hue + 0.08) % 360;
+      // Simple filled circle — no expensive radial gradient every frame
+      ctx.globalAlpha = 0.04 + 0.02 * Math.sin(t * 0.015 + ob.phase);
+      ctx.fillStyle = 'hsl(' + Math.round(ob.hue) + ',80%,60%)';
+      ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r, 0, Math.PI*2); ctx.fill();
     }
+    ctx.restore();
   }
 
-  // ── Particles ──
+  // ── Particles (no stroke/shadowBlur) ──
   function drawParticles() {
-    if (t % 8 === 0) addParticle();
+    if (t % 12 === 0) addParticle(); // spawn less often
     parts = parts.filter(function(p){ return p.life > 0; });
     for (var i = 0; i < parts.length; i++) {
       var p = parts[i];
       p.x += p.vx; p.y += p.vy; p.life -= p.decay;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
-      ctx.fillStyle = 'rgba('+p.rgb+','+p.life*0.7+')'; ctx.fill();
-      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx*7, p.y - p.vy*7);
-      ctx.strokeStyle = 'rgba('+p.rgb+','+p.life*0.25+')'; ctx.lineWidth=p.r*0.7; ctx.stroke();
+      ctx.globalAlpha = p.life * 0.6;
+      ctx.fillStyle = 'rgb('+p.rgb+')';
+      ctx.fillRect(p.x - p.r/2, p.y - p.r/2, p.r, p.r); // rect instead of arc (faster)
     }
+    ctx.globalAlpha = 1;
   }
 
   // ── Scan line ──
@@ -1850,9 +1847,13 @@ function startArcadeParticles() {
     ctx.fillStyle = sg; ctx.fillRect(0, sy, W, 50);
   }
 
-  // ── Main loop ──
-  function frame() {
+  // ── Main loop — throttled to 30fps to reduce CPU load ──
+  var lastFrameMs = 0;
+  function frame(now) {
     if (!arcadeCanvas) return;
+    // Skip frame if less than 33ms since last (= 30fps cap)
+    if (now - lastFrameMs < 33) { arcadeRaf = requestAnimationFrame(frame); return; }
+    lastFrameMs = now;
     ctx.clearRect(0, 0, W, H);
     drawOrbs();
     drawGrid();
@@ -5477,11 +5478,7 @@ function snakeStart() {
       ctx.fillRect(seg.x*CELL + margin, seg.y*CELL + margin, CELL - margin*2, CELL - margin*2);
       ctx.restore();
     });
-    // score overlay
-    ctx.fillStyle = 'rgba(0,255,136,0.18)';
-    ctx.font = '13px monospace';
-    ctx.textAlign = 'left';
-    ctx.fillText('Score: ' + score, 6, 16);
+    // Score shown in #pts (outside canvas), not inside
   }
 
   // keyboard
@@ -5538,8 +5535,8 @@ function wortblitzStart() {
   wortblitzOn = true;
   var cv = document.getElementById('wortblitz-canvas');
   var inp = document.getElementById('wortblitz-input');
-  fitCanvas(cv, 380, 340);
-  var W = cv._W || 380, H = cv._H || 340;
+  fitCanvas(cv, 380, 300);
+  var W = cv._W || 380, H = cv._H || 300;
   var ctx = cv.getContext('2d');
   inp.style.display = 'block';
   inp.value = '';
@@ -5646,17 +5643,32 @@ function wortblitzStart() {
   }
   raf = requestAnimationFrame(loop);
 
+  // Match on every keystroke — the moment typed word exactly matches a falling word, destroy it
+  // Also supports Enter key for desktop. Case-insensitive comparison.
+  function checkTyped() {
+    if (!wortblitzOn) return;
+    var typed = inp.value.trim().toUpperCase().replace(/[^A-Z]/g, '');
+    var idx = -1;
+    for (var fi = 0; fi < falling.length; fi++) {
+      if (falling[fi].txt === typed) { idx = fi; break; }
+    }
+    if (idx >= 0) {
+      falling.splice(idx, 1);
+      score += 10;
+      document.getElementById('pts').textContent = score;
+      inp.value = '';
+      // Flash effect — briefly tint input green
+      inp.style.borderColor = '#00ff88';
+      setTimeout(function() { inp.style.borderColor = ''; }, 200);
+    }
+  }
+
+  inp.addEventListener('input', checkTyped);
   inp.addEventListener('keydown', function onEnter(e) {
     if (!wortblitzOn) { inp.removeEventListener('keydown', onEnter); return; }
-    if (e.key === 'Enter') {
-      var typed = inp.value.trim().toUpperCase();
+    if (e.key === 'Enter' || e.key === 'Return') {
+      checkTyped();
       inp.value = '';
-      var idx = -1; for (var fi=0;fi<falling.length;fi++){if(falling[fi].txt===typed){idx=fi;break;}}
-      if (idx >= 0) {
-        falling.splice(idx,1);
-        score += 10;
-        document.getElementById('pts').textContent = score;
-      }
     }
   });
 
@@ -5745,9 +5757,10 @@ function mathStart(diff) {
 
     // AI timer
     var delay, correct;
-    if (mathAiDiff==='easy') { delay = 3000 + Math.random()*2000; correct = Math.random()<0.5; }
-    else if (mathAiDiff==='medium') { delay = 1000 + Math.random()*1000; correct = Math.random()<0.8; }
-    else { delay = 200 + Math.random()*400; correct = true; }
+    // Human-realistic delays: even "hard" takes a few seconds to think
+    if (mathAiDiff==='easy') { delay = 7000 + Math.random()*5000; correct = Math.random()<0.5; }
+    else if (mathAiDiff==='medium') { delay = 3000 + Math.random()*3000; correct = Math.random()<0.8; }
+    else { delay = 1500 + Math.random()*2000; correct = true; } // hard: 1.5-3.5s, always correct
 
     aiTimer = setTimeout(function(){
       if (!roundActive) return;
