@@ -186,7 +186,7 @@
         <div class="cards cards-multi">
           <div class="card" id="card-multiplayer"><div class="em">⚔️</div><h3>TicTacToe Duell</h3><p>Klassisches TicTacToe gegen KI oder Freunde</p></div>
           <div class="card" id="card-connect4"><div class="em">🔴</div><h3>4 Gewinnt</h3><p>Verbinde als Erster 4 Steine in einer Reihe</p></div>
-          <div class="card" id="card-elfmeter"><div class="em">⚽</div><h3>Elfmeter-Duell</h3><p>Schieß oder halte — 5 Elfmeter, simultane Wahl, 9 Zonen!</p></div>
+          <div class="card" id="card-elfmeter"><div class="em">🚢</div><h3>Schiffe versenken</h3><p>Platziere deine Flotte und versenke die des Gegners Schuss für Schuss!</p></div>
           <div class="card" id="card-rps"><div class="em">✊</div><h3>Schere Stein Papier</h3><p>Best of 5 Runden — wer zuerst 3 gewinnt</p></div>
           <div class="card" id="card-chess"><div class="em">♟️</div><h3>Schach</h3><p>Klassisches Schach gegen KI oder Freunde</p></div>
           <div class="card" id="card-math"><div class="em">🧮</div><h3>Rechen-Duell</h3><p>Wer rechnet schneller? Direkt gegen KI oder Freunde!</p></div>
@@ -514,13 +514,13 @@
         </div>
       </div>
 
-      <!-- Elfmeter-Duell -->
+      <!-- Schiffe versenken (Battleship) -->
       <div id="elfmeter-area" class="elfmeter-area">
-        <!-- Lobby screen -->
+        <!-- Lobby -->
         <div id="elfmeter-lobby-screen">
           <div class="lobby-online-count"><span id="elfmeter-online-num">0</span> Spieler gerade online</div>
           <div class="lobby-difficulty">
-            <span class="diff-label">Schwierigkeit:</span>
+            <span class="diff-label">KI-Schwierigkeit:</span>
             <div class="diff-btns">
               <button class="diff-btn elfmeter-diff active" data-diff="easy">Leicht</button>
               <button class="diff-btn elfmeter-diff" data-diff="medium">Mittel</button>
@@ -531,39 +531,36 @@
           <div class="lobby-divider">— oder Freund einladen —</div>
           <div id="elfmeter-users-list" class="lobby-users-list"></div>
         </div>
-        <!-- Game screen -->
-        <div id="elfmeter-game-screen" style="display:none">
-          <div class="elfm-header">
-            <div class="elfm-score-wrap">
-              <div class="elfm-player-score">
-                <div class="elfm-goals" id="elfm-my-goals">0</div>
-                <div class="elfm-name">Du</div>
-              </div>
-              <div class="elfm-vs">⚽</div>
-              <div class="elfm-player-score">
-                <div class="elfm-goals" id="elfm-opp-goals">0</div>
-                <div class="elfm-name" id="elfm-opp-name">Gegner</div>
-              </div>
+        <!-- Setup phase: place ships -->
+        <div id="bs-setup-screen" style="display:none">
+          <div class="bs-setup-title">⚓ Schiffe platzieren</div>
+          <div class="bs-setup-hint">Deine Schiffe (zufällig platziert) — passe sie an oder starte!</div>
+          <div id="bs-my-setup-grid" class="bs-grid bs-setup-grid"></div>
+          <div class="bs-setup-btns">
+            <button id="bs-shuffle-btn" class="bs-btn-secondary">🔀 Neu würfeln</button>
+            <button id="bs-ready-btn" class="bs-btn-primary">✓ Bereit!</button>
+          </div>
+          <div id="bs-waiting-msg" class="bs-waiting-msg" style="display:none">⏳ Warte auf Gegner...</div>
+        </div>
+        <!-- Battle phase -->
+        <div id="bs-battle-screen" style="display:none">
+          <div class="bs-battle-header">
+            <div class="bs-turn-indicator" id="bs-turn-indicator">Dein Zug 🎯</div>
+            <div class="bs-sunk-count">
+              Du: <span id="bs-my-sunk">0</span>/4 &nbsp;|&nbsp; Gegner: <span id="bs-opp-sunk">0</span>/4
             </div>
-            <div class="elfm-round-info" id="elfm-round-info">Runde 1 / 5</div>
           </div>
-          <div class="elfm-role-display" id="elfm-role-display">⚽ Du schießt!</div>
-          <div class="elfm-field">
-            <div class="elfm-goal-wrap">
-              <div class="elfm-crossbar-top"></div>
-              <div id="elfm-goal-grid" class="elfm-goal-grid">
-                <!-- 9 zone buttons injected by JS -->
-              </div>
+          <div class="bs-grids-wrap">
+            <div class="bs-grid-section">
+              <div class="bs-grid-label">🎯 Gegner (anklicken)</div>
+              <div id="bs-opp-grid" class="bs-grid bs-attack-grid"></div>
             </div>
-            <div class="elfm-grass"></div>
-            <div class="elfm-ball" id="elfm-ball">⚽</div>
-            <div class="elfm-keeper" id="elfm-keeper">🧤</div>
+            <div class="bs-grid-section">
+              <div class="bs-grid-label">🚢 Deine Flotte</div>
+              <div id="bs-own-grid" class="bs-grid bs-own-grid"></div>
+            </div>
           </div>
-          <div class="elfm-timer-wrap">
-            <div class="elfm-timer-bar" id="elfm-timer-bar"></div>
-          </div>
-          <div class="elfm-status" id="elfm-status">Wähle deine Zone!</div>
-          <div class="elfm-result" id="elfm-result" style="display:none"></div>
+          <div class="bs-status" id="bs-status">Klicke auf Gegner-Grid!</div>
         </div>
       </div>
 

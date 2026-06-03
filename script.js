@@ -735,7 +735,7 @@ async function sendGameInvite(toId, btn, gameType) {
       body: JSON.stringify({ lobby_id: lobby.id, from_id: user.id, to_id: toId })
     });
     if (btn) { btn.textContent = '✓ Gesendet'; }
-    var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', elfmeter:'Elfmeter-Duell', rps:'Schere Stein Papier', chess:'Schach', math:'Rechen-Duell' };
+    var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', elfmeter:'Schiffe versenken', rps:'Schere Stein Papier', chess:'Schach', math:'Rechen-Duell' };
     showToast('⚔️ Einladung zu ' + (gameNames[gameType]||gameType) + ' gesendet!');
     if (hostWaitInterval) clearInterval(hostWaitInterval);
     hostWaitInterval = setInterval(async function() {
@@ -792,7 +792,7 @@ async function checkGameInvites() {
       seenInviteIds.add(inv.id);
       showInviteToast(inv);
       // Local push notification when tab is hidden
-      var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', elfmeter:'Elfmeter-Duell', rps:'Schere Stein Papier', chess:'Schach', math:'Rechen-Duell' };
+      var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', elfmeter:'Schiffe versenken', rps:'Schere Stein Papier', chess:'Schach', math:'Rechen-Duell' };
       var inviteMsg = (inv.from_name || 'Jemand') + ' lädt dich zu ' + (gameNames[inv.game_type]||'einem Spiel') + ' ein!';
       showLocalNotif('⚔️ Spieleinladung', inviteMsg);
       addNotifEvent('⚔️', 'Spieleinladung', inviteMsg, true);
@@ -806,7 +806,7 @@ function showInviteToast(inv) {
   var seed = inv.avatar_seed || inv.from_name || 'unknown';
   var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
   var gameIcons = { tictactoe:'⚔️', connect4:'🔴', pong:'🏓', rps:'✊', chess:'♟️', math:'🧮' };
-  var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', elfmeter:'Elfmeter-Duell', rps:'Schere Stein Papier', chess:'Schach', math:'Rechen-Duell' };
+  var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', elfmeter:'Schiffe versenken', rps:'Schere Stein Papier', chess:'Schach', math:'Rechen-Duell' };
   var icon = gameIcons[inv.game_type] || '⚔️';
   var name = gameNames[inv.game_type] || 'Duell';
   t.innerHTML =
@@ -2420,7 +2420,7 @@ document.getElementById('pc-input').addEventListener('keydown', function(e) { if
 
 function openG(id) {
   which = id;
-  var titles = { memory: 'Farb-Gedächtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest', bubble: 'Bubble Pop', guess: 'Zahlen-Raten', wordle: 'Info-Wordle', flappy: '🐦 Flappy Bird', multiplayer: '⚔️ TicTacToe Duell', connect4: '🔴 4 Gewinnt', elfmeter: '⚽ Elfmeter-Duell', rps: '✊ Schere Stein Papier', chess: '♟️ Schach', snake: '🐍 Schlange', wortblitz: '⌨️ Wort-Blitz', math: '🧮 Rechen-Duell' };
+  var titles = { memory: 'Farb-Gedächtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest', bubble: 'Bubble Pop', guess: 'Zahlen-Raten', wordle: 'Info-Wordle', flappy: '🐦 Flappy Bird', multiplayer: '⚔️ TicTacToe Duell', connect4: '🔴 4 Gewinnt', elfmeter: '🚢 Schiffe versenken', rps: '✊ Schere Stein Papier', chess: '♟️ Schach', snake: '🐍 Schlange', wortblitz: '⌨️ Wort-Blitz', math: '🧮 Rechen-Duell' };
   document.getElementById('gtitle').textContent = titles[id] || id;
   document.getElementById('pts').textContent = '0';
   var canvas = document.getElementById('c');
@@ -5376,10 +5376,12 @@ function flappyBird(cv) {
 }
 
 /* ================================================================
-   ELFMETER-DUELL (PENALTY SHOOTOUT)
+   SCHIFFE VERSENKEN (BATTLESHIP)
    ================================================================ */
 
-var elfmPlayerHistory = []; // zones the human shot at (for AI analysis)
+var BS = 8; // grid size 8x8
+// Ships: [4, 3, 3, 2] = Battleship, Destroyer, Destroyer, Submarine
+var BS_SHIPS = [4, 3, 3, 2];
 
 document.querySelectorAll('.elfmeter-diff').forEach(function(btn) {
   btn.addEventListener('click', function() {
@@ -5394,7 +5396,8 @@ document.getElementById('btn-elfmeter-ai').addEventListener('click', function() 
 
 async function loadElfmeterLobbyScreen() {
   document.getElementById('elfmeter-lobby-screen').style.display = 'block';
-  document.getElementById('elfmeter-game-screen').style.display = 'none';
+  document.getElementById('bs-setup-screen').style.display = 'none';
+  document.getElementById('bs-battle-screen').style.display = 'none';
   try {
     var res = await fetch(API_URL + '/api/users/search?me=' + user.id);
     var users = await res.json();
@@ -5415,28 +5418,165 @@ async function loadElfmeterLobbyScreen() {
   } catch(e) {}
 }
 
+// ── Board helpers ──────────────────────────────────────────────
+function bsNewBoard() { return Array(BS*BS).fill(0); }
+function bsIdx(r,c) { return r*BS+c; }
+
+// Place ships randomly on a board, returns new board (0=empty, 1=ship)
+function bsRandomBoard() {
+  var board = bsNewBoard();
+  BS_SHIPS.forEach(function(len) {
+    var placed = false;
+    var attempts = 0;
+    while (!placed && attempts++ < 500) {
+      var horiz = Math.random() > 0.5;
+      var r = Math.floor(Math.random() * (horiz ? BS : BS - len + 1));
+      var c = Math.floor(Math.random() * (horiz ? BS - len + 1 : BS));
+      var ok = true;
+      for (var i = 0; i < len; i++) {
+        var nr = r + (horiz ? 0 : i), nc = c + (horiz ? i : 0);
+        if (board[bsIdx(nr,nc)] !== 0) { ok = false; break; }
+        // Check neighbors
+        for (var dr=-1;dr<=1;dr++) for (var dc=-1;dc<=1;dc++) {
+          var nnr=nr+dr, nnc=nc+dc;
+          if (nnr>=0&&nnr<BS&&nnc>=0&&nnc<BS&&board[bsIdx(nnr,nnc)]!==0) { ok=false; }
+        }
+      }
+      if (ok) {
+        for (var i=0; i<len; i++) board[bsIdx(r+(horiz?0:i), c+(horiz?i:0))] = 1;
+        placed = true;
+      }
+    }
+  });
+  return board;
+}
+
+// AI shot: returns [r,c] to shoot at
+function bsAiShot(diff, oppShots, oppShipBoard) {
+  // oppShots: {idx: 'hit'|'miss'}
+  var untried = [];
+  for (var i=0; i<BS*BS; i++) if (!oppShots[i]) untried.push(i);
+  if (!untried.length) return null;
+
+  if (diff === 'easy') {
+    var pick = untried[Math.floor(Math.random()*untried.length)];
+    return [Math.floor(pick/BS), pick%BS];
+  }
+  if (diff === 'medium') {
+    // Checkerboard pattern: only shoot cells where (r+c)%2===0
+    var parity = untried.filter(function(i){ return ((Math.floor(i/BS)+i%BS)%2===0); });
+    if (!parity.length) parity = untried;
+    // Also hunt if there are hits
+    var hits = Object.keys(oppShots).filter(function(k){ return oppShots[k]==='hit'; }).map(Number);
+    if (hits.length > 0) {
+      var adjacent = [];
+      hits.forEach(function(h) {
+        var r=Math.floor(h/BS), c=h%BS;
+        [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(function(p) {
+          if (p[0]>=0&&p[0]<BS&&p[1]>=0&&p[1]<BS&&!oppShots[bsIdx(p[0],p[1])]) adjacent.push(bsIdx(p[0],p[1]));
+        });
+      });
+      if (adjacent.length) {
+        var pick2 = adjacent[Math.floor(Math.random()*adjacent.length)];
+        return [Math.floor(pick2/BS), pick2%BS];
+      }
+    }
+    var pick3 = parity[Math.floor(Math.random()*parity.length)];
+    return [Math.floor(pick3/BS), pick3%BS];
+  }
+  // Hard: hunt-and-target
+  var hits2 = Object.keys(oppShots).filter(function(k){ return oppShots[k]==='hit'; }).map(Number);
+  if (hits2.length > 0) {
+    // Find longest run of hits and target end
+    var adjacent2 = [];
+    hits2.forEach(function(h) {
+      var r=Math.floor(h/BS), c=h%BS;
+      [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(function(p) {
+        var idx = bsIdx(p[0],p[1]);
+        if (p[0]>=0&&p[0]<BS&&p[1]>=0&&p[1]<BS&&!oppShots[idx]&&adjacent2.indexOf(idx)<0) adjacent2.push(idx);
+      });
+    });
+    // Prefer cells in line with multiple hits
+    if (hits2.length >= 2 && adjacent2.length > 0) {
+      var inLine = adjacent2.filter(function(idx) {
+        var r=Math.floor(idx/BS), c=idx%BS;
+        return hits2.some(function(h) { return Math.floor(h/BS)===r; }) ||
+               hits2.some(function(h) { return h%BS===c; });
+      });
+      if (inLine.length) {
+        var pick4 = inLine[Math.floor(Math.random()*inLine.length)];
+        return [Math.floor(pick4/BS), pick4%BS];
+      }
+    }
+    if (adjacent2.length) {
+      var pick5 = adjacent2[Math.floor(Math.random()*adjacent2.length)];
+      return [Math.floor(pick5/BS), pick5%BS];
+    }
+  }
+  var pick6 = untried[Math.floor(Math.random()*untried.length)];
+  return [Math.floor(pick6/BS), pick6%BS];
+}
+
+// ── Render grids ───────────────────────────────────────────────
+function bsRenderGrid(containerId, shipBoard, shots, clickable, onShot) {
+  var el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  for (var r=0; r<BS; r++) {
+    for (var c=0; c<BS; c++) {
+      var cell = document.createElement('div');
+      cell.className = 'bs-cell';
+      var idx = bsIdx(r,c);
+      var shot = shots[idx];
+      var hasShip = shipBoard && shipBoard[idx]===1;
+      if (shot === 'hit')  { cell.classList.add('bs-hit');  cell.textContent = '💥'; }
+      else if (shot === 'miss') { cell.classList.add('bs-miss'); cell.textContent = '🌊'; }
+      else if (hasShip && !clickable) cell.classList.add('bs-ship'); // only show own ships
+      if (clickable && !shot) {
+        cell.classList.add('bs-clickable');
+        (function(row, col) {
+          cell.addEventListener('click', function() { onShot(row, col); });
+        })(r, c);
+      }
+      el.appendChild(cell);
+    }
+  }
+}
+
+function bsCountSunk(shipBoard, shots) {
+  // Count how many complete ships are fully hit
+  var sunk = 0;
+  BS_SHIPS.forEach(function(len) {
+    // Simple: count contiguous groups of hits that match a ship length
+  });
+  // Actually count total hit cells as proxy
+  var hits = Object.values(shots).filter(function(v){ return v==='hit'; }).length;
+  // Total ship cells = sum of ships
+  var total = BS_SHIPS.reduce(function(a,b){return a+b;},0);
+  return Math.floor(hits / (total / BS_SHIPS.length)); // approx
+}
+
+function bsAllSunk(shipBoard, shots) {
+  for (var i=0; i<BS*BS; i++) {
+    if (shipBoard[i]===1 && !shots[i]) return false;
+  }
+  return true;
+}
+
+// ── Start game ─────────────────────────────────────────────────
 function elfmeterStart(diff) {
   elfmIsAI = true; elfmAiDiff = diff; elfmIsHost = true; elfmOn = true;
-  elfmeterStartGame(true, diff, null, true);
+  bsStartGame(true, diff, null, true);
 }
 
 function elfmeterStartOnline(lobbyId, isHost) {
   elfmLobbyId = lobbyId; elfmIsHost = isHost; elfmIsAI = false; elfmOn = true;
-  elfmeterStartGame(false, null, lobbyId, isHost);
+  bsStartGame(false, null, lobbyId, isHost);
   if (elfmPollInterval) clearInterval(elfmPollInterval);
-  elfmPollInterval = setInterval(elfmeterPollOnline, 500);
-  if (isHost) {
-    fetch(API_URL + '/api/lobby/state', {
-      method: 'PUT', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ lobby_id: lobbyId, user_id: user.id, patch: {
-        round:1, maxRounds:5, hostGoals:0, guestGoals:0, hostIsShooter:true,
-        hostChoice:null, guestChoice:null, phase:'choosing'
-      }})
-    });
-  }
+  elfmPollInterval = setInterval(bsPollOnline, 800);
 }
 
-async function elfmeterPollOnline() {
+async function bsPollOnline() {
   if (!elfmOn || !elfmLobbyId) return;
   try {
     var res = await fetch(API_URL + '/api/lobby/' + elfmLobbyId);
@@ -5446,246 +5586,161 @@ async function elfmeterPollOnline() {
   } catch(e) {}
 }
 
-function elfmeterAiChoice(diff, role, history) {
-  // role: 'shooter' (AI shoots) or 'keeper' (AI keeps)
-  if (diff === 'easy') return Math.floor(Math.random() * 9);
-  if (diff === 'medium') {
-    if (role === 'shooter') {
-      // Prefer corners (harder to save)
-      var corners = [0,2,6,8];
-      return Math.random() < 0.65 ? corners[Math.floor(Math.random()*4)] : Math.floor(Math.random()*9);
-    } else {
-      // Slightly prefer center as keeper
-      return Math.random() < 0.28 ? 4 : Math.floor(Math.random()*9);
-    }
-  }
-  // Hard
-  if (role === 'shooter') {
-    if (history.length >= 2) {
-      var freq = Array(9).fill(0);
-      history.forEach(function(z) { freq[z]++; });
-      // Shoot where player keeper goes least (least covered zone)
-      var leastCovered = freq.indexOf(Math.min.apply(null, freq));
-      if (Math.random() < 0.55) return leastCovered;
-    }
-    var c2 = [0,2,6,8]; return c2[Math.floor(Math.random()*4)];
-  } else { // keeper
-    if (history.length >= 2) {
-      var freq2 = Array(9).fill(0);
-      history.forEach(function(z) { freq2[z]++; });
-      var mostShot = freq2.indexOf(Math.max.apply(null, freq2));
-      if (Math.random() < 0.6) return mostShot;
-    }
-    return Math.floor(Math.random() * 9);
-  }
-}
-
-function elfmeterStartGame(isAI, diff, lobbyId, isHost) {
-  elfmPlayerHistory = [];
+function bsStartGame(isAI, diff, lobbyId, isHost) {
   document.getElementById('elfmeter-lobby-screen').style.display = 'none';
-  document.getElementById('elfmeter-game-screen').style.display = 'flex';
-  document.getElementById('elfm-my-goals').textContent = '0';
-  document.getElementById('elfm-opp-goals').textContent = '0';
-  document.getElementById('elfm-opp-name').textContent = isAI ? 'KI' : 'Gegner';
+  document.getElementById('bs-battle-screen').style.display = 'none';
 
-  // Build 9-zone goal grid
-  var grid = document.getElementById('elfm-goal-grid');
-  grid.innerHTML = '';
-  // Zone labels: arrows indicating direction
-  var zoneLabels = ['↖','↑','↗','←','·','→','↙','↓','↘'];
-  for (var zi = 0; zi < 9; zi++) {
-    (function(zone) {
-      var btn = document.createElement('button');
-      btn.className = 'elfm-zone-btn';
-      btn.dataset.zone = zone;
-      btn.textContent = zoneLabels[zone];
-      btn.addEventListener('click', function() { onZonePick(zone); });
-      grid.appendChild(btn);
-    })(zi);
+  var myBoard = bsRandomBoard();
+  var myShots = {}, oppShots = {};
+  var oppBoard = isAI ? bsRandomBoard() : null; // AI board known locally
+  var myTurn = isHost; // host goes first
+  var gameOver = false;
+  var myReady = false, oppReady = !isAI ? false : true;
+
+  function showSetup() {
+    document.getElementById('bs-setup-screen').style.display = 'flex';
+    renderSetup();
+    document.getElementById('bs-ready-btn').disabled = false;
+    document.getElementById('bs-waiting-msg').style.display = 'none';
   }
 
-  var myGoals = 0, oppGoals = 0;
-  var round = 1, MAX_ROUNDS = 5;
-  var myIsShooter = isHost; // host shoots first
-  var myChoice = null, hasChosen = false;
-  var roundActive = false, gameEnded = false;
-  var timerInterval = null;
-
-  function updateHeader() {
-    document.getElementById('elfm-my-goals').textContent = myGoals;
-    document.getElementById('elfm-opp-goals').textContent = oppGoals;
-    document.getElementById('elfm-round-info').textContent = 'Runde ' + round + ' / ' + MAX_ROUNDS;
-    var roleEl = document.getElementById('elfm-role-display');
-    roleEl.textContent = myIsShooter ? '⚽ Du schießt!' : '🧤 Du hältst!';
-    roleEl.style.color = myIsShooter ? '#fbbf24' : '#60a5fa';
+  function renderSetup() {
+    bsRenderGrid('bs-my-setup-grid', myBoard, {}, false, null);
   }
 
-  function startRound() {
-    if (gameEnded) return;
-    myChoice = null; hasChosen = false; roundActive = true;
-    updateHeader();
-    document.getElementById('elfm-status').textContent = myIsShooter ? '🎯 Wähle dein Schussziel!' : '🧤 Wohin springst du?';
-    document.getElementById('elfm-result').style.display = 'none';
-    // Reset zone buttons
-    document.querySelectorAll('.elfm-zone-btn').forEach(function(b) {
-      b.disabled = false;
-      b.classList.remove('chosen','zone-shot','zone-kept');
-    });
-    // Reset ball/keeper position
-    var ballEl = document.getElementById('elfm-ball');
-    var keeperEl = document.getElementById('elfm-keeper');
-    if (ballEl) { ballEl.style.transition='none'; ballEl.style.left='50%'; ballEl.style.bottom='8%'; }
-    if (keeperEl) { keeperEl.style.transition='none'; keeperEl.style.left='50%'; keeperEl.style.bottom='30%'; }
-    // Start 5s countdown timer
-    var barEl = document.getElementById('elfm-timer-bar');
-    var timeLeft = 5;
-    if (barEl) { barEl.style.transition='none'; barEl.style.width='100%'; barEl.style.background='#22c55e'; }
-    if (timerInterval) clearInterval(timerInterval);
-    timerInterval = setInterval(function() {
-      if (!elfmOn || gameEnded || !roundActive) { clearInterval(timerInterval); return; }
-      timeLeft--;
-      var pct = Math.max(0, (timeLeft/5)*100);
-      if (barEl) {
-        barEl.style.transition = 'width 1s linear';
-        barEl.style.width = pct + '%';
-        barEl.style.background = timeLeft <= 2 ? '#ef4444' : '#22c55e';
-      }
-      if (timeLeft <= 0) {
-        clearInterval(timerInterval);
-        if (!hasChosen) onZonePick(Math.floor(Math.random()*9)); // auto-pick
-      }
-    }, 1000);
-  }
+  document.getElementById('bs-shuffle-btn').onclick = function() {
+    if (myReady) return;
+    myBoard = bsRandomBoard();
+    renderSetup();
+  };
 
-  function onZonePick(zone) {
-    if (!roundActive || hasChosen || gameEnded) return;
-    hasChosen = true;
-    myChoice = zone;
-    if (timerInterval) clearInterval(timerInterval);
-    document.querySelectorAll('.elfm-zone-btn').forEach(function(b) {
-      b.disabled = true;
-      if (parseInt(b.dataset.zone) === zone) b.classList.add('chosen');
-    });
-    document.getElementById('elfm-status').textContent = isAI ? '⏳ KI wählt...' : '⏳ Warte auf Gegner...';
-
-    if (isAI) {
-      var aiRole = myIsShooter ? 'keeper' : 'shooter';
-      var aiZone = elfmeterAiChoice(diff, aiRole, elfmPlayerHistory);
-      elfmPlayerHistory.push(zone); // track my choice for AI analysis next time
-      setTimeout(function() {
-        if (!elfmOn) return;
-        var shooterZone = myIsShooter ? zone : aiZone;
-        var keeperZone  = myIsShooter ? aiZone : zone;
-        resolveRound(shooterZone, keeperZone);
-      }, 500 + Math.random() * 600);
-    } else {
-      // Online: send my choice to server
-      var myKey = isHost ? 'hostChoice' : 'guestChoice';
-      var patch = {}; patch[myKey] = zone;
+  document.getElementById('bs-ready-btn').onclick = function() {
+    if (myReady) return;
+    myReady = true;
+    document.getElementById('bs-ready-btn').disabled = true;
+    if (!isAI) {
+      document.getElementById('bs-waiting-msg').style.display = 'block';
+      // Send my board to server
       fetch(API_URL + '/api/lobby/state', {
-        method: 'PUT', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ lobby_id: lobbyId, user_id: user.id, patch: patch })
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ lobby_id: lobbyId, user_id: user.id, patch: {
+          [isHost ? 'hostBoard' : 'guestBoard']: myBoard,
+          [isHost ? 'hostReady' : 'guestReady']: true
+        }})
+      });
+    } else {
+      startBattle();
+    }
+  };
+
+  function startBattle() {
+    document.getElementById('bs-setup-screen').style.display = 'none';
+    document.getElementById('bs-battle-screen').style.display = 'flex';
+    updateBattle();
+  }
+
+  function updateBattle() {
+    var oppGrid = oppBoard || bsNewBoard();
+    bsRenderGrid('bs-opp-grid', oppGrid, myShots, myTurn && !gameOver, function(r,c) {
+      if (!myTurn || gameOver) return;
+      doShot(r, c);
+    });
+    bsRenderGrid('bs-own-grid', myBoard, oppShots, false, null);
+    var turEl = document.getElementById('bs-turn-indicator');
+    turEl.textContent = gameOver ? '🏁 Spiel beendet' : (myTurn ? '🎯 Dein Zug!' : '⏳ Gegner schießt...');
+    turEl.style.color = myTurn ? '#fbbf24' : '#60a5fa';
+    document.getElementById('bs-status').textContent = '';
+    // Sunk count
+    var mySunk = Object.values(myShots).filter(function(v){return v==='hit';}).length;
+    var oppSunkHits = Object.values(oppShots).filter(function(v){return v==='hit';}).length;
+    document.getElementById('bs-my-sunk').textContent = Math.min(4, Math.floor(mySunk / (12/BS_SHIPS.length)));
+    document.getElementById('bs-opp-sunk').textContent = Math.min(4, Math.floor(oppSunkHits / (12/BS_SHIPS.length)));
+  }
+
+  function doShot(r, c) {
+    var idx = bsIdx(r,c);
+    if (myShots[idx] || gameOver) return;
+    var hit = oppBoard && oppBoard[idx]===1;
+    myShots[idx] = hit ? 'hit' : 'miss';
+    var statusEl = document.getElementById('bs-status');
+    statusEl.textContent = hit ? '💥 Treffer!' : '🌊 Daneben!';
+    statusEl.style.color = hit ? '#fbbf24' : '#60a5fa';
+
+    if (!isAI) {
+      // Online: send shot to server
+      var shotsKey = isHost ? 'hostShots' : 'guestShots';
+      var newShots = Object.assign({}, myShots);
+      fetch(API_URL + '/api/lobby/state', {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ lobby_id: lobbyId, user_id: user.id, patch: {
+          [shotsKey]: newShots, currentTurn: isHost ? 'guest' : 'host'
+        }})
       });
     }
+
+    if (oppBoard && bsAllSunk(oppBoard, myShots)) {
+      finishGame(true); return;
+    }
+    myTurn = false;
+    updateBattle();
+
+    if (isAI) {
+      setTimeout(function() {
+        if (!elfmOn || gameOver) return;
+        var shot = bsAiShot(diff, oppShots, myBoard);
+        if (!shot) return;
+        var aidx = bsIdx(shot[0],shot[1]);
+        var aiHit = myBoard[aidx]===1;
+        oppShots[aidx] = aiHit ? 'hit' : 'miss';
+        var sEl = document.getElementById('bs-status');
+        sEl.textContent = aiHit ? '💥 KI trifft dich!' : '🌊 KI daneben';
+        sEl.style.color = aiHit ? '#ef4444' : '#4ade80';
+        if (bsAllSunk(myBoard, oppShots)) { finishGame(false); return; }
+        myTurn = true;
+        updateBattle();
+      }, 800 + Math.random() * (diff==='hard'?400:diff==='medium'?800:1200));
+    }
   }
 
-  // 9 zone positions for animation (% left, % bottom from field)
-  var zonePosLeft = ['20%','50%','80%', '20%','50%','80%', '20%','50%','80%'];
-  var zonePosBot  = ['75%','75%','75%', '55%','55%','55%', '38%','38%','38%'];
-
-  function resolveRound(shooterZone, keeperZone) {
-    if (gameEnded) return;
-    roundActive = false;
-    var isGoal = (shooterZone !== keeperZone);
-    var shooterIsMe = myIsShooter;
-    if (isGoal && shooterIsMe)  myGoals++;
-    else if (isGoal && !shooterIsMe) oppGoals++;
-    document.getElementById('elfm-my-goals').textContent = myGoals;
-    document.getElementById('elfm-opp-goals').textContent = oppGoals;
-
-    // Animate ball and keeper
-    var ballEl = document.getElementById('elfm-ball');
-    var keeperEl = document.getElementById('elfm-keeper');
-    if (ballEl) {
-      ballEl.style.transition = 'left 0.45s cubic-bezier(0.2,0.8,0.4,1), bottom 0.45s';
-      ballEl.style.left = zonePosLeft[shooterZone];
-      ballEl.style.bottom = zonePosBot[shooterZone];
-    }
-    if (keeperEl) {
-      keeperEl.style.transition = 'left 0.4s ease-out, bottom 0.4s';
-      keeperEl.style.left = zonePosLeft[keeperZone];
-      keeperEl.style.bottom = zonePosBot[keeperZone];
-    }
-    // Highlight zones
-    document.querySelectorAll('.elfm-zone-btn').forEach(function(b) {
-      var z = parseInt(b.dataset.zone);
-      if (z === shooterZone) b.classList.add('zone-shot');
-      if (z === keeperZone) b.classList.add('zone-kept');
-    });
-
-    var resultEl = document.getElementById('elfm-result');
-    resultEl.style.display = 'block';
-    if (isGoal) {
-      if (shooterIsMe) { resultEl.textContent = '⚽ TOOOR!'; resultEl.style.color = '#fbbf24'; sounds.highscore(); }
-      else { resultEl.textContent = '😤 Gegner-Tor!'; resultEl.style.color = '#ef4444'; }
-    } else {
-      if (!shooterIsMe) { resultEl.textContent = '🧤 GEHALTEN!'; resultEl.style.color = '#60a5fa'; sounds.highscore(); }
-      else { resultEl.textContent = '🚫 Gehalten...'; resultEl.style.color = '#f97316'; }
-    }
-    document.getElementById('elfm-status').textContent = '';
-
-    setTimeout(function() {
-      if (!elfmOn) return;
-      round++;
-      if (round > MAX_ROUNDS) {
-        finishGame();
-      } else {
-        myIsShooter = !myIsShooter;
-        // Online: reset server state for new round
-        if (!isAI && lobbyId) {
-          var hShooter = isHost ? myIsShooter : !myIsShooter;
-          fetch(API_URL + '/api/lobby/state', {
-            method: 'PUT', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ lobby_id: lobbyId, user_id: user.id, patch: {
-              round: round, hostGoals: isHost?myGoals:oppGoals, guestGoals: isHost?oppGoals:myGoals,
-              hostIsShooter: hShooter, hostChoice: null, guestChoice: null, phase: 'choosing'
-            }})
-          });
-        }
-        startRound();
-      }
-    }, 2400);
-  }
-
-  function finishGame() {
-    gameEnded = true; elfmOn = false;
+  function finishGame(iWon) {
+    gameOver = true; elfmOn = false;
     if (elfmPollInterval) { clearInterval(elfmPollInterval); elfmPollInterval = null; }
     var overlay = document.getElementById('ttt-overlay');
     var msg = document.getElementById('ttt-overlay-msg');
-    var sub = '<small style="font-size:0.6em;opacity:0.7">Elfmeter ' + myGoals + ':' + oppGoals + '</small>';
-    if (myGoals > oppGoals) { msg.innerHTML = '🏆<br>Du hast gewonnen!<br>' + sub; sounds.highscore(); }
-    else if (myGoals < oppGoals) { msg.innerHTML = '😔<br>Du hast verloren.<br>' + sub; }
-    else { msg.innerHTML = '🤝<br>Unentschieden!<br>' + sub; }
+    if (iWon) { msg.innerHTML = '🏆<br>Du hast gewonnen!<br><small style="font-size:0.6em;opacity:0.7">Schiffe versenken</small>'; sounds.highscore(); }
+    else { msg.innerHTML = '😔<br>Du hast verloren.<br><small style="font-size:0.6em;opacity:0.7">Schiffe versenken</small>'; }
     overlay.classList.add('show');
   }
 
-  // Online: apply server state
-  function applyServerState(st) {
-    if (!elfmOn || !roundActive || hasChosen) return;
-    var oppKey = isHost ? 'guestChoice' : 'hostChoice';
-    var myKey  = isHost ? 'hostChoice'  : 'guestChoice';
-    if (st[oppKey] !== null && st[oppKey] !== undefined &&
-        st[myKey]  !== null && st[myKey]  !== undefined &&
-        st[myKey] === myChoice) {
-      var hostIsShooter = st.hostIsShooter;
-      var shooterZone = hostIsShooter ? st.hostChoice : st.guestChoice;
-      var keeperZone  = hostIsShooter ? st.guestChoice : st.hostChoice;
-      resolveRound(shooterZone, keeperZone);
+  // Online: receive state from server
+  function applyState(st) {
+    if (!elfmOn || gameOver) return;
+    // Setup phase: check if both ready
+    if (!myReady) return;
+    if (st.hostReady && st.guestReady && document.getElementById('bs-battle-screen').style.display === 'none') {
+      oppBoard = isHost ? st.guestBoard : st.hostBoard;
+      if (oppBoard) startBattle();
+    }
+    if (document.getElementById('bs-battle-screen').style.display === 'none') return;
+    // Battle: sync opponent shots
+    var oppShotsKey = isHost ? 'guestShots' : 'hostShots';
+    var newOppShots = st[oppShotsKey] || {};
+    var changed = false;
+    Object.keys(newOppShots).forEach(function(k) {
+      if (!oppShots[k]) { oppShots[k] = newOppShots[k]; changed = true; }
+    });
+    // Check server turn
+    var serverTurn = st.currentTurn; // 'host' or 'guest'
+    var shouldBeMyTurn = (serverTurn === (isHost ? 'host' : 'guest'));
+    if (shouldBeMyTurn !== myTurn) { myTurn = shouldBeMyTurn; changed = true; }
+    if (changed) {
+      if (bsAllSunk(myBoard, oppShots)) { finishGame(false); return; }
+      updateBattle();
     }
   }
 
-  game = { stop: function() { elfmOn=false; if(timerInterval)clearInterval(timerInterval); }, applyState: applyServerState };
-  startRound();
+  game = { stop: function() { elfmOn=false; }, applyState: applyState };
+  showSetup();
 }
 
 /* ================================================================

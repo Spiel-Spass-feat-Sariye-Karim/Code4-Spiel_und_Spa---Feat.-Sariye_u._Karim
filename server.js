@@ -578,7 +578,8 @@ app.post('/api/lobby/create', async (req, res) => {
     } else if (game_type === 'math') {
       initialState = { round: 1, hostScore: 0, guestScore: 0, problem: null, answer: null, hostAnswer: null, guestAnswer: null };
     } else if (game_type === 'elfmeter') {
-      initialState = { round: 1, maxRounds: 5, hostGoals: 0, guestGoals: 0, hostIsShooter: true, hostChoice: null, guestChoice: null, phase: 'choosing' };
+      // Battleship / Schiffe versenken
+      initialState = { hostBoard: null, guestBoard: null, hostReady: false, guestReady: false, hostShots: {}, guestShots: {}, currentTurn: 'host' };
     } else {
       initialState = { board: Array(9).fill(''), currentTurn: 'X' };
     }
