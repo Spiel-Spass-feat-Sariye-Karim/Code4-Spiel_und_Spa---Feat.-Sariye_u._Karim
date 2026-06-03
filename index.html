@@ -193,7 +193,7 @@
         <div class="cards cards-multi">
           <div class="card" id="card-multiplayer"><div class="em">⚔️</div><h3>TicTacToe Duell</h3><p>Klassisches TicTacToe gegen KI oder Freunde</p></div>
           <div class="card" id="card-connect4"><div class="em">🔴</div><h3>4 Gewinnt</h3><p>Verbinde als Erster 4 Steine in einer Reihe</p></div>
-          <div class="card" id="card-elfmeter"><div class="em">⚡</div><h3>Reaktions-Duell</h3><p>Wer reagiert schneller? 5 Runden — reiner Reflex gegen KI oder Freunde!</p></div>
+          <div class="card" id="card-elfmeter"><div class="em">🏎️</div><h3>Tipp-Rennen</h3><p>Tippe denselben Text schneller als dein Gegner — Rennwagen zeigt Fortschritt live!</p></div>
           <div class="card" id="card-rps"><div class="em">✊</div><h3>Schere Stein Papier</h3><p>Best of 5 Runden — wer zuerst 3 gewinnt</p></div>
           <div class="card" id="card-chess"><div class="em">♟️</div><h3>Schach</h3><p>Klassisches Schach gegen KI oder Freunde</p></div>
           <div class="card" id="card-math"><div class="em">🧮</div><h3>Rechen-Duell</h3><p>Wer rechnet schneller? Direkt gegen KI oder Freunde!</p></div>
@@ -521,7 +521,7 @@
         </div>
       </div>
 
-      <!-- Reaktions-Duell -->
+      <!-- Tipp-Rennen (Typeracer) -->
       <div id="elfmeter-area" class="elfmeter-area">
         <div id="elfmeter-lobby-screen">
           <div class="lobby-online-count"><span id="elfmeter-online-num">0</span> Spieler gerade online</div>
@@ -537,25 +537,27 @@
           <div class="lobby-divider">— oder Freund einladen —</div>
           <div id="elfmeter-users-list" class="lobby-users-list"></div>
         </div>
-        <!-- Game screen -->
-        <div id="rd-game-screen" style="display:none">
-          <div class="rd-score-bar">
-            <div class="rd-score-box">
-              <span class="rd-wins" id="rd-my-wins">0</span>
-              <span class="rd-label">Du</span>
+        <!-- Typeracer game -->
+        <div id="tr-game-screen" style="display:none">
+          <div class="tr-track-wrap">
+            <div class="tr-lane">
+              <div class="tr-lane-label">Du</div>
+              <div class="tr-road"><div class="tr-car tr-car-me" id="tr-car-me">🏎️</div></div>
+              <div class="tr-pct" id="tr-pct-me">0%</div>
             </div>
-            <div class="rd-rounds" id="rd-round-info">Runde 1/5</div>
-            <div class="rd-score-box">
-              <span class="rd-wins" id="rd-opp-wins">0</span>
-              <span class="rd-label" id="rd-opp-label">Gegner</span>
+            <div class="tr-lane">
+              <div class="tr-lane-label" id="tr-opp-name">KI</div>
+              <div class="tr-road"><div class="tr-car tr-car-opp" id="tr-car-opp">🚗</div></div>
+              <div class="tr-pct" id="tr-pct-opp">0%</div>
             </div>
           </div>
-          <div class="rd-arena" id="rd-arena">
-            <div class="rd-signal" id="rd-signal">●</div>
-            <div class="rd-status" id="rd-status">Bereit?</div>
+          <div class="tr-text-area">
+            <div class="tr-text-display" id="tr-text-display"></div>
           </div>
-          <button class="rd-tap-btn" id="rd-tap-btn">DRÜCKEN!</button>
-          <div class="rd-result" id="rd-result" style="display:none"></div>
+          <input class="tr-input" id="tr-input" type="text" autocomplete="off" autocorrect="off"
+                 autocapitalize="off" spellcheck="false" placeholder="Tippe hier...">
+          <div class="tr-status" id="tr-status">Bereit? Fang an zu tippen!</div>
+          <div class="tr-result" id="tr-result" style="display:none"></div>
         </div>
       </div>
 

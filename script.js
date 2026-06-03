@@ -2420,7 +2420,7 @@ document.getElementById('pc-input').addEventListener('keydown', function(e) { if
 
 function openG(id) {
   which = id;
-  var titles = { memory: 'Farb-Gedächtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest', bubble: 'Bubble Pop', guess: 'Zahlen-Raten', wordle: 'Info-Wordle', flappy: '🐦 Flappy Bird', multiplayer: '⚔️ TicTacToe Duell', connect4: '🔴 4 Gewinnt', elfmeter: '⚡ Reaktions-Duell', rps: '✊ Schere Stein Papier', chess: '♟️ Schach', snake: '🐍 Schlange', wortblitz: '⌨️ Wort-Blitz', math: '🧮 Rechen-Duell' };
+  var titles = { memory: 'Farb-Gedächtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest', bubble: 'Bubble Pop', guess: 'Zahlen-Raten', wordle: 'Info-Wordle', flappy: '🐦 Flappy Bird', multiplayer: '⚔️ TicTacToe Duell', connect4: '🔴 4 Gewinnt', elfmeter: '🏎️ Tipp-Rennen', rps: '✊ Schere Stein Papier', chess: '♟️ Schach', snake: '🐍 Schlange', wortblitz: '⌨️ Wort-Blitz', math: '🧮 Rechen-Duell' };
   document.getElementById('gtitle').textContent = titles[id] || id;
   document.getElementById('pts').textContent = '0';
   var canvas = document.getElementById('c');
@@ -5509,9 +5509,22 @@ function flappyBird(cv) {
 }
 
 /* ================================================================
-   REAKTIONS-DUELL (REACTION TIME DUEL)
-   via WebSocket — both receive trigger simultaneously
+   TIPP-RENNEN (TYPERACER)
+   Both type the same text — car progress shown live via WS
    ================================================================ */
+
+var TR_TEXTS = [
+  "Der Pixel leuchtet in der Nacht und jedes Game macht Spass.",
+  "Klick schnell auf Start und lass das Duell beginnen jetzt.",
+  "Tippe so schnell du kannst und bring den Rennwagen ans Ziel.",
+  "Bytes und Bits fliegen durch das Netz in Lichtgeschwindigkeit.",
+  "Wer am schnellsten tippt gewinnt das Rennen und den Ruhm.",
+  "ArcadeBox ist die beste Spieleseite die du je gesehen hast.",
+  "Das Retro Game laeuft auf vollem Speed direkt in dein Herz.",
+  "Finger auf die Tasten und Gas geben bis zur Ziellinie.",
+  "Jede Sekunde zaehlt wenn beide Spieler gleichzeitig starten.",
+  "Der schnelle Fahrer trifft jeden Buchstaben ohne Fehler."
+];
 
 document.querySelectorAll('.elfmeter-diff').forEach(function(btn) {
   btn.addEventListener('click', function() {
@@ -5526,7 +5539,7 @@ document.getElementById('btn-elfmeter-ai').addEventListener('click', function() 
 
 async function loadElfmeterLobbyScreen() {
   document.getElementById('elfmeter-lobby-screen').style.display = 'block';
-  document.getElementById('rd-game-screen').style.display = 'none';
+  document.getElementById('tr-game-screen').style.display = 'none';
   try {
     var res = await fetch(API_URL + '/api/users/search?me=' + user.id);
     var users = await res.json();
@@ -5549,244 +5562,197 @@ async function loadElfmeterLobbyScreen() {
 
 function elfmeterStart(diff) {
   elfmIsAI = true; elfmAiDiff = diff; elfmIsHost = true; elfmOn = true;
-  rdStartGame(true, diff, null, true);
+  var text = TR_TEXTS[Math.floor(Math.random() * TR_TEXTS.length)];
+  trStartGame(true, diff, null, true, text);
 }
 
 function elfmeterStartOnline(lobbyId, isHost) {
   elfmLobbyId = lobbyId; elfmIsHost = isHost; elfmIsAI = false; elfmOn = true;
-  rdStartGame(false, null, lobbyId, isHost);
-  // WS for simultaneous trigger
+  // Host picks text and sends via WS after connecting
+  var text = isHost ? TR_TEXTS[Math.floor(Math.random() * TR_TEXTS.length)] : null;
+  trStartGame(false, null, lobbyId, isHost, text);
   connectGameWS(lobbyId, function(data) {
     if (game && game.onWS) game.onWS(data);
   });
   if (elfmPollInterval) clearInterval(elfmPollInterval);
-  // Minimal poll as fallback
-  elfmPollInterval = setInterval(function() {
-    if (!elfmOn) clearInterval(elfmPollInterval);
-  }, 5000);
+  elfmPollInterval = setInterval(function(){ if(!elfmOn) clearInterval(elfmPollInterval); }, 5000);
 }
 
-function rdStartGame(isAI, diff, lobbyId, isHost) {
+function trStartGame(isAI, diff, lobbyId, isHost, text) {
   document.getElementById('elfmeter-lobby-screen').style.display = 'none';
-  document.getElementById('rd-game-screen').style.display = 'flex';
+  var gs = document.getElementById('tr-game-screen');
+  gs.style.display = 'flex';
 
-  var myWins = 0, oppWins = 0;
-  var round = 1, MAX_ROUNDS = 5;
-  var phase = 'waiting'; // waiting | countdown | ready | triggered | result
-  var triggerTs = null, myTime = null, oppTime = null;
-  var countdownTimer = null, autoTimer = null, resolveTimer = null;
-  var gameEnded = false;
+  var myProgress = 0, oppProgress = 0;
+  var myChars = 0; // correctly typed characters
+  var started = false, finished = false, gameEnded = false;
+  var aiTimer = null, aiInterval = null;
 
-  var arenaEl = document.getElementById('rd-arena');
-  var signalEl = document.getElementById('rd-signal');
-  var statusEl = document.getElementById('rd-status');
-  var tapBtn = document.getElementById('rd-tap-btn');
-  var resultEl = document.getElementById('rd-result');
+  // AI typing speeds (chars/sec)
+  var aiSpeeds = { easy: 3.5, medium: 6, hard: 9 };
+  var aiSpeed = aiSpeeds[diff] || aiSpeeds.medium;
 
-  // AI response times
-  var aiTimes = { easy:[550,950], medium:[280,460], hard:[150,260] };
+  document.getElementById('tr-opp-name').textContent = isAI ? 'KI' : 'Gegner';
 
-  function updateHeader() {
-    document.getElementById('rd-my-wins').textContent = myWins;
-    document.getElementById('rd-opp-wins').textContent = oppWins;
-    document.getElementById('rd-round-info').textContent = 'Runde '+round+'/'+MAX_ROUNDS;
-    document.getElementById('rd-opp-label').textContent = isAI ? 'KI' : 'Gegner';
+  // Wait for text (host sends it via WS for online)
+  function init(raceText) {
+    text = raceText;
+    renderText();
+    document.getElementById('tr-input').disabled = false;
+    document.getElementById('tr-input').focus();
+    document.getElementById('tr-status').textContent = '🏁 Fang an zu tippen!';
+    if (isAI) startAI();
+    else if (isHost) {
+      // Broadcast text to guest
+      setTimeout(function() { sendGameWS({ type:'tr_text', text: raceText }); }, 200);
+    }
   }
 
-  function startRound() {
-    if (gameEnded) return;
-    phase = 'countdown';
-    myTime = null; oppTime = null;
-    resultEl.style.display = 'none';
-    tapBtn.disabled = true;
-    tapBtn.style.background = '';
-    arenaEl.className = 'rd-arena';
-    signalEl.textContent = '●';
-    signalEl.style.color = 'rgba(255,255,255,0.2)';
-    updateHeader();
+  function renderText() {
+    if (!text) return;
+    var display = document.getElementById('tr-text-display');
+    var html = '';
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i] === ' ' ? '&nbsp;' : escHtml(text[i]);
+      if (i < myChars) html += '<span class="tr-done">'+ch+'</span>';
+      else if (i === myChars) html += '<span class="tr-cursor">'+ch+'</span>';
+      else html += '<span class="tr-pending">'+ch+'</span>';
+    }
+    display.innerHTML = html;
+  }
 
-    // Countdown 3-2-1
-    var cnt = 3;
-    statusEl.textContent = 'Bereit...';
-    countdownTimer = setInterval(function() {
-      if (!elfmOn || gameEnded) { clearInterval(countdownTimer); return; }
-      cnt--;
-      if (cnt > 0) {
-        statusEl.textContent = cnt + '...';
+  function updateCar(id, pct, pctId) {
+    var car = document.getElementById(id);
+    var road = car ? car.parentElement : null;
+    if (!car || !road) return;
+    var roadW = road.offsetWidth || 300;
+    var carW = 32;
+    var maxLeft = roadW - carW - 8;
+    car.style.left = Math.round(pct * maxLeft / 100) + 'px';
+    var el = document.getElementById(pctId);
+    if (el) el.textContent = Math.round(pct) + '%';
+  }
+
+  // Input handler
+  var inp = document.getElementById('tr-input');
+  inp.value = '';
+  function onInput() {
+    if (!text || finished || gameEnded) return;
+    var typed = inp.value;
+    // Check character by character from current position
+    var correct = 0;
+    for (var i = 0; i < typed.length; i++) {
+      if (myChars + i < text.length && typed[i] === text[myChars + i]) {
+        correct++;
       } else {
-        clearInterval(countdownTimer);
-        waitForTrigger();
+        break;
       }
-    }, 800);
-  }
+    }
+    if (correct > 0) {
+      myChars += correct;
+      inp.value = typed.slice(correct);
+      inp.style.background = '';
+    } else if (typed.length > 0) {
+      inp.style.background = 'rgba(239,68,68,0.15)';
+    }
+    myProgress = Math.round((myChars / text.length) * 100);
+    updateCar('tr-car-me', myProgress, 'tr-pct-me');
+    renderText();
 
-  function waitForTrigger() {
-    if (!elfmOn || gameEnded) return;
-    phase = 'ready';
-    statusEl.textContent = '⚡ Gleich...';
-    signalEl.textContent = '●';
-    signalEl.style.color = 'rgba(255,87,51,0.3)';
+    // Send progress via WS
+    if (!isAI) sendGameWS({ type:'tr_progress', pct: myProgress });
 
-    if (isAI) {
-      // Random delay 1-3s then trigger
-      var delay = 1000 + Math.random() * 2000;
-      autoTimer = setTimeout(function() {
-        if (!elfmOn || gameEnded || phase !== 'ready') return;
-        triggerNow();
-        // AI reacts after its delay
-        var r = aiTimes[diff]||aiTimes.medium;
-        var aiMs = r[0] + Math.random()*(r[1]-r[0]);
-        setTimeout(function(){
-          if(phase==='triggered') oppTime = Math.round(aiMs);
-          checkBothDone();
-        }, aiMs);
-      }, delay);
-    } else {
-      if (isHost) {
-        // Host sends trigger after random delay
-        var hostDelay = 1000 + Math.random() * 2500;
-        autoTimer = setTimeout(function() {
-          if (!elfmOn || gameEnded || phase !== 'ready') return;
-          var triggerAt = Date.now();
-          sendGameWS({ type:'rd_trigger', at: triggerAt });
-          triggerAt_local = triggerAt;
-          triggerNow();
-        }, hostDelay);
-      }
-      // Guest waits for WS trigger (handled in onWS)
+    if (myChars >= text.length) {
+      myProgress = 100;
+      updateCar('tr-car-me', 100, 'tr-pct-me');
+      if (!finished) { finished = true; endRace(true); }
     }
   }
+  inp.addEventListener('input', onInput);
 
-  var triggerAt_local = null;
-
-  function triggerNow() {
-    if (phase !== 'ready') return;
-    phase = 'triggered';
-    triggerTs = Date.now();
-    signalEl.textContent = '⚡';
-    signalEl.style.color = '#fbbf24';
-    arenaEl.classList.add('rd-go');
-    tapBtn.disabled = false;
-    tapBtn.style.background = 'linear-gradient(135deg,#22c55e,#16a34a)';
-    statusEl.textContent = 'JETZT DRÜCKEN!';
-    // Auto-miss after 2s
-    autoTimer = setTimeout(function() {
-      if (phase==='triggered' && !myTime) {
-        myTime = 9999; // missed
-        checkBothDone();
-      }
-    }, 2000);
-  }
-
-  function onTap() {
-    if (phase !== 'triggered' || myTime) return;
-    myTime = Date.now() - triggerTs;
-    tapBtn.disabled = true;
-    tapBtn.style.background = 'linear-gradient(135deg,#3b82f6,#1d4ed8)';
-    statusEl.textContent = '⏱ ' + myTime + 'ms — warte auf Gegner...';
-    if (!isAI) {
-      sendGameWS({ type:'rd_result', ms: myTime });
-    }
-    checkBothDone();
-  }
-
-  tapBtn.addEventListener('click', onTap);
-  document.addEventListener('keydown', function kHandler(e) {
-    if (!elfmOn) { document.removeEventListener('keydown', kHandler); return; }
-    if (e.code==='Space'||e.key===' ') { e.preventDefault(); onTap(); }
-  });
-
-  function checkBothDone() {
-    if (!myTime) return; // not done yet
-    if (!isAI && !oppTime) return; // waiting for opponent
-    showResult();
-  }
-
-  function showResult() {
-    if (gameEnded) return;
-    clearTimeout(autoTimer);
-    phase = 'result';
-    tapBtn.disabled = true;
-    arenaEl.classList.remove('rd-go');
-
-    var myMs = myTime === 9999 ? '—' : myTime + 'ms';
-    var oppMs = oppTime === 9999 ? '—' : (oppTime || '?') + 'ms';
-
-    var iWon, isDraw = false;
-    if (!isAI && !oppTime) { iWon = false; } // opponent didn't respond
-    else if (myTime === 9999 && oppTime === 9999) isDraw = true;
-    else if (myTime === 9999) iWon = false;
-    else if (oppTime === 9999) iWon = true;
-    else iWon = myTime <= oppTime;
-
-    if (!isDraw) {
-      if (iWon) myWins++; else oppWins++;
-    }
-    updateHeader();
-
-    signalEl.textContent = iWon ? '🏅' : isDraw ? '🤝' : '😔';
-    signalEl.style.color = iWon ? '#fbbf24' : isDraw ? '#60a5fa' : '#ef4444';
-
-    resultEl.style.display = 'block';
-    resultEl.innerHTML =
-      '<div class="rd-times">' +
-        '<div class="rd-time-box rd-time-me"><span>Du</span><strong>' + myMs + '</strong></div>' +
-        '<div class="rd-time-vs">VS</div>' +
-        '<div class="rd-time-box rd-time-opp"><span>'+(isAI?'KI':'Gegner')+'</span><strong>'+oppMs+'</strong></div>' +
-      '</div>' +
-      '<div class="rd-verdict">' + (isDraw?'🤝 Gleichstand!':(iWon?'⚡ Du warst schneller!':'😔 Gegner war schneller!')) + '</div>';
-
-    statusEl.textContent = isDraw?'Unentschieden':iWon?'Runde gewonnen!':'Runde verloren!';
-    statusEl.style.color = isDraw?'#60a5fa':iWon?'#4ade80':'#ef4444';
-
-    resolveTimer = setTimeout(function() {
-      if (!elfmOn) return;
-      round++;
-      if (round > MAX_ROUNDS) {
-        endGame();
+  function startAI() {
+    // AI makes typos: easy=20%, medium=5%, hard=0%
+    var typoRate = diff==='easy'?0.18:diff==='medium'?0.05:0;
+    var aiChars = 0;
+    var msPerChar = 1000 / aiSpeed;
+    aiInterval = setInterval(function() {
+      if (!elfmOn || gameEnded || !text) { clearInterval(aiInterval); return; }
+      // Random typo: AI pauses to correct
+      if (Math.random() < typoRate) {
+        setTimeout(function() {
+          if(aiChars < text.length && !gameEnded) {
+            aiChars += 1;
+            oppProgress = Math.round(aiChars / text.length * 100);
+            updateCar('tr-car-opp', oppProgress, 'tr-pct-opp');
+            if (aiChars >= text.length && !finished) { finished=true; endRace(false); }
+          }
+        }, msPerChar * 2);
       } else {
-        startRound();
+        aiChars += 1;
+        oppProgress = Math.round(aiChars / text.length * 100);
+        updateCar('tr-car-opp', oppProgress, 'tr-pct-opp');
+        if (aiChars >= text.length && !finished) { finished=true; endRace(false); }
       }
-    }, 2500);
+    }, msPerChar);
   }
 
-  function endGame() {
+  function endRace(iWon) {
     gameEnded = true; elfmOn = false;
+    if (aiInterval) clearInterval(aiInterval);
+    inp.disabled = true;
     if (elfmPollInterval) { clearInterval(elfmPollInterval); elfmPollInterval = null; }
-    var overlay = document.getElementById('ttt-overlay');
-    var msg = document.getElementById('ttt-overlay-msg');
-    var sub = '<small style="font-size:0.6em;opacity:0.7">Reaktions-Duell '+myWins+':'+oppWins+'</small>';
-    if (myWins > oppWins) { msg.innerHTML='🏆<br>Du hast gewonnen!<br>'+sub; sounds.highscore(); }
-    else if (myWins < oppWins) { msg.innerHTML='😔<br>Du hast verloren.<br>'+sub; }
-    else { msg.innerHTML='🤝<br>Unentschieden!<br>'+sub; }
-    overlay.classList.add('show');
+    var resultEl = document.getElementById('tr-result');
+    var statusEl = document.getElementById('tr-status');
+    if (iWon) {
+      statusEl.textContent = '🏆 Du hast gewonnen!';
+      statusEl.style.color = '#fbbf24';
+    } else {
+      statusEl.textContent = '😔 Zu langsam! Gegner war schneller.';
+      statusEl.style.color = '#ef4444';
+    }
+    resultEl.style.display = 'block';
+    resultEl.textContent = 'Dein Fortschritt: '+myProgress+'% — Gegner: '+oppProgress+'%';
+    // Show game-over overlay after delay
+    setTimeout(function() {
+      var overlay = document.getElementById('ttt-overlay');
+      var msg = document.getElementById('ttt-overlay-msg');
+      var sub = '<small style="font-size:0.6em;opacity:0.7">Tipp-Rennen</small>';
+      if (iWon) { msg.innerHTML='🏆<br>Du hast gewonnen!<br>'+sub; sounds.highscore(); }
+      else { msg.innerHTML='😔<br>Du hast verloren.<br>'+sub; }
+      overlay.classList.add('show');
+    }, 2000);
   }
 
   function onWS(data) {
     if (gameEnded) return;
-    if (data.type === 'rd_trigger') {
-      // Guest receives trigger from host
-      if (phase === 'ready') {
-        clearTimeout(autoTimer);
-        triggerTs = Date.now(); // use local time for fairness
-        triggerNow();
-      }
-    } else if (data.type === 'rd_result') {
-      oppTime = data.ms;
-      checkBothDone();
+    if (data.type === 'tr_text' && !text) {
+      // Guest receives text from host
+      init(data.text);
+    } else if (data.type === 'tr_progress') {
+      oppProgress = data.pct;
+      updateCar('tr-car-opp', oppProgress, 'tr-pct-opp');
+      if (oppProgress >= 100 && !finished) { finished=true; endRace(false); }
     }
   }
 
   game = {
     stop: function() {
-      elfmOn = false; gameEnded = true;
-      clearInterval(countdownTimer); clearTimeout(autoTimer); clearTimeout(resolveTimer);
-      tapBtn.removeEventListener('click', onTap);
+      elfmOn=false; gameEnded=true;
+      if(aiInterval)clearInterval(aiInterval);
+      inp.removeEventListener('input', onInput);
+      inp.disabled=false; inp.value='';
     },
     onWS: onWS
   };
 
-  startRound();
+  // Initialize
+  if (text) {
+    init(text);
+  } else {
+    // Guest: wait for text via WS
+    document.getElementById('tr-status').textContent = '⏳ Warte auf Spieltext...';
+    document.getElementById('tr-input').disabled = true;
+  }
 }
 
 /* ================================================================
