@@ -501,6 +501,19 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
+/* ---- PERFORMANCE: Pause canvas when tab hidden ---- */
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) {
+    stopArcadeParticles(); // free CPU when tab not visible
+  } else {
+    // Restart only if on main screen (not in-game)
+    var popup = document.getElementById('popup');
+    if (popup && !popup.classList.contains('on')) {
+      startArcadeParticles();
+    }
+  }
+});
+
 /* ---- HEARTBEAT + LIVE ACTIVITY ---- */
 function sendHeartbeat() {
   if (!user) return;
@@ -2464,6 +2477,9 @@ function openG(id) {
     mathArea.classList.add('active');
   }
   document.getElementById('popup').classList.add('on');
+  // Hide live widget so it doesn't overlap game overlay buttons
+  var lw = document.getElementById('live-widget');
+  if (lw) lw.style.display = 'none';
   stopArcadeParticles();
   // Track activity for live status
   var activityMap = { memory:'singleplayer:memory', stack:'singleplayer:stack', reaction:'singleplayer:reaktion',
@@ -2491,7 +2507,10 @@ function closeG() {
   document.getElementById('ttt-overlay').classList.remove('show');
   document.getElementById('popup').classList.remove('on');
   currentActivity = 'main';
-  sendHeartbeat(); // instant activity update
+  sendHeartbeat();
+  // Restore live widget
+  var lw = document.getElementById('live-widget');
+  if (lw) lw.style.display = '';
   startArcadeParticles();
   document.getElementById('memory-pads').classList.remove('active');
   document.getElementById('memory-status').classList.remove('active');
@@ -4057,8 +4076,13 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
       var remaining = Math.ceil(3 - (ts - cdTs) / 1000);
       if (remaining <= 0) {
         cdCount = 0;
-        ball.vx = (isHost||isAI) ? baseSpeed : (targetBall.vx || baseSpeed);
-        ball.vy = (isHost||isAI) ? baseSpeed*0.6 : (targetBall.vy || baseSpeed*0.6);
+        // Host/AI: start with default speed. Guest: use server velocity if received, else default.
+        if (isHost||isAI) {
+          ball.vx = baseSpeed; ball.vy = baseSpeed*0.6;
+        } else {
+          ball.vx = (srvState&&srvState.bvx) ? srvState.bvx : baseSpeed;
+          ball.vy = (srvState&&srvState.bvy) ? srvState.bvy : baseSpeed*0.6;
+        }
         if (isHost && lobbyId) {
           var startMsg={type:'pong',started:true,bx:ball.x,by:ball.y,bvx:ball.vx,bvy:ball.vy,lpy:padL.y,sl:0,sr:0};
           sendGameWS(startMsg); // instant WS broadcast
@@ -4133,11 +4157,8 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
           if(raf)cancelAnimationFrame(raf);
           draw(0); setTimeout(function(){pongGameOver(sc.r>=MAX?'win':'lose');},400); return;
         }
-      } else if(!srvState||!srvState.started){
-        // No server state yet — show countdown
-        draw(3); raf=requestAnimationFrame(loop); return;
       }
-      // Pure local physics every frame (no continuous pull-back)
+      // Pure local physics every frame — no "started" check needed after local countdown
       ball.x+=ball.vx*dt; ball.y+=ball.vy*dt;
       if(ball.y-BR<=0){ball.y=BR;ball.vy=Math.abs(ball.vy);}
       if(ball.y+BR>=H){ball.y=H-BR;ball.vy=-Math.abs(ball.vy);}
@@ -5491,15 +5512,14 @@ function snakeStart() {
     touchStart = null;
   }, {passive:false});
 
-  // start render loop for apple pulse
+  // start render loop for apple pulse — MUST call init() first so snake/apples exist
   function animLoop() {
     if (!snakeOn) return;
     render();
     appleRaf = requestAnimationFrame(animLoop);
   }
-  animLoop();
-
-  init();
+  init();       // initialize snake state first
+  animLoop();   // then start animation
 
   game = {
     stop: function() {
@@ -5518,12 +5538,12 @@ function wortblitzStart() {
   wortblitzOn = true;
   var cv = document.getElementById('wortblitz-canvas');
   var inp = document.getElementById('wortblitz-input');
-  var W = 380, H = 380;
-  fitCanvas(cv, W, H);
+  fitCanvas(cv, 380, 340);
+  var W = cv._W || 380, H = cv._H || 340;
   var ctx = cv.getContext('2d');
   inp.style.display = 'block';
   inp.value = '';
-  inp.focus();
+  setTimeout(function() { try { inp.focus(); } catch(e) {} }, 100);
 
   var WORDS = ['CODE','PIXEL','NEON','LASER','GAME','LEVEL','BOSS','SCORE','RETRO','ARCADE',
     'TURBO','MEGA','ULTRA','SUPER','HYPER','CYBER','MATRIX','VIRUS','HACK','DEBUG',
