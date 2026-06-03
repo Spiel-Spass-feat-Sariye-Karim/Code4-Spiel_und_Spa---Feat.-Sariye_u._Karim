@@ -171,7 +171,7 @@ app.post('/api/save-score', async (req, res) => {
       updates.reaction = (user.reaction === 0) ? score : Math.min(user.reaction, score);
     } else if (game_type === 'bubble') {
       updates.precision = Math.max(user.precision || 0, score);
-    } else if (game_type === 'tictactoe' || game_type === 'multiplayer_wins' || game_type === 'flappy') {
+    } else if (game_type === 'tictactoe' || game_type === 'multiplayer_wins' || game_type === 'flappy' || game_type === 'math') {
       // Kein eigenes User-Feld; nur highscores + games_played
     } else {
       updates[game_type] = Math.max(user[game_type] || 0, score);
@@ -253,7 +253,7 @@ app.get('/api/global-highscores', async (req, res) => {
       if (!u) return;
       const uid = u.name.toLowerCase();
       if (!userMap[uid]) {
-        userMap[uid] = { name: u.name, avatar_seed: u.avatar_seed, memory: 0, stack: 0, reaction_ms: 0, precision: 0, guess: 0, wordle: 0, flappy: 0 };
+        userMap[uid] = { name: u.name, avatar_seed: u.avatar_seed, memory: 0, stack: 0, reaction_ms: 0, precision: 0, guess: 0, wordle: 0, flappy: 0, snake: 0, wortblitz: 0 };
       }
       if (item.game_type === 'memory') {
         userMap[uid].memory = Math.max(userMap[uid].memory, item.score);
@@ -271,6 +271,10 @@ app.get('/api/global-highscores', async (req, res) => {
         userMap[uid].wordle = Math.max(userMap[uid].wordle, item.score);
       } else if (item.game_type === 'flappy') {
         userMap[uid].flappy = Math.max(userMap[uid].flappy, item.score);
+      } else if (item.game_type === 'snake') {
+        userMap[uid].snake = Math.max(userMap[uid].snake, item.score);
+      } else if (item.game_type === 'wortblitz') {
+        userMap[uid].wortblitz = Math.max(userMap[uid].wortblitz, item.score);
       }
     });
 
@@ -285,6 +289,8 @@ app.get('/api/global-highscores', async (req, res) => {
     const guessRanked     = [...users].sort((a, b) => b.guess - a.guess);
     const wordleRanked    = [...users].sort((a, b) => b.wordle - a.wordle);
     const flappyRanked    = [...users].sort((a, b) => b.flappy - a.flappy);
+    const snakeRanked     = [...users].sort((a, b) => b.snake - a.snake);
+    const wortblitzRanked = [...users].sort((a, b) => b.wortblitz - a.wortblitz);
     const reactionRanked  = [...users].sort((a, b) => {
       if (!a.reaction_ms && !b.reaction_ms) return 0;
       if (!a.reaction_ms) return 1;
@@ -301,6 +307,8 @@ app.get('/api/global-highscores', async (req, res) => {
     guessRanked.forEach((u, i)     => { if (u.guess       > 0) pts[u.name.toLowerCase()] += rankPts(i); });
     wordleRanked.forEach((u, i)    => { if (u.wordle      > 0) pts[u.name.toLowerCase()] += rankPts(i); });
     flappyRanked.forEach((u, i)    => { if (u.flappy      > 0) pts[u.name.toLowerCase()] += rankPts(i); });
+    snakeRanked.forEach((u, i)     => { if (u.snake       > 0) pts[u.name.toLowerCase()] += rankPts(i); });
+    wortblitzRanked.forEach((u, i) => { if (u.wortblitz   > 0) pts[u.name.toLowerCase()] += rankPts(i); });
 
     const result = users
       .map(u => ({ ...u, rank_points: pts[u.name.toLowerCase()] }))
@@ -567,6 +575,8 @@ app.post('/api/lobby/create', async (req, res) => {
       initialState = { round: 1, hostChoice: null, guestChoice: null };
     } else if (game_type === 'pong') {
       initialState = {};
+    } else if (game_type === 'math') {
+      initialState = { round: 1, hostScore: 0, guestScore: 0, problem: null, answer: null, hostAnswer: null, guestAnswer: null };
     } else {
       initialState = { board: Array(9).fill(''), currentTurn: 'X' };
     }

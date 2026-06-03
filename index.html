@@ -156,7 +156,7 @@
       <button class="cat-header" data-cat="single" aria-expanded="true">
         <span class="cat-icon">🎮</span>
         <span class="cat-title">Singleplayer</span>
-        <span class="cat-badge">7 Spiele</span>
+        <span class="cat-badge">9 Spiele</span>
         <span class="cat-chevron">▾</span>
       </button>
       <div class="cat-body">
@@ -168,6 +168,8 @@
           <div class="card" id="card-guess"><div class="em">🔢</div><h3>Zahlen-Raten</h3><p>Finde die Zahl in so wenig Versuchen wie möglich!</p></div>
           <div class="card" id="card-wordle"><div class="em">💻</div><h3>Info-Wordle</h3><p>Errate das Informatik-Wort!</p></div>
           <div class="card" id="card-flappy"><div class="em">🐦</div><h3>Flappy Bird</h3><p>Klick oder Leertaste — fliege durch die Rohre!</p></div>
+          <div class="card" id="card-snake"><div class="em">🐍</div><h3>Schlange</h3><p>Frisst, wächst, stirbt — klassisch.</p></div>
+          <div class="card" id="card-wortblitz"><div class="em">⌨️</div><h3>Wort-Blitz</h3><p>Tippe die fallenden Wörter bevor sie landen!</p></div>
         </div>
       </div>
     </div>
@@ -177,7 +179,7 @@
       <button class="cat-header" data-cat="multi" aria-expanded="true">
         <span class="cat-icon">⚔️</span>
         <span class="cat-title">Multiplayer</span>
-        <span class="cat-badge">5 Spiele</span>
+        <span class="cat-badge">6 Spiele</span>
         <span class="cat-chevron">▾</span>
       </button>
       <div class="cat-body">
@@ -187,6 +189,7 @@
           <div class="card" id="card-pong"><div class="em">🏓</div><h3>Pong</h3><p>Schlage den Ball — zuerst 5 Punkte gewinnt</p></div>
           <div class="card" id="card-rps"><div class="em">✊</div><h3>Schere Stein Papier</h3><p>Best of 5 Runden — wer zuerst 3 gewinnt</p></div>
           <div class="card" id="card-chess"><div class="em">♟️</div><h3>Schach</h3><p>Klassisches Schach gegen KI oder Freunde</p></div>
+          <div class="card" id="card-math"><div class="em">🧮</div><h3>Rechen-Duell</h3><p>Wer rechnet schneller? Direkt gegen KI oder Freunde!</p></div>
         </div>
       </div>
     </div>
@@ -243,37 +246,43 @@
     </div>
     <div class="rl-body">
 
-      <div class="rl-section-title">🎖️ Dein persönlicher Rang</div>
-      <p class="rl-desc">Dein Rang basiert auf der <strong>Summe deiner besten Scores</strong> aus allen Spielen (außer Reaktionstest).</p>
+      <div class="rl-section-title">🎖️ Dein Rang — basiert auf RP</div>
+      <p class="rl-desc">Dein Rang basiert auf deinen <strong>Rang-Punkten (RP)</strong> — erworben durch Top-Platzierungen im globalen Scoreboard. Max. 90 RP mit 9 Spielen. <strong>Legende</strong> zu sein ist wirklich selten!</p>
       <div class="rl-rank-table">
         <div class="rl-rank-row rl-neuling">
           <span class="rl-rank-icon">🌱</span>
           <span class="rl-rank-name">Neuling</span>
-          <span class="rl-rank-range">0 – 9 Pkt</span>
-          <div class="rl-rank-bar" style="--w:3%"></div>
+          <span class="rl-rank-range">0 – 4 RP</span>
+          <div class="rl-rank-bar" style="--w:5%"></div>
         </div>
         <div class="rl-rank-row rl-spieler">
           <span class="rl-rank-icon">🎮</span>
           <span class="rl-rank-name">Spieler</span>
-          <span class="rl-rank-range">10 – 49 Pkt</span>
-          <div class="rl-rank-bar" style="--w:16%"></div>
+          <span class="rl-rank-range">5 – 15 RP</span>
+          <div class="rl-rank-bar" style="--w:18%"></div>
         </div>
         <div class="rl-rank-row rl-profi">
           <span class="rl-rank-icon">🔥</span>
           <span class="rl-rank-name">Profi</span>
-          <span class="rl-rank-range">50 – 149 Pkt</span>
-          <div class="rl-rank-bar" style="--w:40%"></div>
+          <span class="rl-rank-range">16 – 31 RP</span>
+          <div class="rl-rank-bar" style="--w:36%"></div>
         </div>
         <div class="rl-rank-row rl-veteran">
           <span class="rl-rank-icon">⭐</span>
           <span class="rl-rank-name">Veteran</span>
-          <span class="rl-rank-range">150 – 299 Pkt</span>
-          <div class="rl-rank-bar" style="--w:70%"></div>
+          <span class="rl-rank-range">32 – 54 RP</span>
+          <div class="rl-rank-bar" style="--w:60%"></div>
+        </div>
+        <div class="rl-rank-row rl-legende" style="background:rgba(99,0,200,0.18);">
+          <span class="rl-rank-icon">💎</span>
+          <span class="rl-rank-name" style="color:#818cf8;">Elite</span>
+          <span class="rl-rank-range">55 – 79 RP</span>
+          <div class="rl-rank-bar" style="--w:82%;background:#818cf8;"></div>
         </div>
         <div class="rl-rank-row rl-legende">
           <span class="rl-rank-icon">👑</span>
           <span class="rl-rank-name">Legende</span>
-          <span class="rl-rank-range">300+ Pkt</span>
+          <span class="rl-rank-range">80+ RP — top in allen Spielen!</span>
           <div class="rl-rank-bar" style="--w:100%"></div>
         </div>
       </div>
@@ -285,6 +294,9 @@
         <div class="rl-game-chip">🔢 Zahlen-Raten</div>
         <div class="rl-game-chip">💻 Info-Wordle</div>
         <div class="rl-game-chip">🐦 Flappy Bird</div>
+        <div class="rl-game-chip">🐍 Schlange</div>
+        <div class="rl-game-chip">⌨️ Wort-Blitz</div>
+        <div class="rl-game-chip">⚡ Reaktionstest</div>
       </div>
 
       <div class="rl-divider"></div>
@@ -613,6 +625,44 @@
               <div class="chess-files"><span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span></div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Snake -->
+      <div id="snake-area" class="snake-area"></div>
+
+      <!-- Wort-Blitz -->
+      <div id="wortblitz-area" class="wortblitz-area">
+        <canvas id="wortblitz-canvas"></canvas>
+        <input id="wortblitz-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="Wort tippen + Enter…" />
+      </div>
+
+      <!-- Rechen-Duell -->
+      <div id="math-area" class="math-area">
+        <div id="math-lobby-screen">
+          <div class="lobby-online-count"><span id="math-online-num">0</span> Spieler gerade online</div>
+          <div class="lobby-difficulty">
+            <span class="diff-label">Schwierigkeit:</span>
+            <div class="diff-btns">
+              <button class="diff-btn math-diff active" data-diff="easy">Leicht</button>
+              <button class="diff-btn math-diff" data-diff="medium">Mittel</button>
+              <button class="diff-btn math-diff" data-diff="hard">Schwer</button>
+            </div>
+          </div>
+          <button id="btn-math-ai" class="btn-vs-ai">🤖 Gegen KI spielen</button>
+          <div class="lobby-divider">— oder Freund einladen —</div>
+          <div id="math-users-list" class="lobby-users-list"></div>
+        </div>
+        <div id="math-game-screen" style="display:none">
+          <div id="math-score-display" class="math-score-display">0 : 0</div>
+          <div id="math-round-info" class="math-round-info">Runde 1 von 5</div>
+          <div id="math-problem" class="math-problem">?</div>
+          <div id="math-status" class="math-status"></div>
+          <div class="math-input-row">
+            <input id="math-answer-input" type="number" autocomplete="off" placeholder="Antwort…" />
+            <button id="math-answer-btn">OK</button>
+          </div>
+          <div id="math-result-msg" class="math-result-msg"></div>
         </div>
       </div>
 

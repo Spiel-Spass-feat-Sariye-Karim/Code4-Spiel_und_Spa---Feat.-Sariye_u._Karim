@@ -4331,3 +4331,232 @@ body.light .ptop { background: rgba(248,248,252,0.95); }
   padding: 5px 14px;
 }
 
+
+/* ═══════════════════════════════════════════════════
+   SNAKE
+   ═══════════════════════════════════════════════════ */
+.snake-area {
+  display: none;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+}
+.snake-area.active { display: flex; }
+#snake-canvas { border-radius: 10px; box-shadow: 0 0 24px rgba(0,255,136,0.3); max-width: 100%; }
+
+/* ═══════════════════════════════════════════════════
+   WORT-BLITZ
+   ═══════════════════════════════════════════════════ */
+.wortblitz-area {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.wortblitz-area.active { display: flex; }
+#wortblitz-canvas { border-radius: 10px; box-shadow: 0 0 24px rgba(0,255,204,0.3); max-width: 100%; }
+#wortblitz-input {
+  display: none;
+  width: 90%;
+  max-width: 360px;
+  padding: 10px 16px;
+  font-size: 1.1rem;
+  font-family: monospace;
+  background: rgba(0,0,0,0.6);
+  border: 2px solid #00ffcc;
+  border-radius: 8px;
+  color: #00ffcc;
+  outline: none;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-align: center;
+  box-shadow: 0 0 12px rgba(0,255,204,0.25);
+}
+#wortblitz-input:focus { border-color: #fff; box-shadow: 0 0 16px rgba(0,255,204,0.5); }
+
+/* ═══════════════════════════════════════════════════
+   RECHEN-DUELL
+   ═══════════════════════════════════════════════════ */
+.math-area {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 10px 0;
+}
+.math-area.active { display: flex; }
+#math-lobby-screen { width: 100%; max-width: 400px; }
+#math-game-screen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 400px;
+  padding: 16px;
+  background: rgba(0,0,0,0.35);
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.math-score-display {
+  font-size: 2.2rem;
+  font-weight: 900;
+  font-family: var(--pixel-font, monospace);
+  color: #fff;
+  letter-spacing: 4px;
+  text-shadow: 0 0 14px rgba(255,87,51,0.6);
+}
+.math-round-info {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.55);
+  font-family: monospace;
+}
+.math-problem {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #00ffcc;
+  font-family: monospace;
+  text-shadow: 0 0 18px rgba(0,255,204,0.5);
+  min-height: 2.4rem;
+  text-align: center;
+}
+.math-status {
+  font-size: 0.9rem;
+  color: #ff6666;
+  font-family: monospace;
+  min-height: 1.2rem;
+}
+.math-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.math-input-row input {
+  width: 160px;
+  padding: 8px 12px;
+  font-size: 1.2rem;
+  font-family: monospace;
+  background: rgba(0,0,0,0.5);
+  border: 2px solid #00ffcc;
+  border-radius: 8px;
+  color: #fff;
+  outline: none;
+  text-align: center;
+}
+.math-input-row input:focus { border-color: #fff; }
+.math-input-row button {
+  padding: 8px 18px;
+  font-size: 1rem;
+  background: linear-gradient(135deg, #ff5733, #ff8c00);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.math-input-row button:hover { opacity: 0.85; }
+.math-result-msg {
+  font-size: 1rem;
+  font-family: monospace;
+  color: #00ff88;
+  min-height: 1.3rem;
+  text-align: center;
+}
+
+/* ── VT323 on ALL remaining text ───────────────────────── */
+/* Card descriptions */
+.card p { font-family: var(--retro-font); font-size: 0.92rem; line-height: 1.5; color: rgba(255,255,255,0.38); }
+body.light .card p { color: rgba(0,0,0,0.45); }
+
+/* Form elements retro */
+input[type="text"], input[type="password"], input:not([type]) {
+  font-family: var(--retro-font);
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+}
+button { font-family: var(--retro-font); letter-spacing: 0.04em; }
+button.login-box { font-size: 1.1rem; }
+
+/* Rank-legend overlay retro */
+.rl-rank-name { font-family: var(--retro-font); font-size: 1.05rem; font-weight: 400; }
+.rl-rank-range { font-family: var(--retro-font); font-size: 0.9rem; }
+
+/* Score/pts display retro */
+#pts { font-family: var(--retro-font); font-size: 1.6rem !important; }
+
+/* Friend/lobby text */
+.lobby-user-name { font-family: var(--retro-font); font-size: 1rem; }
+.fr-name, .sidebar-friend-name { font-family: var(--retro-font); font-size: 0.95rem; }
+.fr-status, .sidebar-friend-status { font-family: var(--retro-font); font-size: 0.8rem; }
+.live-name, .live-status { font-family: var(--retro-font); }
+.live-name { font-size: 0.85rem; }
+.live-status { font-size: 0.72rem; }
+
+/* Chat retro */
+.chat-msg-text { font-family: var(--retro-font); font-size: 0.95rem; line-height: 1.45; }
+.chat-msg-name { font-family: var(--retro-font); font-size: 0.8rem; }
+.chat-input { font-family: var(--retro-font) !important; font-size: 1rem !important; }
+
+/* Notification center retro */
+.nc-item-sub { font-family: var(--retro-font); font-size: 0.88rem; }
+.nc-item-time { font-family: var(--retro-font); font-size: 0.7rem; }
+.patch-list li { font-family: var(--retro-font); font-size: 0.88rem; }
+.patch-version { font-family: var(--pixel-font) !important; }
+.patch-date { font-family: var(--retro-font); font-size: 0.85rem; }
+
+/* Wordle retro */
+.wordle-input { font-family: var(--retro-font) !important; font-size: 1.2rem !important; }
+.wordle-board .cell { font-family: var(--retro-font); font-size: 1.6rem; }
+.wordle-keys .key { font-family: var(--retro-font); font-size: 0.9rem; }
+
+/* Global/game text */
+.ttt-cell { font-family: var(--retro-font); font-size: 2rem; }
+.ttt-player-info .ttt-you, .ttt-player-info .ttt-opp { font-family: var(--retro-font); font-size: 1rem; }
+.rps-waiting { font-family: var(--retro-font); font-size: 1.1rem; }
+.rps-score-lbl { font-family: var(--retro-font); font-size: 0.85rem; }
+
+/* New game columns in scoreboard */
+.sb-table .sbt-snake    { color: #4ade80; }   /* bright green */
+.sb-table .sbt-wortblitz { color: #38bdf8; }  /* cyan */
+body.light .sb-table .sbt-snake    { color: #16a34a; }
+body.light .sb-table .sbt-wortblitz { color: #0284c7; }
+
+/* Rank badges larger and colored properly */
+.sbt-rank-badge {
+  font-family: var(--retro-font);
+  font-size: 0.7rem;
+  font-weight: 400;
+}
+
+/* ── Rank explanation panel retro overhaul ─────────────── */
+.rank-legend-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9900;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px);
+}
+.rank-legend-overlay.open { display: flex; }
+.rank-legend-box {
+  background: linear-gradient(160deg, #0d0d22, #0a0a1a);
+  border: 1px solid rgba(139,92,246,0.25);
+  border-radius: 18px;
+  padding: 1.5rem;
+  width: min(480px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+}
+.rank-legend-title {
+  font-family: var(--pixel-font);
+  font-size: 0.62rem;
+  color: var(--c1);
+  letter-spacing: 0.1em;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
