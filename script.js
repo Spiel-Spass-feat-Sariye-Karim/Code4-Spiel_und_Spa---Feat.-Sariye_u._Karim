@@ -4160,10 +4160,29 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
           draw(0); setTimeout(function(){pongGameOver(sc.r>=MAX?'win':'lose');},400); return;
         }
       }
-      // Pure local physics every frame — no "started" check needed after local countdown
+      // Full local physics — client-side prediction (same as host)
+      // WS syncs velocity after paddle bounces; local handles wall scoring
       ball.x+=ball.vx*dt; ball.y+=ball.vy*dt;
+      // Top/bottom walls
       if(ball.y-BR<=0){ball.y=BR;ball.vy=Math.abs(ball.vy);}
       if(ball.y+BR>=H){ball.y=H-BR;ball.vy=-Math.abs(ball.vy);}
+      // Right paddle (guest's own paddle)
+      if(ball.vx>0&&ball.x+BR>=padR.x&&ball.x+BR<=padR.x+PW&&ball.y>=padR.y&&ball.y<=padR.y+PH){
+        ball.x=padR.x-BR; ball.vx=-Math.min(Math.abs(ball.vx)*1.05,baseSpeed*2.5);
+        ball.vy+=(ball.y-(padR.y+PH/2))*0.12;
+      }
+      // Left wall (guest didn't get ball back — local reset, server will confirm)
+      if(ball.x-BR<=0){
+        ball.x=W/2; ball.y=H/2+(Math.random()-0.5)*80;
+        ball.vx=(baseSpeed*0.9+Math.random()*baseSpeed*0.2);
+        ball.vy=(Math.random()-0.5)*baseSpeed;
+      }
+      // Right wall (ball passed guest's paddle — local reset)
+      if(ball.x+BR>=W){
+        ball.x=W/2; ball.y=H/2+(Math.random()-0.5)*80;
+        ball.vx=-(baseSpeed*0.9+Math.random()*baseSpeed*0.2);
+        ball.vy=(Math.random()-0.5)*baseSpeed;
+      }
     }
     draw(0);
     raf=requestAnimationFrame(loop);
@@ -4940,12 +4959,12 @@ function flappyBird(cv) {
     if (!started) started = true;
     vy = JUMP;
     // spawn burst particles
-    for (var i = 0; i < 6; i++) {
+    for (var i = 0; i < 4; i++) { // fewer particles
       particles.push({
         x: BIRD_X, y: by,
-        vx: (Math.random() - 0.5) * 3,
-        vy: 1 + Math.random() * 2,
-        life: 1, color: ['#ffd700','#ff8c00','#fff'][Math.floor(Math.random()*3)]
+        vx: (Math.random() - 0.5) * 2.5,
+        vy: 0.8 + Math.random() * 1.5,
+        life: 1, color: ['#ffd700','#ff8c00'][Math.floor(Math.random()*2)]
       });
     }
   }
@@ -4965,72 +4984,61 @@ function flappyBird(cv) {
     document.getElementById('pts').textContent = '0';
   }
 
+  /* ---- Pre-render static background to offscreen canvas (big perf win) ---- */
+  var bgCanvas = document.createElement('canvas');
+  bgCanvas.width = W; bgCanvas.height = GROUND;
+  var bctx = bgCanvas.getContext('2d');
+
+  // Sky gradient
+  var sky = bctx.createLinearGradient(0, 0, 0, GROUND);
+  sky.addColorStop(0, '#060615'); sky.addColorStop(0.5, '#0d0d2b');
+  sky.addColorStop(0.8, '#180a28'); sky.addColorStop(1, '#240b30');
+  bctx.fillStyle = sky; bctx.fillRect(0, 0, W, GROUND);
+
+  // Stars (static — no twinkle for perf)
+  stars.forEach(function(s) {
+    bctx.globalAlpha = 0.5 + 0.3 * Math.sin(s.phase);
+    bctx.fillStyle = '#fff';
+    bctx.beginPath(); bctx.arc(s.x, s.y, s.r, 0, Math.PI*2); bctx.fill();
+  });
+  bctx.globalAlpha = 1;
+
+  // City buildings (static, no per-frame recalc)
+  var neonColors = ['#00d4ff','#ff44aa','#44ffbb','#ffcc22','#aa66ff'];
+  cityBuildings.forEach(function(b) {
+    var bx = b.x, by2 = GROUND - b.h;
+    bctx.fillStyle = '#110820'; bctx.fillRect(bx, by2, b.w, b.h);
+    // Windows — simple rectangles, no shadow, deterministic
+    var winW=6, winH=7, padX=4, padY=5, gapX=5, gapY=4;
+    var wCols = Math.floor((b.w-padX*2)/(winW+gapX));
+    var wRows = Math.floor((b.h-padY*2)/(winH+gapY));
+    for (var wr=0; wr<wRows; wr++) for (var wc=0; wc<wCols; wc++) {
+      if ((wc*3+wr*7+Math.floor(bx))%4===0) continue;
+      var col = neonColors[(wc*5+wr*3+Math.floor(bx/10)) % neonColors.length];
+      bctx.globalAlpha = 0.4 + 0.15 * Math.sin(wc*1.3+wr*0.9);
+      bctx.fillStyle = col;
+      bctx.fillRect(bx+padX+wc*(winW+gapX), by2+padY+wr*(winH+gapY), winW, winH);
+    }
+    bctx.globalAlpha = 1;
+    // Building edge
+    bctx.strokeStyle = 'rgba(160,80,240,0.15)'; bctx.lineWidth=1;
+    bctx.strokeRect(bx, by2, b.w, b.h);
+  });
+
   /* ---- drawing ---- */
 
   function drawBackground(ts) {
-    /* Gradient sky: deep night purple → dark indigo → slight city-glow at horizon */
-    var sky = ctx.createLinearGradient(0, 0, 0, GROUND);
-    sky.addColorStop(0,    '#060615');
-    sky.addColorStop(0.45, '#0d0d2b');
-    sky.addColorStop(0.78, '#1a0a2e');
-    sky.addColorStop(1,    '#2d0e3a');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, W, GROUND);
-
-    /* Stars with twinkle */
-    stars.forEach(function(s) {
-      var bright = 0.55 + 0.45 * Math.sin(ts / 900 + s.phase);
-      ctx.globalAlpha = bright;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fill();
-    });
-    ctx.globalAlpha = 1;
-
-    /* City skyline silhouette */
-    cityBuildings.forEach(function(b) {
-      var bx = b.x;
-      var by2 = GROUND - b.h;
-
-      /* Building body */
-      var bg = ctx.createLinearGradient(bx, by2, bx + b.w, by2);
-      bg.addColorStop(0, '#120825');
-      bg.addColorStop(1, '#1a0e30');
-      ctx.fillStyle = bg;
-      ctx.fillRect(bx, by2, b.w, b.h);
-
-      /* Smooth neon windows — soft glowing rectangles, not tiny pixels */
-      var winW = 7, winH = 8, padX = 5, padY = 6, gapX = 5, gapY = 5;
-      var cols = Math.floor((b.w - padX*2) / (winW + gapX));
-      var rows2 = Math.floor((b.h - padY*2) / (winH + gapY));
-      if (cols < 1 || rows2 < 1) { cols=1; rows2=1; }
-      var neonColors = ['#00d4ff','#ff44aa','#44ffbb','#ffcc22','#aa66ff'];
-      for (var wr = 0; wr < rows2; wr++) {
-        for (var wc = 0; wc < cols; wc++) {
-          // Use deterministic on/off based on position (stable, no flicker)
-          if ((wc * 3 + wr * 7 + Math.floor(bx)) % 4 === 0) continue;
-          var wx = bx + padX + wc * (winW + gapX);
-          var wy = by2 + padY + wr * (winH + gapY);
-          var col = neonColors[(wc*5+wr*3+Math.floor(bx/10)) % neonColors.length];
-          var flicker = 0.35 + 0.25 * Math.sin(ts / 2000 + wc * 1.3 + wr * 0.9);
-          ctx.globalAlpha = flicker;
-          ctx.fillStyle = col;
-          ctx.shadowColor = col; ctx.shadowBlur = 4;
-          // Soft rounded rect window
-          ctx.beginPath();
-          ctx.roundRect ? ctx.roundRect(wx, wy, winW, winH, 2) : ctx.rect(wx, wy, winW, winH);
-          ctx.fill();
-          ctx.shadowBlur = 0;
-        }
+    // Draw pre-rendered background in one blit — O(1) instead of O(buildings*windows)
+    ctx.drawImage(bgCanvas, 0, 0);
+    // Twinkle stars with a simple globalAlpha oscillation (cheap)
+    if (Math.floor(ts/500) % 2 === 0) {
+      ctx.globalAlpha = 0.15;
+      ctx.fillStyle = '#fff';
+      for (var si=0; si<stars.length; si+=3) {
+        ctx.beginPath(); ctx.arc(stars[si].x, stars[si].y, stars[si].r+0.5, 0, Math.PI*2); ctx.fill();
       }
       ctx.globalAlpha = 1;
-
-      /* Building top antenna/edge glow */
-      ctx.strokeStyle = 'rgba(180,100,255,0.2)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(bx, by2, b.w, b.h);
-    });
+    }
   }
 
   function drawGround() {
@@ -5058,8 +5066,7 @@ function flappyBird(cv) {
     var bH = GROUND - topH - GAP;
 
     ctx.save();
-    ctx.shadowColor = '#00ff88';
-    ctx.shadowBlur = 18;
+    // No shadowBlur on pipes (expensive, redraw entire pipe area)
 
     function fillPipeBody(x, y, w, h) {
       var g = ctx.createLinearGradient(x, 0, x + w, 0);
@@ -5298,7 +5305,7 @@ function flappyBird(cv) {
 
       /* trail */
       trail.push({ x: BIRD_X, y: by });
-      if (trail.length > 10) trail.shift();
+      if (trail.length > 6) trail.shift(); // shorter trail = less draw calls
 
       /* particles */
       for (var pi = particles.length - 1; pi >= 0; pi--) {
