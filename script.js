@@ -1984,8 +1984,12 @@ function showHS() {
   var reactionDisplay = reactionMs > 0
     ? (reactionMs < 400 ? '🟢 ' : '') + reactionMs + 'ms ⚡'
     : '-';
+  // Update rank badge first (always, even if hs-list section was removed)
+  var rankEl = document.getElementById('stat-rank');
+  if (rankEl) rankEl.textContent = myRankPoints > 0 ? getRank(myRankPoints) : '🌱 Neuling';
+
   var hsList = document.getElementById('hs-list');
-  if (!hsList) return; // element removed — skip gracefully
+  if (!hsList) return; // hs-list section removed — skip the rest
   hsList.innerHTML =
     '<div class="hs-row"><span>🧠 Farb-Gedächtnis</span><span>' + badge(user.memory||0) + (user.memory||0) + '</span></div>' +
     '<div class="hs-row"><span>🧱 Turm-Stapler</span><span>' + badge(user.stack||0) + (user.stack||0) + '</span></div>' +
@@ -1994,9 +1998,6 @@ function showHS() {
     '<div class="hs-row"><span>🔢 Zahlen-Raten</span><span>' + badge(user.guess||0) + (user.guess||0) + '</span></div>' +
     '<div class="hs-row"><span>💻 Info-Wordle</span><span>' + badge(user.wordle||0) + (user.wordle||0) + '</span></div>' +
     '<div class="hs-row"><span>🐦 Flappy Bird</span><span>' + badge(user.flappy||0) + (user.flappy||0) + '</span></div>';
-  var rankEl = document.getElementById('stat-rank');
-  // Use myRankPoints if loaded, fallback to rough estimate from total
-  if (rankEl) rankEl.textContent = getRank(myRankPoints);
 }
 
 /* ---- GLOBALES SCOREBOARD ---- */
@@ -2056,7 +2057,12 @@ async function loadGlobalHS() {
     for (var i = 0; i < limit; i++) {
       var s = scores[i];
       var rp = s.rank_points || 0;
-      if (isMeClass(s)) myRankPoints = rp; // store for profile display
+      if (isMeClass(s)) {
+        myRankPoints = rp; // store for profile display
+        // Update rank badge immediately when we know our RP
+        var rankEl2 = document.getElementById('stat-rank');
+        if (rankEl2) rankEl2.textContent = getRank(rp);
+      }
       var meClass = isMeClass(s) ? ' sbt-me' : '';
       var rankLabel = getRank(rp);
       var rankCol = getRankColor(rp);
