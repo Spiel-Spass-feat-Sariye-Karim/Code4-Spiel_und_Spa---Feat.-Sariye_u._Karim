@@ -186,7 +186,7 @@
         <div class="cards cards-multi">
           <div class="card" id="card-multiplayer"><div class="em">⚔️</div><h3>TicTacToe Duell</h3><p>Klassisches TicTacToe gegen KI oder Freunde</p></div>
           <div class="card" id="card-connect4"><div class="em">🔴</div><h3>4 Gewinnt</h3><p>Verbinde als Erster 4 Steine in einer Reihe</p></div>
-          <div class="card" id="card-pong"><div class="em">🏓</div><h3>Pong</h3><p>Schlage den Ball — zuerst 5 Punkte gewinnt</p></div>
+          <div class="card" id="card-elfmeter"><div class="em">⚽</div><h3>Elfmeter-Duell</h3><p>Schieß oder halte — 5 Elfmeter, simultane Wahl, 9 Zonen!</p></div>
           <div class="card" id="card-rps"><div class="em">✊</div><h3>Schere Stein Papier</h3><p>Best of 5 Runden — wer zuerst 3 gewinnt</p></div>
           <div class="card" id="card-chess"><div class="em">♟️</div><h3>Schach</h3><p>Klassisches Schach gegen KI oder Freunde</p></div>
           <div class="card" id="card-math"><div class="em">🧮</div><h3>Rechen-Duell</h3><p>Wer rechnet schneller? Direkt gegen KI oder Freunde!</p></div>
@@ -514,21 +514,56 @@
         </div>
       </div>
 
-      <!-- Pong Lobby -->
-      <div id="pong-area" class="pong-area">
-        <div id="pong-lobby-screen">
-          <div class="lobby-online-count"><span id="pong-online-num">0</span> Spieler gerade online</div>
+      <!-- Elfmeter-Duell -->
+      <div id="elfmeter-area" class="elfmeter-area">
+        <!-- Lobby screen -->
+        <div id="elfmeter-lobby-screen">
+          <div class="lobby-online-count"><span id="elfmeter-online-num">0</span> Spieler gerade online</div>
           <div class="lobby-difficulty">
             <span class="diff-label">Schwierigkeit:</span>
             <div class="diff-btns">
-              <button class="diff-btn pong-diff active" data-diff="easy">Leicht</button>
-              <button class="diff-btn pong-diff" data-diff="medium">Mittel</button>
-              <button class="diff-btn pong-diff" data-diff="hard">Schwer</button>
+              <button class="diff-btn elfmeter-diff active" data-diff="easy">Leicht</button>
+              <button class="diff-btn elfmeter-diff" data-diff="medium">Mittel</button>
+              <button class="diff-btn elfmeter-diff" data-diff="hard">Schwer</button>
             </div>
           </div>
-          <button id="btn-pong-ai" class="btn-vs-ai">🤖 Gegen KI spielen</button>
+          <button id="btn-elfmeter-ai" class="btn-vs-ai">🤖 Gegen KI spielen</button>
           <div class="lobby-divider">— oder Freund einladen —</div>
-          <div id="pong-users-list" class="lobby-users-list"></div>
+          <div id="elfmeter-users-list" class="lobby-users-list"></div>
+        </div>
+        <!-- Game screen -->
+        <div id="elfmeter-game-screen" style="display:none">
+          <div class="elfm-header">
+            <div class="elfm-score-wrap">
+              <div class="elfm-player-score">
+                <div class="elfm-goals" id="elfm-my-goals">0</div>
+                <div class="elfm-name">Du</div>
+              </div>
+              <div class="elfm-vs">⚽</div>
+              <div class="elfm-player-score">
+                <div class="elfm-goals" id="elfm-opp-goals">0</div>
+                <div class="elfm-name" id="elfm-opp-name">Gegner</div>
+              </div>
+            </div>
+            <div class="elfm-round-info" id="elfm-round-info">Runde 1 / 5</div>
+          </div>
+          <div class="elfm-role-display" id="elfm-role-display">⚽ Du schießt!</div>
+          <div class="elfm-field">
+            <div class="elfm-goal-wrap">
+              <div class="elfm-crossbar-top"></div>
+              <div id="elfm-goal-grid" class="elfm-goal-grid">
+                <!-- 9 zone buttons injected by JS -->
+              </div>
+            </div>
+            <div class="elfm-grass"></div>
+            <div class="elfm-ball" id="elfm-ball">⚽</div>
+            <div class="elfm-keeper" id="elfm-keeper">🧤</div>
+          </div>
+          <div class="elfm-timer-wrap">
+            <div class="elfm-timer-bar" id="elfm-timer-bar"></div>
+          </div>
+          <div class="elfm-status" id="elfm-status">Wähle deine Zone!</div>
+          <div class="elfm-result" id="elfm-result" style="display:none"></div>
         </div>
       </div>
 

@@ -46,7 +46,8 @@ var tttMoveInFlight=false; // prevents poll from overwriting local state mid-sen
 // Connect 4
 var c4PollInterval=null,c4LobbyId=null,c4IsHost=false,c4IsAI=false,c4AiDiff='easy',c4MySymbol='R',c4On=false;
 // Pong
-var pongPollInterval=null,pongLobbyId=null,pongIsHost=false,pongIsAI=false,pongAiDiff='easy',pongOn=false;
+var pongPollInterval=null,pongLobbyId=null,pongIsHost=false,pongIsAI=false,pongAiDiff='easy',pongOn=false; // kept for compatibility
+var elfmPollInterval=null,elfmLobbyId=null,elfmIsHost=false,elfmIsAI=false,elfmAiDiff='easy',elfmOn=false;
 // RPS
 var rpsPollInterval=null,rpsLobbyId=null,rpsIsHost=false,rpsIsAI=false,rpsAiDiff='easy',rpsOn=false;
 // Chess
@@ -734,7 +735,7 @@ async function sendGameInvite(toId, btn, gameType) {
       body: JSON.stringify({ lobby_id: lobby.id, from_id: user.id, to_id: toId })
     });
     if (btn) { btn.textContent = '✓ Gesendet'; }
-    var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', pong:'Pong', rps:'Schere Stein Papier', chess:'Schach', math:'Rechen-Duell' };
+    var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', elfmeter:'Elfmeter-Duell', rps:'Schere Stein Papier', chess:'Schach', math:'Rechen-Duell' };
     showToast('⚔️ Einladung zu ' + (gameNames[gameType]||gameType) + ' gesendet!');
     if (hostWaitInterval) clearInterval(hostWaitInterval);
     hostWaitInterval = setInterval(async function() {
@@ -747,9 +748,9 @@ async function sendGameInvite(toId, btn, gameType) {
           if (gameType === 'connect4') {
             openG('connect4');
             setTimeout(function() { c4StartOnline(lobby.id, true); }, 80);
-          } else if (gameType === 'pong') {
-            openG('pong');
-            setTimeout(function() { pongStartOnline(lobby.id, true); }, 80);
+          } else if (gameType === 'elfmeter') {
+            openG('elfmeter');
+            setTimeout(function() { elfmeterStartOnline(lobby.id, true); }, 80);
           } else if (gameType === 'rps') {
             openG('rps');
             setTimeout(function() { rpsStartOnline(lobby.id, true); }, 80);
@@ -791,7 +792,7 @@ async function checkGameInvites() {
       seenInviteIds.add(inv.id);
       showInviteToast(inv);
       // Local push notification when tab is hidden
-      var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', pong:'Pong', rps:'Schere Stein Papier', chess:'Schach', math:'Rechen-Duell' };
+      var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', elfmeter:'Elfmeter-Duell', rps:'Schere Stein Papier', chess:'Schach', math:'Rechen-Duell' };
       var inviteMsg = (inv.from_name || 'Jemand') + ' lädt dich zu ' + (gameNames[inv.game_type]||'einem Spiel') + ' ein!';
       showLocalNotif('⚔️ Spieleinladung', inviteMsg);
       addNotifEvent('⚔️', 'Spieleinladung', inviteMsg, true);
@@ -805,7 +806,7 @@ function showInviteToast(inv) {
   var seed = inv.avatar_seed || inv.from_name || 'unknown';
   var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
   var gameIcons = { tictactoe:'⚔️', connect4:'🔴', pong:'🏓', rps:'✊', chess:'♟️', math:'🧮' };
-  var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', pong:'Pong', rps:'Schere Stein Papier', chess:'Schach', math:'Rechen-Duell' };
+  var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', elfmeter:'Elfmeter-Duell', rps:'Schere Stein Papier', chess:'Schach', math:'Rechen-Duell' };
   var icon = gameIcons[inv.game_type] || '⚔️';
   var name = gameNames[inv.game_type] || 'Duell';
   t.innerHTML =
@@ -833,9 +834,9 @@ async function acceptGameInvite(inv) {
     if (gt === 'connect4') {
       openG('connect4');
       setTimeout(function() { c4StartOnline(inv.lobby_id, false); }, 80);
-    } else if (gt === 'pong') {
-      openG('pong');
-      setTimeout(function() { pongStartOnline(inv.lobby_id, false); }, 80);
+    } else if (gt === 'elfmeter') {
+      openG('elfmeter');
+      setTimeout(function() { elfmeterStartOnline(inv.lobby_id, false); }, 80);
     } else if (gt === 'rps') {
       openG('rps');
       setTimeout(function() { rpsStartOnline(inv.lobby_id, false); }, 80);
@@ -1114,12 +1115,11 @@ function gameRematch() {
     if (game) { game.stop(); game = null; }
     var cv = document.getElementById('c'); cv.style.display = 'none'; cv.style.width = ''; cv.style.height = '';
     if (c4IsAI) { c4Start(c4AiDiff); } else { document.getElementById('c4-area').classList.add('active'); loadC4LobbyScreen(); }
-  } else if (which === 'pong') {
-    if (pongPollInterval) { clearInterval(pongPollInterval); pongPollInterval = null; }
-    pongOn = false; pongLobbyId = null;
-    if (game) { game.stop(); game = null; }
-    var cv = document.getElementById('c'); cv.style.display = 'none'; cv.style.width = ''; cv.style.height = '';
-    if (pongIsAI) { pongStart(pongAiDiff); } else { document.getElementById('pong-area').classList.add('active'); loadPongLobbyScreen(); }
+  } else if (which === 'elfmeter') {
+    if (elfmPollInterval) { clearInterval(elfmPollInterval); elfmPollInterval = null; }
+    elfmOn = false; elfmLobbyId = null;
+    document.getElementById('elfmeter-game-screen').style.display = 'none';
+    if (elfmIsAI) { elfmeterStart(elfmAiDiff); } else { document.getElementById('elfmeter-area').classList.add('active'); loadElfmeterLobbyScreen(); }
   } else if (which === 'rps') {
     if (rpsPollInterval) { clearInterval(rpsPollInterval); rpsPollInterval = null; }
     rpsOn = false; rpsLobbyId = null;
@@ -2155,7 +2155,7 @@ document.getElementById('card-wordle').addEventListener('click', function() { op
 document.getElementById('card-flappy').addEventListener('click', function() { openG('flappy'); });
 document.getElementById('card-multiplayer').addEventListener('click', function() { openG('multiplayer'); });
 document.getElementById('card-connect4').addEventListener('click', function() { openG('connect4'); });
-document.getElementById('card-pong').addEventListener('click', function() { openG('pong'); });
+document.getElementById('card-elfmeter').addEventListener('click', function() { openG('elfmeter'); });
 document.getElementById('card-rps').addEventListener('click', function() { openG('rps'); });
 document.getElementById('card-chess').addEventListener('click', function() { openG('chess'); });
 document.getElementById('card-snake').addEventListener('click', function() { openG('snake'); });
@@ -2357,7 +2357,7 @@ makeDraggable(
 
 document.getElementById('btn-vs-ai').addEventListener('click', function() { tttStart(lobbyAiDiff); });
 document.getElementById('btn-c4-ai').addEventListener('click', function() { c4Start(c4AiDiff); });
-document.getElementById('btn-pong-ai').addEventListener('click', function() { pongStart(pongAiDiff); });
+// pong AI button removed (replaced by elfmeter)
 document.getElementById('btn-rps-ai').addEventListener('click', function() { rpsStart(rpsAiDiff); });
 document.getElementById('btn-chess-ai').addEventListener('click', function() { chessStart(chessAiDiff); });
 
@@ -2420,7 +2420,7 @@ document.getElementById('pc-input').addEventListener('keydown', function(e) { if
 
 function openG(id) {
   which = id;
-  var titles = { memory: 'Farb-Gedächtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest', bubble: 'Bubble Pop', guess: 'Zahlen-Raten', wordle: 'Info-Wordle', flappy: '🐦 Flappy Bird', multiplayer: '⚔️ TicTacToe Duell', connect4: '🔴 4 Gewinnt', pong: '🏓 Pong', rps: '✊ Schere Stein Papier', chess: '♟️ Schach', snake: '🐍 Schlange', wortblitz: '⌨️ Wort-Blitz', math: '🧮 Rechen-Duell' };
+  var titles = { memory: 'Farb-Gedächtnis', stack: 'Turm-Stapler', reaction: 'Reaktionstest', bubble: 'Bubble Pop', guess: 'Zahlen-Raten', wordle: 'Info-Wordle', flappy: '🐦 Flappy Bird', multiplayer: '⚔️ TicTacToe Duell', connect4: '🔴 4 Gewinnt', elfmeter: '⚽ Elfmeter-Duell', rps: '✊ Schere Stein Papier', chess: '♟️ Schach', snake: '🐍 Schlange', wortblitz: '⌨️ Wort-Blitz', math: '🧮 Rechen-Duell' };
   document.getElementById('gtitle').textContent = titles[id] || id;
   document.getElementById('pts').textContent = '0';
   var canvas = document.getElementById('c');
@@ -2431,7 +2431,8 @@ function openG(id) {
   var wordleArea = document.getElementById('wordle-area');
   var lobbyArea = document.getElementById('lobby-area');
   var c4Area = document.getElementById('c4-area');
-  var pongArea = document.getElementById('pong-area');
+  var pongArea = document.getElementById('pong-area') || document.createElement('div');
+  var elfmArea = document.getElementById('elfmeter-area');
   var rpsArea = document.getElementById('rps-area');
   var chessArea = document.getElementById('chess-area');
   var snakeArea = document.getElementById('snake-area');
@@ -2447,6 +2448,7 @@ function openG(id) {
   lobbyArea.classList.remove('active');
   c4Area.classList.remove('active');
   pongArea.classList.remove('active');
+  if(elfmArea) elfmArea.classList.remove('active');
   rpsArea.classList.remove('active');
   chessArea.classList.remove('active');
   snakeArea.classList.remove('active');
@@ -2470,8 +2472,8 @@ function openG(id) {
     lobbyArea.classList.add('active');
   } else if (id === 'connect4') {
     c4Area.classList.add('active');
-  } else if (id === 'pong') {
-    pongArea.classList.add('active');
+  } else if (id === 'elfmeter') {
+    if(elfmArea) elfmArea.classList.add('active');
   } else if (id === 'rps') {
     rpsArea.classList.add('active');
   } else if (id === 'chess') {
@@ -2489,7 +2491,7 @@ function openG(id) {
   if (lw) lw.style.display = 'none';
   stopArcadeParticles();
   // Track activity for live status
-  var activityMap = { memory:'singleplayer:memory', stack:'singleplayer:stack', reaction:'singleplayer:reaktion',
+  var activityMap = { memory:'singleplayer:memory', stack:'singleplayer:stack', reaction:'singleplayer:reaktion', elfmeter:'multiplayer:elfmeter',
     bubble:'singleplayer:bubble', guess:'singleplayer:zahlen', wordle:'singleplayer:wordle', flappy:'singleplayer:flappy',
     snake:'singleplayer:snake', wortblitz:'singleplayer:wortblitz',
     multiplayer:'multiplayer:tictactoe', connect4:'multiplayer:connect4', pong:'multiplayer:pong',
@@ -2510,6 +2512,7 @@ function closeG() {
   if (hostWaitInterval) { clearInterval(hostWaitInterval); hostWaitInterval = null; }
   tttOn = false; c4On = false; pongOn = false; rpsOn = false; chessOn = false;
   snakeOn = false; wortblitzOn = false; mathOn = false;
+  elfmOn = false; if (elfmPollInterval) { clearInterval(elfmPollInterval); elfmPollInterval = null; }
   if (mathPollInterval) { clearInterval(mathPollInterval); mathPollInterval = null; }
   document.getElementById('ttt-overlay').classList.remove('show');
   document.getElementById('popup').classList.remove('on');
@@ -2526,7 +2529,8 @@ function closeG() {
   document.getElementById('wordle-area').classList.remove('active');
   document.getElementById('lobby-area').classList.remove('active');
   document.getElementById('c4-area').classList.remove('active');
-  document.getElementById('pong-area').classList.remove('active');
+  if(document.getElementById('pong-area')) document.getElementById('pong-area').classList.remove('active');
+  if(document.getElementById('elfmeter-area')) document.getElementById('elfmeter-area').classList.remove('active');
   document.getElementById('rps-area').classList.remove('active');
   document.getElementById('chess-area').classList.remove('active');
   document.getElementById('snake-area').classList.remove('active');
@@ -2558,15 +2562,13 @@ function resetG() {
     loadC4LobbyScreen();
     return;
   }
-  if (which === 'pong') {
-    if (pongPollInterval) { clearInterval(pongPollInterval); pongPollInterval = null; }
-    pongOn = false; pongLobbyId = null;
-    if (game) { game.stop(); game = null; }
-    var cv = document.getElementById('c');
-    cv.style.display = 'none'; cv.style.width = ''; cv.style.height = '';
+  if (which === 'elfmeter') {
+    if (elfmPollInterval) { clearInterval(elfmPollInterval); elfmPollInterval = null; }
+    elfmOn = false; elfmLobbyId = null;
     document.getElementById('ttt-overlay').classList.remove('show');
-    document.getElementById('pong-area').classList.add('active');
-    loadPongLobbyScreen();
+    document.getElementById('elfmeter-game-screen').style.display = 'none';
+    document.getElementById('elfmeter-area').classList.add('active');
+    loadElfmeterLobbyScreen();
     return;
   }
   if (which === 'rps') {
@@ -2622,8 +2624,8 @@ function runG() {
     loadLobbyScreen();
   } else if (which === 'connect4') {
     loadC4LobbyScreen();
-  } else if (which === 'pong') {
-    loadPongLobbyScreen();
+  } else if (which === 'elfmeter') {
+    loadElfmeterLobbyScreen();
   } else if (which === 'rps') {
     loadRpsLobbyScreen();
   } else if (which === 'chess') {
@@ -5371,6 +5373,319 @@ function flappyBird(cv) {
       document.removeEventListener('keydown', kd);
     }
   };
+}
+
+/* ================================================================
+   ELFMETER-DUELL (PENALTY SHOOTOUT)
+   ================================================================ */
+
+var elfmPlayerHistory = []; // zones the human shot at (for AI analysis)
+
+document.querySelectorAll('.elfmeter-diff').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.elfmeter-diff').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    elfmAiDiff = this.dataset.diff;
+  });
+});
+document.getElementById('btn-elfmeter-ai').addEventListener('click', function() {
+  elfmeterStart(elfmAiDiff);
+});
+
+async function loadElfmeterLobbyScreen() {
+  document.getElementById('elfmeter-lobby-screen').style.display = 'block';
+  document.getElementById('elfmeter-game-screen').style.display = 'none';
+  try {
+    var res = await fetch(API_URL + '/api/users/search?me=' + user.id);
+    var users = await res.json();
+    var online = (users||[]).filter(function(u) { return isRecentlyActive(u) && u.id !== user.id; });
+    document.getElementById('elfmeter-online-num').textContent = online.length;
+    var container = document.getElementById('elfmeter-users-list');
+    if (!online.length) { container.innerHTML = '<div class="lobby-empty">Keine Freunde online</div>'; return; }
+    var html = '';
+    online.forEach(function(u) {
+      var seed = u.avatar_seed || u.name;
+      var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(seed);
+      html += '<div class="lobby-user-row"><img class="lobby-user-av" src="'+av+'" alt=""><span class="lobby-user-name">'+escHtml(u.name)+'</span><button class="btn-invite" data-id="'+u.id+'" data-game="elfmeter">Einladen</button></div>';
+    });
+    container.innerHTML = html;
+    container.querySelectorAll('.btn-invite').forEach(function(btn) {
+      btn.addEventListener('click', function() { sendGameInvite(parseInt(this.dataset.id), this, 'elfmeter'); });
+    });
+  } catch(e) {}
+}
+
+function elfmeterStart(diff) {
+  elfmIsAI = true; elfmAiDiff = diff; elfmIsHost = true; elfmOn = true;
+  elfmeterStartGame(true, diff, null, true);
+}
+
+function elfmeterStartOnline(lobbyId, isHost) {
+  elfmLobbyId = lobbyId; elfmIsHost = isHost; elfmIsAI = false; elfmOn = true;
+  elfmeterStartGame(false, null, lobbyId, isHost);
+  if (elfmPollInterval) clearInterval(elfmPollInterval);
+  elfmPollInterval = setInterval(elfmeterPollOnline, 500);
+  if (isHost) {
+    fetch(API_URL + '/api/lobby/state', {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ lobby_id: lobbyId, user_id: user.id, patch: {
+        round:1, maxRounds:5, hostGoals:0, guestGoals:0, hostIsShooter:true,
+        hostChoice:null, guestChoice:null, phase:'choosing'
+      }})
+    });
+  }
+}
+
+async function elfmeterPollOnline() {
+  if (!elfmOn || !elfmLobbyId) return;
+  try {
+    var res = await fetch(API_URL + '/api/lobby/' + elfmLobbyId);
+    if (!res.ok) return;
+    var lobby = await res.json();
+    if (lobby.game_state && game && game.applyState) game.applyState(lobby.game_state);
+  } catch(e) {}
+}
+
+function elfmeterAiChoice(diff, role, history) {
+  // role: 'shooter' (AI shoots) or 'keeper' (AI keeps)
+  if (diff === 'easy') return Math.floor(Math.random() * 9);
+  if (diff === 'medium') {
+    if (role === 'shooter') {
+      // Prefer corners (harder to save)
+      var corners = [0,2,6,8];
+      return Math.random() < 0.65 ? corners[Math.floor(Math.random()*4)] : Math.floor(Math.random()*9);
+    } else {
+      // Slightly prefer center as keeper
+      return Math.random() < 0.28 ? 4 : Math.floor(Math.random()*9);
+    }
+  }
+  // Hard
+  if (role === 'shooter') {
+    if (history.length >= 2) {
+      var freq = Array(9).fill(0);
+      history.forEach(function(z) { freq[z]++; });
+      // Shoot where player keeper goes least (least covered zone)
+      var leastCovered = freq.indexOf(Math.min.apply(null, freq));
+      if (Math.random() < 0.55) return leastCovered;
+    }
+    var c2 = [0,2,6,8]; return c2[Math.floor(Math.random()*4)];
+  } else { // keeper
+    if (history.length >= 2) {
+      var freq2 = Array(9).fill(0);
+      history.forEach(function(z) { freq2[z]++; });
+      var mostShot = freq2.indexOf(Math.max.apply(null, freq2));
+      if (Math.random() < 0.6) return mostShot;
+    }
+    return Math.floor(Math.random() * 9);
+  }
+}
+
+function elfmeterStartGame(isAI, diff, lobbyId, isHost) {
+  elfmPlayerHistory = [];
+  document.getElementById('elfmeter-lobby-screen').style.display = 'none';
+  document.getElementById('elfmeter-game-screen').style.display = 'flex';
+  document.getElementById('elfm-my-goals').textContent = '0';
+  document.getElementById('elfm-opp-goals').textContent = '0';
+  document.getElementById('elfm-opp-name').textContent = isAI ? 'KI' : 'Gegner';
+
+  // Build 9-zone goal grid
+  var grid = document.getElementById('elfm-goal-grid');
+  grid.innerHTML = '';
+  // Zone labels: arrows indicating direction
+  var zoneLabels = ['↖','↑','↗','←','·','→','↙','↓','↘'];
+  for (var zi = 0; zi < 9; zi++) {
+    (function(zone) {
+      var btn = document.createElement('button');
+      btn.className = 'elfm-zone-btn';
+      btn.dataset.zone = zone;
+      btn.textContent = zoneLabels[zone];
+      btn.addEventListener('click', function() { onZonePick(zone); });
+      grid.appendChild(btn);
+    })(zi);
+  }
+
+  var myGoals = 0, oppGoals = 0;
+  var round = 1, MAX_ROUNDS = 5;
+  var myIsShooter = isHost; // host shoots first
+  var myChoice = null, hasChosen = false;
+  var roundActive = false, gameEnded = false;
+  var timerInterval = null;
+
+  function updateHeader() {
+    document.getElementById('elfm-my-goals').textContent = myGoals;
+    document.getElementById('elfm-opp-goals').textContent = oppGoals;
+    document.getElementById('elfm-round-info').textContent = 'Runde ' + round + ' / ' + MAX_ROUNDS;
+    var roleEl = document.getElementById('elfm-role-display');
+    roleEl.textContent = myIsShooter ? '⚽ Du schießt!' : '🧤 Du hältst!';
+    roleEl.style.color = myIsShooter ? '#fbbf24' : '#60a5fa';
+  }
+
+  function startRound() {
+    if (gameEnded) return;
+    myChoice = null; hasChosen = false; roundActive = true;
+    updateHeader();
+    document.getElementById('elfm-status').textContent = myIsShooter ? '🎯 Wähle dein Schussziel!' : '🧤 Wohin springst du?';
+    document.getElementById('elfm-result').style.display = 'none';
+    // Reset zone buttons
+    document.querySelectorAll('.elfm-zone-btn').forEach(function(b) {
+      b.disabled = false;
+      b.classList.remove('chosen','zone-shot','zone-kept');
+    });
+    // Reset ball/keeper position
+    var ballEl = document.getElementById('elfm-ball');
+    var keeperEl = document.getElementById('elfm-keeper');
+    if (ballEl) { ballEl.style.transition='none'; ballEl.style.left='50%'; ballEl.style.bottom='8%'; }
+    if (keeperEl) { keeperEl.style.transition='none'; keeperEl.style.left='50%'; keeperEl.style.bottom='30%'; }
+    // Start 5s countdown timer
+    var barEl = document.getElementById('elfm-timer-bar');
+    var timeLeft = 5;
+    if (barEl) { barEl.style.transition='none'; barEl.style.width='100%'; barEl.style.background='#22c55e'; }
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(function() {
+      if (!elfmOn || gameEnded || !roundActive) { clearInterval(timerInterval); return; }
+      timeLeft--;
+      var pct = Math.max(0, (timeLeft/5)*100);
+      if (barEl) {
+        barEl.style.transition = 'width 1s linear';
+        barEl.style.width = pct + '%';
+        barEl.style.background = timeLeft <= 2 ? '#ef4444' : '#22c55e';
+      }
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        if (!hasChosen) onZonePick(Math.floor(Math.random()*9)); // auto-pick
+      }
+    }, 1000);
+  }
+
+  function onZonePick(zone) {
+    if (!roundActive || hasChosen || gameEnded) return;
+    hasChosen = true;
+    myChoice = zone;
+    if (timerInterval) clearInterval(timerInterval);
+    document.querySelectorAll('.elfm-zone-btn').forEach(function(b) {
+      b.disabled = true;
+      if (parseInt(b.dataset.zone) === zone) b.classList.add('chosen');
+    });
+    document.getElementById('elfm-status').textContent = isAI ? '⏳ KI wählt...' : '⏳ Warte auf Gegner...';
+
+    if (isAI) {
+      var aiRole = myIsShooter ? 'keeper' : 'shooter';
+      var aiZone = elfmeterAiChoice(diff, aiRole, elfmPlayerHistory);
+      elfmPlayerHistory.push(zone); // track my choice for AI analysis next time
+      setTimeout(function() {
+        if (!elfmOn) return;
+        var shooterZone = myIsShooter ? zone : aiZone;
+        var keeperZone  = myIsShooter ? aiZone : zone;
+        resolveRound(shooterZone, keeperZone);
+      }, 500 + Math.random() * 600);
+    } else {
+      // Online: send my choice to server
+      var myKey = isHost ? 'hostChoice' : 'guestChoice';
+      var patch = {}; patch[myKey] = zone;
+      fetch(API_URL + '/api/lobby/state', {
+        method: 'PUT', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ lobby_id: lobbyId, user_id: user.id, patch: patch })
+      });
+    }
+  }
+
+  // 9 zone positions for animation (% left, % bottom from field)
+  var zonePosLeft = ['20%','50%','80%', '20%','50%','80%', '20%','50%','80%'];
+  var zonePosBot  = ['75%','75%','75%', '55%','55%','55%', '38%','38%','38%'];
+
+  function resolveRound(shooterZone, keeperZone) {
+    if (gameEnded) return;
+    roundActive = false;
+    var isGoal = (shooterZone !== keeperZone);
+    var shooterIsMe = myIsShooter;
+    if (isGoal && shooterIsMe)  myGoals++;
+    else if (isGoal && !shooterIsMe) oppGoals++;
+    document.getElementById('elfm-my-goals').textContent = myGoals;
+    document.getElementById('elfm-opp-goals').textContent = oppGoals;
+
+    // Animate ball and keeper
+    var ballEl = document.getElementById('elfm-ball');
+    var keeperEl = document.getElementById('elfm-keeper');
+    if (ballEl) {
+      ballEl.style.transition = 'left 0.45s cubic-bezier(0.2,0.8,0.4,1), bottom 0.45s';
+      ballEl.style.left = zonePosLeft[shooterZone];
+      ballEl.style.bottom = zonePosBot[shooterZone];
+    }
+    if (keeperEl) {
+      keeperEl.style.transition = 'left 0.4s ease-out, bottom 0.4s';
+      keeperEl.style.left = zonePosLeft[keeperZone];
+      keeperEl.style.bottom = zonePosBot[keeperZone];
+    }
+    // Highlight zones
+    document.querySelectorAll('.elfm-zone-btn').forEach(function(b) {
+      var z = parseInt(b.dataset.zone);
+      if (z === shooterZone) b.classList.add('zone-shot');
+      if (z === keeperZone) b.classList.add('zone-kept');
+    });
+
+    var resultEl = document.getElementById('elfm-result');
+    resultEl.style.display = 'block';
+    if (isGoal) {
+      if (shooterIsMe) { resultEl.textContent = '⚽ TOOOR!'; resultEl.style.color = '#fbbf24'; sounds.highscore(); }
+      else { resultEl.textContent = '😤 Gegner-Tor!'; resultEl.style.color = '#ef4444'; }
+    } else {
+      if (!shooterIsMe) { resultEl.textContent = '🧤 GEHALTEN!'; resultEl.style.color = '#60a5fa'; sounds.highscore(); }
+      else { resultEl.textContent = '🚫 Gehalten...'; resultEl.style.color = '#f97316'; }
+    }
+    document.getElementById('elfm-status').textContent = '';
+
+    setTimeout(function() {
+      if (!elfmOn) return;
+      round++;
+      if (round > MAX_ROUNDS) {
+        finishGame();
+      } else {
+        myIsShooter = !myIsShooter;
+        // Online: reset server state for new round
+        if (!isAI && lobbyId) {
+          var hShooter = isHost ? myIsShooter : !myIsShooter;
+          fetch(API_URL + '/api/lobby/state', {
+            method: 'PUT', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ lobby_id: lobbyId, user_id: user.id, patch: {
+              round: round, hostGoals: isHost?myGoals:oppGoals, guestGoals: isHost?oppGoals:myGoals,
+              hostIsShooter: hShooter, hostChoice: null, guestChoice: null, phase: 'choosing'
+            }})
+          });
+        }
+        startRound();
+      }
+    }, 2400);
+  }
+
+  function finishGame() {
+    gameEnded = true; elfmOn = false;
+    if (elfmPollInterval) { clearInterval(elfmPollInterval); elfmPollInterval = null; }
+    var overlay = document.getElementById('ttt-overlay');
+    var msg = document.getElementById('ttt-overlay-msg');
+    var sub = '<small style="font-size:0.6em;opacity:0.7">Elfmeter ' + myGoals + ':' + oppGoals + '</small>';
+    if (myGoals > oppGoals) { msg.innerHTML = '🏆<br>Du hast gewonnen!<br>' + sub; sounds.highscore(); }
+    else if (myGoals < oppGoals) { msg.innerHTML = '😔<br>Du hast verloren.<br>' + sub; }
+    else { msg.innerHTML = '🤝<br>Unentschieden!<br>' + sub; }
+    overlay.classList.add('show');
+  }
+
+  // Online: apply server state
+  function applyServerState(st) {
+    if (!elfmOn || !roundActive || hasChosen) return;
+    var oppKey = isHost ? 'guestChoice' : 'hostChoice';
+    var myKey  = isHost ? 'hostChoice'  : 'guestChoice';
+    if (st[oppKey] !== null && st[oppKey] !== undefined &&
+        st[myKey]  !== null && st[myKey]  !== undefined &&
+        st[myKey] === myChoice) {
+      var hostIsShooter = st.hostIsShooter;
+      var shooterZone = hostIsShooter ? st.hostChoice : st.guestChoice;
+      var keeperZone  = hostIsShooter ? st.guestChoice : st.hostChoice;
+      resolveRound(shooterZone, keeperZone);
+    }
+  }
+
+  game = { stop: function() { elfmOn=false; if(timerInterval)clearInterval(timerInterval); }, applyState: applyServerState };
+  startRound();
 }
 
 /* ================================================================
