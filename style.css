@@ -4560,3 +4560,50 @@ body.light .sb-table .sbt-wortblitz { color: #0284c7; }
   text-align: center;
 }
 
+
+/* ═══════════════════════════════════════════════════════════
+   PERFORMANCE TRIM — remove CPU-heavy animations for 60fps
+   ═══════════════════════════════════════════════════════════ */
+
+/* Kill headerRainbow (expensive animated gradient) */
+header::before { animation: none; background: linear-gradient(90deg, #ff5733 0%, #c026d3 50%, #ff8c00 100%); opacity: 0.7; }
+
+/* Simplify logo animation — one gentle pulse only */
+.logo { animation: logoGlow 4s ease-in-out infinite alternate !important; }
+body.light .logo { animation: logoGlowLight 4s ease-in-out infinite alternate !important; }
+
+/* Kill card scan animation (causes repaints on all cards) */
+.card { animation: none !important; background-repeat: no-repeat; }
+.card:nth-child(2), .card:nth-child(3), .card:nth-child(4),
+.card:nth-child(5), .card:nth-child(6), .card:nth-child(7) { animation-delay: 0s !important; }
+
+/* Kill hero grid slide (background-position animation on large area) */
+.hero-grid { animation: none; opacity: 0.5; }
+
+/* Kill cat header animated gradients */
+#cat-single .cat-header { animation: none; background: linear-gradient(90deg, #1a1040, #2d1b6e, #1e3a5f); }
+#cat-multi .cat-header  { animation: none; background: linear-gradient(90deg, #3d0a0a, #7f1d1d, #431407); }
+
+/* Kill badge pulse (many instances) */
+.hero-badge { animation: none; border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.55); }
+.hero-badge:nth-child(1) { border-color: rgba(255,87,51,0.3); color: rgba(255,87,51,0.7); }
+.cat-badge { animation: none; }
+
+/* Remove backdrop-filter blur from elements that don't need it (expensive on mobile) */
+.notif-dialog { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(0,0,0,0.6); }
+.notif-center-overlay { backdrop-filter: blur(4px); -webkit-backdrop-filter: none; }
+.rank-legend-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(0,0,0,0.7); }
+
+/* Simplify live widget (remove blur) */
+.live-widget { backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+/* Remove arcadeFlicker from logo (causes repaint every few seconds) */
+body.light .logo { animation: logoGlowLight 4s ease-in-out infinite alternate !important; }
+
+/* Limit live dot animation (many instances) */
+.live-dot { animation: none; }
+
+/* Remove lightBlobMove (large blobs with filter:blur) */
+body.light::before { animation: none; }
+body.light::after  { animation: none; }
+

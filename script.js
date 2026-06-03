@@ -4139,18 +4139,19 @@ function pongGame(cv, isAI, diff, isHost, lobbyId) {
         if(srvState.lpy!==undefined)padL.y=srvState.lpy;
         document.getElementById('pts').textContent=sc.r;
 
-        if(!srvState.started){draw(3);raf=requestAnimationFrame(loop);return;}
+        // (started check removed — guest uses local countdown, then plays regardless)
 
         if(srvState.bx!==undefined){
           var dx=srvState.bx-ball.x, dy=srvState.by-ball.y;
-          if(Math.sqrt(dx*dx+dy*dy)>60){
-            // Large gap: snap (score reset or initial sync)
+          if(Math.abs(dx)>90||Math.abs(dy)>90){
+            // Large gap only: snap (score reset, game start, reconnect)
             ball.x=srvState.bx; ball.y=srvState.by;
-          } else {
-            // Small gap: gentle 40% correction — absorb drift without jerking
-            ball.x+=dx*0.4; ball.y+=dy*0.4;
           }
-          ball.vx=srvState.bvx; ball.vy=srvState.bvy;
+          // ALWAYS update velocity — critical for direction changes after paddle hits
+          // Do NOT correct position for small diffs: server position is always behind
+          // due to network latency. Correcting it causes the oscillation/loop bug.
+          ball.vx=srvState.bvx||ball.vx;
+          ball.vy=srvState.bvy||ball.vy;
         }
         if(sc.l>=MAX||sc.r>=MAX||srvState.gameOver){
           on=false;pongOn=false;
@@ -5445,40 +5446,82 @@ function snakeStart() {
 
   appleAnim = 0;
   var appleRaf = null;
+
+  // Pre-build grid image once for performance
+  var gridCanvas = document.createElement('canvas');
+  gridCanvas.width = W * (window.devicePixelRatio||1);
+  gridCanvas.height = H * (window.devicePixelRatio||1);
+  var gctx = gridCanvas.getContext('2d');
+  gctx.scale(window.devicePixelRatio||1, window.devicePixelRatio||1);
+  // Gradient background
+  var bgGrad = gctx.createLinearGradient(0, 0, W, H);
+  bgGrad.addColorStop(0, '#06060f');
+  bgGrad.addColorStop(1, '#0a0a1e');
+  gctx.fillStyle = bgGrad;
+  gctx.fillRect(0, 0, W, H);
+  // Grid lines (very subtle)
+  gctx.strokeStyle = 'rgba(255,255,255,0.035)';
+  gctx.lineWidth = 0.5;
+  for (var gx2 = 0; gx2 <= COLS; gx2++) { gctx.beginPath(); gctx.moveTo(gx2*CELL,0); gctx.lineTo(gx2*CELL,H); gctx.stroke(); }
+  for (var gy2 = 0; gy2 <= ROWS; gy2++) { gctx.beginPath(); gctx.moveTo(0,gy2*CELL); gctx.lineTo(W,gy2*CELL); gctx.stroke(); }
+
   function render() {
-    appleAnim += 0.08;
-    // background
-    ctx.fillStyle = '#0a0a1a';
-    ctx.fillRect(0, 0, W, H);
-    // grid dots
-    ctx.fillStyle = 'rgba(255,255,255,0.04)';
-    for (var gx = 0; gx < COLS; gx++) for (var gy = 0; gy < ROWS; gy++) {
-      ctx.fillRect(gx*CELL + CELL/2 - 1, gy*CELL + CELL/2 - 1, 2, 2);
-    }
-    // apples
-    apples.forEach(function(a) {
-      var pulse = 0.85 + 0.15 * Math.sin(appleAnim);
-      var r = (CELL/2 - 2) * pulse;
-      ctx.save();
-      ctx.shadowColor = '#ff2244';
-      ctx.shadowBlur = 12;
-      ctx.fillStyle = '#ff2244';
+    appleAnim += 0.06;
+    // Draw pre-rendered grid background
+    ctx.drawImage(gridCanvas, 0, 0, W, H);
+
+    // Snake — rounded segments, gradient color head to tail
+    var len = snake.length;
+    for (var si = len-1; si >= 0; si--) {
+      var seg = snake[si];
+      var t2 = si / Math.max(len-1, 1); // 0=head, 1=tail
+      var cx2 = seg.x*CELL + CELL/2, cy2 = seg.y*CELL + CELL/2;
+      var r2 = si===0 ? CELL/2-1 : CELL/2-2;
+      // Color: head=bright cyan-green, tail=darker teal
+      var g = Math.round(220 - t2*80);
+      var b = Math.round(80 + t2*40);
+      ctx.fillStyle = 'rgb(0,' + g + ',' + b + ')';
+      if (si === 0) {
+        // Head: slightly larger, distinct color
+        ctx.fillStyle = '#00ffcc';
+        ctx.shadowColor = '#00ffcc'; ctx.shadowBlur = 16;
+      } else {
+        ctx.shadowBlur = 0;
+      }
       ctx.beginPath();
-      ctx.arc(a.x*CELL + CELL/2, a.y*CELL + CELL/2, r, 0, Math.PI*2);
+      ctx.arc(cx2, cy2, r2, 0, Math.PI*2);
       ctx.fill();
-      ctx.restore();
+      ctx.shadowBlur = 0;
+    }
+
+    // Eyes on head
+    if (snake.length > 0) {
+      var h2 = snake[0];
+      var ex = h2.x*CELL + CELL/2 + dir.x*5;
+      var ey = h2.y*CELL + CELL/2 + dir.y*5;
+      var eye1x = ex + dir.y*3, eye1y = ey - dir.x*3;
+      var eye2x = ex - dir.y*3, eye2y = ey + dir.x*3;
+      ctx.fillStyle = '#001a0d';
+      ctx.beginPath(); ctx.arc(eye1x, eye1y, 2.5, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(eye2x, eye2y, 2.5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(eye1x+0.5, eye1y-0.5, 1, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(eye2x+0.5, eye2y-0.5, 1, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Apples — pulsing neon red orb
+    apples.forEach(function(a) {
+      var pulse = 0.82 + 0.18 * Math.sin(appleAnim);
+      var ar = (CELL/2 - 2) * pulse;
+      var ax2 = a.x*CELL + CELL/2, ay2 = a.y*CELL + CELL/2;
+      ctx.shadowColor = '#ff3366'; ctx.shadowBlur = 14;
+      var rg = ctx.createRadialGradient(ax2-ar*0.2, ay2-ar*0.2, 0, ax2, ay2, ar);
+      rg.addColorStop(0, '#ff6688'); rg.addColorStop(1, '#cc0033');
+      ctx.fillStyle = rg;
+      ctx.beginPath(); ctx.arc(ax2, ay2, ar, 0, Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
     });
-    // snake
-    snake.forEach(function(seg, i) {
-      ctx.save();
-      ctx.shadowColor = '#00ff88';
-      ctx.shadowBlur = i === 0 ? 18 : 8;
-      ctx.fillStyle = i === 0 ? '#00ffaa' : '#00cc66';
-      var margin = i === 0 ? 1 : 2;
-      ctx.fillRect(seg.x*CELL + margin, seg.y*CELL + margin, CELL - margin*2, CELL - margin*2);
-      ctx.restore();
-    });
-    // Score shown in #pts (outside canvas), not inside
+    // Score shown in #pts (outside canvas)
   }
 
   // keyboard
