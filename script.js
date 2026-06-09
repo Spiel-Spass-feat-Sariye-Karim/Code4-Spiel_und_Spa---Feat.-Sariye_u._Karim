@@ -2043,18 +2043,27 @@ function maybeShowGuide() {
   document.getElementById('guide-start-modal').style.display = 'flex';
 }
 
-document.getElementById('guide-start-yes').addEventListener('click', function() {
-  document.getElementById('guide-start-modal').style.display = 'none';
-  localStorage.setItem('guideShown_' + (user&&user.id), '1');
-  startGuide();
-});
-document.getElementById('guide-start-no').addEventListener('click', function() {
-  document.getElementById('guide-start-modal').style.display = 'none';
-  localStorage.setItem('guideShown_' + (user&&user.id), '1');
-});
-document.getElementById('guide-btn-skip').addEventListener('click', finishGuide);
-document.getElementById('guide-btn-next').addEventListener('click', function(){ if(!guideTransitioning) guideNext(); });
-document.getElementById('guide-btn-prev').addEventListener('click', function(){ if(!guideTransitioning) guidePrev(); });
+function initGuideListeners() {
+  var btnYes  = document.getElementById('guide-start-yes');
+  var btnNo   = document.getElementById('guide-start-no');
+  var btnSkip = document.getElementById('guide-btn-skip');
+  var btnNext = document.getElementById('guide-btn-next');
+  var btnPrev = document.getElementById('guide-btn-prev');
+  if (btnYes)  btnYes.addEventListener('click', function() {
+    document.getElementById('guide-start-modal').style.display = 'none';
+    localStorage.setItem('guideShown_' + (user&&user.id), '1');
+    startGuide();
+  });
+  if (btnNo)   btnNo.addEventListener('click', function() {
+    document.getElementById('guide-start-modal').style.display = 'none';
+    localStorage.setItem('guideShown_' + (user&&user.id), '1');
+  });
+  if (btnSkip) btnSkip.addEventListener('click', finishGuide);
+  if (btnNext) btnNext.addEventListener('click', function(){ if(!guideTransitioning) guideNext(); });
+  if (btnPrev) btnPrev.addEventListener('click', function(){ if(!guideTransitioning) guidePrev(); });
+}
+document.addEventListener('DOMContentLoaded', initGuideListeners);
+
 document.addEventListener('keydown', function(e) {
   if (!guideActive) return;
   if (e.key === 'ArrowRight' || e.key === 'Enter') { if(!guideTransitioning) guideNext(); }

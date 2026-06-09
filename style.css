@@ -5739,3 +5739,292 @@ body.light .hero.hero-enhanced::before { opacity: 0.15; }
 .pe-msg { font-size: 0.8rem; margin-top: 0.4rem; min-height: 1em; }
 .pe-msg.ok  { color: #22c55e; }
 .pe-msg.err { color: #ff7b6b; }
+
+/* ════════════════════════════════════════════════
+   SCOREBOARD FILTER ROW
+   ════════════════════════════════════════════════ */
+.sb-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.5rem;
+  flex-wrap: wrap;
+}
+.sb-filter-label { font-size: 0.75rem; color: var(--dim); margin-right: 0.2rem; }
+.sb-filter-btn {
+  padding: 0.3rem 0.7rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  color: var(--dim);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.sb-filter-btn:hover { border-color: rgba(255,87,51,0.5); color: #ff7b6b; }
+.sb-filter-btn.active { background: rgba(255,87,51,0.15); border-color: rgba(255,87,51,0.6); color: #ff5733; font-weight: 700; }
+
+/* ════════════════════════════════════════════════
+   ONBOARDING GUIDE
+   ════════════════════════════════════════════════ */
+@keyframes guideMascotWave { 0%,100%{transform:rotate(-15deg)} 50%{transform:rotate(15deg)} }
+@keyframes guideMascotBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+@keyframes guideSpotlightIn { from{opacity:0} to{opacity:1} }
+@keyframes guideBubbleIn { from{opacity:0;transform:scale(0.7) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+@keyframes guideEyeBlink { 0%,90%,100%{transform:scaleY(1)} 95%{transform:scaleY(0.1)} }
+@keyframes guideMouthSmile { 0%,100%{border-radius:0 0 50% 50%} 50%{border-radius:0 0 60% 60%; width:18px} }
+
+.guide-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99000;
+  pointer-events: none;
+}
+.guide-overlay.active { pointer-events: auto; }
+
+/* The spotlight element — box-shadow creates the dark surround */
+.guide-spotlight {
+  position: fixed;
+  border-radius: 10px;
+  box-shadow: 0 0 0 100vmax rgba(0,0,0,0.78);
+  transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+  pointer-events: none;
+  z-index: 99001;
+  animation: guideSpotlightIn 0.3s ease;
+  outline: 2.5px solid rgba(255,87,51,0.6);
+}
+.guide-spotlight.rounded { border-radius: 50%; }
+.guide-spotlight.hidden { box-shadow: none; outline: none; width: 0 !important; height: 0 !important; }
+
+/* Mascot wrap — positioned relative to spotlight */
+.guide-mascot-wrap {
+  position: fixed;
+  bottom: 90px;
+  left: 30px;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.8rem;
+  z-index: 99005;
+  animation: guideBubbleIn 0.35s ease both;
+  pointer-events: auto;
+}
+
+/* Cute mascot */
+.guide-mascot, .guide-start-mascot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+  animation: guideMascotBounce 2s ease-in-out infinite;
+}
+.gm-head {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, #ffd93d, #ff9f43);
+  border-radius: 50%;
+  position: relative;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+}
+.gm-eyes { display: flex; gap: 8px; position: absolute; top: 11px; left: 50%; transform: translateX(-50%); }
+.gm-eye {
+  width: 6px; height: 6px;
+  background: #2d3436;
+  border-radius: 50%;
+  animation: guideEyeBlink 3s ease-in-out infinite;
+}
+.gm-mouth {
+  position: absolute;
+  bottom: 8px; left: 50%; transform: translateX(-50%);
+  width: 14px; height: 7px;
+  border-bottom: 2.5px solid #2d3436;
+  border-radius: 0 0 50% 50%;
+}
+.gm-body {
+  width: 28px; height: 26px;
+  background: linear-gradient(135deg, #ff5733, #f97316);
+  border-radius: 6px;
+  position: relative;
+}
+.gm-arm {
+  position: absolute;
+  width: 8px; height: 16px;
+  background: linear-gradient(135deg, #ff5733, #f97316);
+  border-radius: 4px;
+  top: 2px;
+}
+.gm-arm-l { left: -9px; transform-origin: top center; animation: guideMascotWave 1.2s ease-in-out infinite; }
+.gm-arm-r { right: -9px; transform-origin: top center; animation: guideMascotWave 1.2s ease-in-out infinite reverse; }
+.gm-legs { display: flex; gap: 4px; }
+.gm-leg { width: 10px; height: 14px; background: #636e72; border-radius: 3px 3px 5px 5px; }
+
+/* Speech bubble */
+.guide-bubble {
+  background: rgba(10,10,20,0.96);
+  border: 1.5px solid rgba(255,87,51,0.5);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  max-width: min(320px, 60vw);
+  position: relative;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,87,51,0.1);
+  animation: guideBubbleIn 0.35s ease both;
+}
+.guide-bubble::before {
+  content: '';
+  position: absolute;
+  bottom: 14px; left: -8px;
+  width: 0; height: 0;
+  border: 8px solid transparent;
+  border-right-color: rgba(255,87,51,0.5);
+  border-left: none;
+}
+.guide-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: 15px; left: -6px;
+  width: 0; height: 0;
+  border: 7px solid transparent;
+  border-right-color: rgba(10,10,20,0.96);
+  border-left: none;
+}
+.guide-bubble-text {
+  font-family: var(--retro-font);
+  font-size: 1rem;
+  color: #eee;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+}
+
+/* Navigation bar */
+.guide-nav {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: rgba(10,10,20,0.95);
+  border: 1px solid rgba(255,87,51,0.3);
+  border-radius: 50px;
+  padding: 0.6rem 1rem;
+  min-width: 280px;
+  z-index: 99010;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  pointer-events: auto;
+}
+.guide-btn-skip {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.3);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+.guide-btn-skip:hover { color: rgba(255,87,51,0.7); }
+.guide-nav-center { display: flex; align-items: center; gap: 0.6rem; }
+.guide-btn-prev, .guide-btn-next {
+  width: 32px; height: 32px;
+  background: rgba(255,87,51,0.15);
+  border: 1px solid rgba(255,87,51,0.4);
+  border-radius: 50%;
+  color: #ff5733;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.guide-btn-prev:hover, .guide-btn-next:hover { background: rgba(255,87,51,0.3); }
+.guide-btn-prev:disabled, .guide-btn-next:disabled { opacity: 0.3; cursor: not-allowed; }
+.guide-step-counter { font-family: var(--pixel-font); font-size: 0.5rem; color: rgba(255,255,255,0.5); min-width: 40px; text-align: center; }
+
+/* ── Guide intro: mascot walks in from bottom-left ──────────── */
+#guide-start-modal.fpw-overlay {
+  background: rgba(0,0,0,0.55);
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 0 0 60px 30px;
+}
+.guide-start-box {
+  text-align: left;
+  background: none;
+  box-shadow: none;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  animation: mascotWalkIn 0.8s cubic-bezier(0.22,1,0.36,1) both;
+  max-width: 440px;
+}
+@keyframes mascotWalkIn {
+  from { transform: translateX(-160px); opacity: 0; }
+  to   { transform: translateX(0);      opacity: 1; }
+}
+.guide-start-mascot {
+  margin: 0;
+  flex-shrink: 0;
+  animation: guideMascotBounce 0.55s ease-in-out infinite;
+}
+.guide-start-mascot .gm-head { width: 52px; height: 52px; }
+.guide-start-mascot .gm-body { width: 36px; height: 28px; }
+.guide-start-mascot .gm-eye  { width: 7px;  height: 7px;  }
+.guide-start-mascot .gm-leg  { width: 9px;  height: 16px; }
+.guide-start-mascot .gm-arm  { width: 7px;  height: 18px; }
+.guide-start-bubble {
+  background: #1a1a2e;
+  border: 2.5px solid #ff5733;
+  border-radius: 16px 16px 16px 4px;
+  padding: 18px 22px;
+  position: relative;
+  animation: bubblePopIn 0.35s 0.65s cubic-bezier(0.34,1.56,0.64,1) both;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+}
+@keyframes bubblePopIn {
+  from { transform: scale(0.4) translateY(20px); opacity: 0; }
+  to   { transform: scale(1)   translateY(0);    opacity: 1; }
+}
+.guide-start-bubble::before {
+  content: '';
+  position: absolute;
+  bottom: 20px; left: -13px;
+  border: 7px solid transparent;
+  border-right-color: #ff5733;
+}
+.guide-start-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: 21px; left: -9px;
+  border: 6px solid transparent;
+  border-right-color: #1a1a2e;
+}
+.guide-start-title {
+  font-family: var(--retro-font);
+  font-size: 1.25rem;
+  font-weight: normal;
+  color: #fff;
+  margin: 0 0 6px;
+}
+.guide-start-desc {
+  color: rgba(255,255,255,0.6);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+.guide-start-desc strong { color: #ff9977; }
+.guide-start-btns { display: flex; gap: 10px; }
+.guide-start-btns .login-btn-main {
+  flex: 1; padding: 10px 0; font-size: 0.78rem; margin: 0;
+  animation: bubblePopIn 0.3s 1s both;
+}
+.guide-start-btns .ep-skip-btn {
+  flex: 1; padding: 10px 0; font-size: 0.75rem;
+  animation: bubblePopIn 0.3s 1.1s both;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px; color: rgba(255,255,255,0.5);
+  cursor: pointer;
+}

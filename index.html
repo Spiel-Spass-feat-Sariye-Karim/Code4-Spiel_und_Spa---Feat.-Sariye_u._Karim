@@ -364,6 +364,14 @@
     <button id="rank-info-btn" class="rank-info-btn" title="Rang-System & Punkte erklären">❓</button>
   </div>
   <div id="board-global" class="board-panel active">
+    <div class="sb-filter-row">
+      <span class="sb-filter-label">Anzeigen:</span>
+      <button class="sb-filter-btn active" data-limit="all">Alle</button>
+      <button class="sb-filter-btn" data-limit="10">Top 10</button>
+      <button class="sb-filter-btn" data-limit="5">Top 5</button>
+      <button class="sb-filter-btn" data-limit="3">Top 3</button>
+      <button class="sb-filter-btn" data-limit="friends">👥 Freunde</button>
+    </div>
     <div id="global-hs">Lädt...</div>
   </div>
   <div id="board-friends" class="board-panel">
@@ -911,6 +919,57 @@
   <button id="notif-test-btn" class="notif-test-btn" style="display:none">🔔 Test-Benachrichtigung senden</button>
 </div>
 </div>
+</div>
+
+<!-- ONBOARDING GUIDE OVERLAY -->
+<div id="guide-overlay" class="guide-overlay" style="display:none" aria-hidden="true">
+  <div id="guide-spotlight" class="guide-spotlight"></div>
+  <!-- Mascot + Speech bubble -->
+  <div id="guide-mascot-wrap" class="guide-mascot-wrap">
+    <div class="guide-mascot" id="guide-mascot">
+      <div class="gm-head">
+        <div class="gm-eyes"><div class="gm-eye"></div><div class="gm-eye"></div></div>
+        <div class="gm-mouth"></div>
+      </div>
+      <div class="gm-body">
+        <div class="gm-arm gm-arm-l"></div>
+        <div class="gm-arm gm-arm-r"></div>
+      </div>
+      <div class="gm-legs"><div class="gm-leg"></div><div class="gm-leg"></div></div>
+    </div>
+    <div class="guide-bubble" id="guide-bubble">
+      <div class="guide-bubble-text" id="guide-bubble-text"></div>
+    </div>
+  </div>
+  <!-- Navigation -->
+  <div class="guide-nav" id="guide-nav">
+    <button class="guide-btn-skip" id="guide-btn-skip">Überspringen ✕</button>
+    <div class="guide-nav-center">
+      <button class="guide-btn-prev" id="guide-btn-prev">◀</button>
+      <span class="guide-step-counter" id="guide-step-counter">1 / 12</span>
+      <button class="guide-btn-next" id="guide-btn-next">▶</button>
+    </div>
+    <div style="width:80px"></div>
+  </div>
+</div>
+
+<!-- GUIDE START MODAL (ask yes/no) -->
+<div id="guide-start-modal" class="fpw-overlay" style="display:none">
+  <div class="guide-start-box">
+    <div class="guide-start-mascot">
+      <div class="gm-head"><div class="gm-eyes"><div class="gm-eye"></div><div class="gm-eye"></div></div><div class="gm-mouth"></div></div>
+      <div class="gm-body"><div class="gm-arm gm-arm-l"></div><div class="gm-arm gm-arm-r"></div></div>
+      <div class="gm-legs"><div class="gm-leg"></div><div class="gm-leg"></div></div>
+    </div>
+    <div class="guide-start-bubble">
+      <h2 class="guide-start-title">Hey! Ich bin Arci 👾</h2>
+      <p class="guide-start-desc">Darf ich dir kurz die <strong>ArcadeBox</strong> zeigen?<br>Dauert nur ~30 Sekunden!</p>
+      <div class="guide-start-btns">
+        <button id="guide-start-yes" class="login-btn-main">▶ JA, ZEIG MIR!</button>
+        <button id="guide-start-no" class="ep-skip-btn">Nein danke</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- extended Wordle dictionary (must load before script.js) -->
