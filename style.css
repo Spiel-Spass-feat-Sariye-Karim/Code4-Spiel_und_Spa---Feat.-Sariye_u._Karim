@@ -1604,8 +1604,8 @@ canvas{display:block;/* scale to fill available space, maintain 380:420 aspect r
 .sb-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.78rem;
-  min-width: 480px;
+  font-size: 0.9rem;
+  min-width: 700px;
 }
 
 /* Column header row */
@@ -1613,9 +1613,9 @@ canvas{display:block;/* scale to fill available space, maintain 380:420 aspect r
   background: rgba(0,0,0,0.18);
 }
 .sb-table thead th {
-  padding: 10px 10px 8px;
+  padding: 12px 12px 10px;
   text-align: center;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1626,7 +1626,7 @@ canvas{display:block;/* scale to fill available space, maintain 380:420 aspect r
 .sb-table thead th.sbt-th-player { text-align: left; padding-left: 16px; }
 .sb-table thead th .sbt-th-label {
   display: block;
-  font-size: 0.58rem;
+  font-size: 0.65rem;
   font-weight: 600;
   opacity: 0.7;
   margin-top: 2px;
@@ -1658,43 +1658,41 @@ canvas{display:block;/* scale to fill available space, maintain 380:420 aspect r
 
 /* Body cells */
 .sb-table tbody td {
-  padding: 9px 10px;
+  padding: 11px 12px;
   text-align: center;
   vertical-align: middle;
 }
 .sb-table tbody td.sbt-td-rank {
-  font-size: 1.05rem;
-  width: 36px;
-  padding: 9px 4px;
+  font-size: 1.15rem;
+  width: 40px;
+  padding: 11px 6px;
 }
 .sb-table tbody td.sbt-td-player {
   text-align: left;
   padding-left: 14px;
   white-space: nowrap;
-  max-width: 130px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 180px;
+  max-width: 220px;
 }
 .sbt-player-inner {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 9px;
   min-width: 0;
 }
 .sbt-player-inner .sb-av {
-  width: 24px; height: 24px; border-radius: 50%;
+  width: 30px; height: 30px; border-radius: 50%;
   flex-shrink: 0; background: var(--s2);
 }
 .sbt-player-name {
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: 0.92rem;
   color: var(--tx);
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+  overflow: visible;
 }
 .sbt-rank-badge {
-  font-size: 0.54rem;
+  font-size: 0.6rem;
   color: var(--dim);
   font-weight: 700;
   white-space: nowrap;
@@ -1704,21 +1702,23 @@ canvas{display:block;/* scale to fill available space, maintain 380:420 aspect r
 /* RP column */
 .sb-table tbody td.sbt-td-rp {
   font-weight: 800;
-  font-size: 0.85rem;
+  font-size: 1rem;
   color: #FFD200;
   white-space: nowrap;
+  min-width: 64px;
 }
-.sbt-rp-unit { font-size: 0.58rem; font-weight: 400; color: var(--dim); margin-left: 2px; }
+.sbt-rp-unit { font-size: 0.65rem; font-weight: 400; color: var(--dim); margin-left: 2px; }
 
 /* Score value cells */
 .sb-table tbody td.sbt-td-val {
-  font-size: 0.72rem;
+  font-size: 0.85rem;
   color: var(--dim);
   font-weight: 600;
   white-space: nowrap;
+  min-width: 62px;
 }
-.sbt-val-num { color: var(--tx); }
-.sbt-val-unit { font-size: 0.6rem; color: var(--dim); font-weight: 400; margin-left: 1px; }
+.sbt-val-num { color: var(--tx); font-size: 0.9rem; }
+.sbt-val-unit { font-size: 0.65rem; color: var(--dim); font-weight: 400; margin-left: 1px; }
 
 /* Divider between RP and game cols */
 .sb-table .sbt-divider-after { border-right: 1px solid rgba(255,255,255,0.08); }
@@ -5783,19 +5783,56 @@ body.light .hero.hero-enhanced::before { opacity: 0.15; }
 }
 .guide-overlay.active { pointer-events: auto; }
 
-/* The spotlight element — box-shadow creates the dark surround */
+/* ── Real stage / theatre spotlight ───────────────────────── */
+/* Dark overlay covers whole screen EXCEPT the spotlight hole  */
 .guide-spotlight {
   position: fixed;
-  border-radius: 10px;
-  box-shadow: 0 0 0 100vmax rgba(0,0,0,0.78);
-  transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+  border-radius: 12px;
+  /* The "hole": box-shadow fills screen outside element */
+  box-shadow:
+    0 0 0 100vmax rgba(0,0,0,0.82),
+    /* Warm cone of light bleeding outward — theatre effect */
+    0 0 60px 30px rgba(255,200,80,0.18),
+    0 0 120px 60px rgba(255,160,40,0.10);
+  transition: left 0.45s cubic-bezier(0.4,0,0.2,1),
+              top 0.45s cubic-bezier(0.4,0,0.2,1),
+              width 0.45s cubic-bezier(0.4,0,0.2,1),
+              height 0.45s cubic-bezier(0.4,0,0.2,1);
   pointer-events: none;
   z-index: 99001;
-  animation: guideSpotlightIn 0.3s ease;
-  outline: 2.5px solid rgba(255,87,51,0.6);
+  /* Subtle warm shimmer on the lit area */
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    rgba(255,220,100,0.12) 0%,
+    transparent 70%
+  );
+  outline: none;
+}
+/* Extra "beam" element above the spotlight using ::before pseudo —
+   simulates light cone coming from top */
+.guide-spotlight::before {
+  content: '';
+  position: absolute;
+  left: 50%; top: -200px;
+  transform: translateX(-50%);
+  width: 120%;
+  height: 220px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255,200,80,0.0) 0%,
+    rgba(255,200,80,0.08) 50%,
+    rgba(255,200,80,0.0) 100%
+  );
+  clip-path: polygon(30% 0%, 70% 0%, 100% 100%, 0% 100%);
+  pointer-events: none;
 }
 .guide-spotlight.rounded { border-radius: 50%; }
-.guide-spotlight.hidden { box-shadow: none; outline: none; width: 0 !important; height: 0 !important; }
+.guide-spotlight.hidden {
+  box-shadow: 0 0 0 100vmax rgba(0,0,0,0.82);
+  background: none;
+  width: 0 !important; height: 0 !important;
+  left: 50% !important; top: 50% !important;
+}
 
 /* Mascot wrap — positioned relative to spotlight */
 .guide-mascot-wrap {
@@ -5898,48 +5935,77 @@ body.light .hero.hero-enhanced::before { opacity: 0.15; }
 /* Navigation bar */
 .guide-nav {
   position: fixed;
-  bottom: 20px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  background: rgba(10,10,20,0.95);
-  border: 1px solid rgba(255,87,51,0.3);
+  gap: 1.2rem;
+  background: rgba(8,8,18,0.97);
+  border: 1.5px solid rgba(255,87,51,0.45);
   border-radius: 50px;
-  padding: 0.6rem 1rem;
-  min-width: 280px;
+  padding: 0.7rem 1.1rem 0.7rem 0.9rem;
+  min-width: 320px;
   z-index: 99010;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  box-shadow: 0 6px 30px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,87,51,0.1);
   pointer-events: auto;
 }
 .guide-btn-skip {
   background: none;
   border: none;
-  color: rgba(255,255,255,0.3);
-  font-size: 0.75rem;
+  color: rgba(255,255,255,0.28);
+  font-size: 0.72rem;
   cursor: pointer;
-  padding: 0.2rem 0.5rem;
+  padding: 0.2rem 0.4rem;
   transition: color 0.15s;
   white-space: nowrap;
 }
 .guide-btn-skip:hover { color: rgba(255,87,51,0.7); }
-.guide-nav-center { display: flex; align-items: center; gap: 0.6rem; }
-.guide-btn-prev, .guide-btn-next {
-  width: 32px; height: 32px;
-  background: rgba(255,87,51,0.15);
-  border: 1px solid rgba(255,87,51,0.4);
+.guide-nav-center { display: flex; align-items: center; gap: 0.7rem; }
+/* Prev: small ghost button */
+.guide-btn-prev {
+  width: 36px; height: 36px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.15);
   border-radius: 50%;
-  color: #ff5733;
-  font-size: 0.8rem;
+  color: rgba(255,255,255,0.5);
+  font-size: 0.9rem;
   cursor: pointer;
   transition: background 0.15s;
   display: flex; align-items: center; justify-content: center;
 }
-.guide-btn-prev:hover, .guide-btn-next:hover { background: rgba(255,87,51,0.3); }
-.guide-btn-prev:disabled, .guide-btn-next:disabled { opacity: 0.3; cursor: not-allowed; }
-.guide-step-counter { font-family: var(--pixel-font); font-size: 0.5rem; color: rgba(255,255,255,0.5); min-width: 40px; text-align: center; }
+.guide-btn-prev:hover { background: rgba(255,255,255,0.13); }
+.guide-btn-prev:disabled { opacity: 0.2; cursor: not-allowed; }
+/* Next: big prominent CTA button */
+.guide-btn-next {
+  height: 42px;
+  padding: 0 22px;
+  background: linear-gradient(135deg, #ff5733, #ff9844);
+  border: none;
+  border-radius: 22px;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+  box-shadow: 0 3px 14px rgba(255,87,51,0.5);
+  animation: nextBtnPulse 2s ease-in-out infinite;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.guide-btn-next:hover { transform: scale(1.04); box-shadow: 0 4px 20px rgba(255,87,51,0.7); }
+@keyframes nextBtnPulse {
+  0%,100% { box-shadow: 0 3px 14px rgba(255,87,51,0.45); }
+  50%      { box-shadow: 0 3px 22px rgba(255,87,51,0.75); }
+}
+.guide-step-counter {
+  font-family: var(--pixel-font);
+  font-size: 0.52rem;
+  color: rgba(255,255,255,0.4);
+  min-width: 44px;
+  text-align: center;
+}
 
 /* ── Guide intro: mascot walks in from bottom-left ──────────── */
 #guide-start-modal.fpw-overlay {

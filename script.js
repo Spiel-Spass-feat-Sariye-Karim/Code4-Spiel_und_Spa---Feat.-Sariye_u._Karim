@@ -2018,14 +2018,14 @@ function buildGuideSteps() {
       before: null, after: null
     },
     {
-      target: 'board-global', rounded: false, pad: 10,
-      text: '🏆 Das Globale Scoreboard — sieh wo du im Vergleich zu allen anderen stehst. Filter nach Top 3, Top 10 oder Freunde!',
+      target: 'board-tab-global', rounded: false, pad: 10,
+      text: '🏆 Das Globale Scoreboard — sieh wo du im Vergleich zu allen anderen stehst. Filter nach Top 3, Top 10 oder zeig alle Spieler!',
       before: null, after: null
     },
     {
-      target: 'board-friends', rounded: false, pad: 10,
+      target: 'board-tab-friends', rounded: false, pad: 10,
       text: '👥 Der Freunde-Tab — füge Freunde hinzu, suche Spieler und fordere sie zu Duellen heraus!',
-      before: function(cb){ switchToFriendsTab(cb); }, after: null
+      before: null, after: null
     },
     {
       target: null, rounded: false, pad: 0,
@@ -2099,7 +2099,7 @@ function showGuideStep(idx) {
   // Update counter
   document.getElementById('guide-step-counter').textContent = (idx+1) + ' / ' + guideSteps.length;
   document.getElementById('guide-btn-prev').disabled = idx === 0;
-  document.getElementById('guide-btn-next').textContent = idx === guideSteps.length-1 ? '✓' : '▶';
+  document.getElementById('guide-btn-next').textContent = idx === guideSteps.length-1 ? 'FERTIG ✓' : 'WEITER ▶';
 
   function doShow() {
     positionSpotlight(step);

@@ -227,8 +227,8 @@ app.post('/api/save-score', async (req, res) => {
       updates.reaction = (user.reaction === 0) ? score : Math.min(user.reaction, score);
     } else if (game_type === 'bubble') {
       updates.precision = Math.max(user.precision || 0, score);
-    } else if (game_type === 'tictactoe' || game_type === 'multiplayer_wins' || game_type === 'flappy' || game_type === 'math') {
-      // Kein eigenes User-Feld; nur highscores + games_played
+    } else if (['tictactoe','multiplayer_wins','flappy','math','snake','wortblitz'].includes(game_type)) {
+      // Kein eigenes User-Feld — nur highscores-Tabelle, kein users-Update nötig
     } else {
       updates[game_type] = Math.max(user[game_type] || 0, score);
     }
@@ -428,15 +428,28 @@ app.put('/api/user/:id', async (req, res) => {
 // Get Global Highscores (Rang-Punkte System)
 app.get('/api/global-highscores', async (req, res) => {
   try {
+    // Fetch ALL users (so even those with 0 scores appear in the board)
+    const { data: allUsers, error: uErr } = await db
+      .from('users')
+      .select('name, avatar_seed')
+      .limit(2000);
+    if (uErr) return res.status(400).json({ error: 'Fehler beim Laden der User' });
+
     const { data: scores, error } = await db
       .from('highscores')
       .select('users!user_id(name, avatar_seed), score, game_type')
-      .limit(500);
+      .limit(5000);
 
     if (error) return res.status(400).json({ error: 'Fehler beim Laden' });
 
-    // Beste Scores pro User und Spiel sammeln
+    // Seed userMap with ALL users (ensures 0-score users appear)
     const userMap = {};
+    (allUsers || []).forEach(u => {
+      const uid = u.name.toLowerCase();
+      userMap[uid] = { name: u.name, avatar_seed: u.avatar_seed, memory: 0, stack: 0, reaction_ms: 0, precision: 0, guess: 0, wordle: 0, flappy: 0, snake: 0, wortblitz: 0 };
+    });
+
+    // Beste Scores pro User und Spiel sammeln
     (scores || []).forEach(item => {
       const u = item.users;
       if (!u) return;
@@ -500,9 +513,8 @@ app.get('/api/global-highscores', async (req, res) => {
     wortblitzRanked.forEach((u, i) => { if (u.wortblitz   > 0) pts[u.name.toLowerCase()] += rankPts(i); });
 
     const result = users
-      .map(u => ({ ...u, rank_points: pts[u.name.toLowerCase()] }))
-      .sort((a, b) => b.rank_points - a.rank_points)
-      .slice(0, 100);
+      .map(u => ({ ...u, rank_points: pts[u.name.toLowerCase()] || 0 }))
+      .sort((a, b) => b.rank_points - a.rank_points);
 
     res.json(result);
   } catch (err) {
