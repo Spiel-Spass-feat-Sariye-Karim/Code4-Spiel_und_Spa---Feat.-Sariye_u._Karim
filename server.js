@@ -290,6 +290,29 @@ app.post('/api/user/set-email', async (req, res) => {
 });
 
 // ── Passwort vergessen — Reset-Link senden ──────────────────
+// ── Debug: E-Mail Test (nur für Diagnose) ──────────────────
+app.get('/api/test-email', async (req, res) => {
+  const to = req.query.to;
+  if (!to) return res.json({ error: 'Kein ?to= angegeben' });
+  const configured = !!transporter;
+  const gmailUser = process.env.GMAIL_USER || 'NOT SET';
+  const gmailPass = process.env.GMAIL_PASS ? `SET (${process.env.GMAIL_PASS.length} chars)` : 'NOT SET';
+  if (!transporter) {
+    return res.json({ configured: false, gmailUser, gmailPass, error: 'transporter ist null' });
+  }
+  try {
+    await transporter.sendMail({
+      from: `"ArcadeBox Test" <${process.env.GMAIL_USER}>`,
+      to,
+      subject: '🧪 ArcadeBox E-Mail Test',
+      text: 'Wenn du das siehst, funktioniert der E-Mail-Versand! ✅'
+    });
+    res.json({ success: true, configured: true, gmailUser, gmailPass, sentTo: to });
+  } catch(e) {
+    res.json({ success: false, configured: true, gmailUser, gmailPass, error: e.message });
+  }
+});
+
 app.post('/api/forgot-password', async (req, res) => {
   const { email, username } = req.body;
   if (!email || !username) return res.status(400).json({ error: 'Benutzername und E-Mail erforderlich' });
