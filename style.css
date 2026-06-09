@@ -5487,3 +5487,255 @@ body.light .hero.hero-enhanced::before { opacity: 0.15; }
   transition: opacity 0.15s;
 }
 .ep-confirm-back:hover { opacity: 0.9; transform: none; }
+
+/* ════════════════════════════════════════════════
+   AVATAR SPOTLIGHT (E-Mail Hinweis)
+   ════════════════════════════════════════════════ */
+.avatar-spotlight-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+@keyframes spotlightPulse {
+  0%,100% { transform: scale(1); opacity: 0.7; box-shadow: 0 0 0 0 rgba(255,87,51,0.6); }
+  50%      { transform: scale(1.18); opacity: 1; box-shadow: 0 0 0 8px rgba(255,87,51,0); }
+}
+@keyframes spotlightFlicker {
+  0%,100%{opacity:1} 10%{opacity:0.4} 20%{opacity:1} 55%{opacity:1} 60%{opacity:0.6} 65%{opacity:1}
+}
+@keyframes cursorBounce {
+  0%,100% { transform: translate(8px, 10px) rotate(-20deg); }
+  50%     { transform: translate(4px, 16px) rotate(-20deg); }
+}
+@keyframes tooltipIn {
+  from { opacity:0; transform:translateX(-50%) translateY(4px); }
+  to   { opacity:1; transform:translateX(-50%) translateY(0); }
+}
+.avatar-spotlight-ring {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2.5px solid #ff5733;
+  display: none;
+  animation: spotlightPulse 1.6s ease-in-out infinite, spotlightFlicker 3s ease-in-out infinite;
+  pointer-events: none;
+}
+.avatar-spotlight-cursor {
+  position: absolute;
+  bottom: -18px;
+  right: -14px;
+  font-size: 1.1rem;
+  display: none;
+  animation: cursorBounce 1s ease-in-out infinite;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+.avatar-spotlight-tooltip {
+  position: absolute;
+  bottom: -44px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ff5733;
+  color: #fff;
+  font-family: var(--retro-font);
+  font-size: 0.85rem;
+  padding: 4px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+  display: none;
+  animation: tooltipIn 0.3s ease both;
+  pointer-events: none;
+  z-index: 10;
+}
+.avatar-spotlight-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -6px; left: 50%; transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: #ff5733;
+  border-top: none;
+}
+/* Active spotlight state */
+.avatar-spotlight-wrap.spotlight-active .avatar-spotlight-ring,
+.avatar-spotlight-wrap.spotlight-active .avatar-spotlight-cursor,
+.avatar-spotlight-wrap.spotlight-active .avatar-spotlight-tooltip { display: block; }
+
+/* ════════════════════════════════════════════════
+   REGISTER — Optionale E-Mail Hinweis-Zeile
+   ════════════════════════════════════════════════ */
+.reg-email-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  background: rgba(255,87,51,0.07);
+  border: 1px solid rgba(255,87,51,0.2);
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.5);
+}
+.reg-email-hint-icon { font-size: 0.9rem; }
+
+/* ════════════════════════════════════════════════
+   PROFIL — E-Mail Row komplett neu
+   ════════════════════════════════════════════════ */
+.profile-email-row {
+  background: rgba(255,87,51,0.05);
+  border: 1px solid rgba(255,87,51,0.2);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 0.9rem;
+  text-align: left;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+/* Spotlight highlight when opened without email */
+.profile-email-row.spotlight-highlight {
+  border-color: rgba(255,87,51,0.8);
+  box-shadow: 0 0 0 3px rgba(255,87,51,0.2), 0 0 20px rgba(255,87,51,0.15);
+  animation: peRowPulse 1.5s ease-in-out 2;
+}
+@keyframes peRowPulse {
+  0%,100%{ box-shadow: 0 0 0 3px rgba(255,87,51,0.2); }
+  50%    { box-shadow: 0 0 0 6px rgba(255,87,51,0.3), 0 0 30px rgba(255,87,51,0.2); }
+}
+.pe-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.7rem;
+}
+.pe-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.pe-status-badge {
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.pe-status-badge.ok  { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
+.pe-status-badge.missing { background: rgba(255,87,51,0.12); color: #ff7b6b; border: 1px solid rgba(255,87,51,0.3); }
+
+/* Set view — initials + email display */
+.pe-initials-wrap { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 0.7rem; }
+.pe-initials-circle {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff5733, #f97316);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(255,87,51,0.4);
+}
+.pe-set-info { flex: 1; min-width: 0; }
+.pe-set-email { font-family: var(--retro-font); font-size: 1rem; color: #ff9977; word-break: break-all; }
+.pe-set-sub { font-size: 0.72rem; color: rgba(34,197,94,0.8); margin-top: 2px; }
+
+/* Empty view */
+.pe-empty-text { font-size: 0.8rem; color: rgba(255,255,255,0.4); margin: 0 0 0.6rem; line-height: 1.5; }
+.pe-add-btn {
+  width: 100%;
+  padding: 0.75rem;
+  background: linear-gradient(90deg, rgba(255,87,51,0.15), rgba(249,115,22,0.15));
+  border: 1px dashed rgba(255,87,51,0.5);
+  border-radius: 6px;
+  color: #ff7b6b;
+  font-family: var(--retro-font);
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.pe-add-btn:hover { background: rgba(255,87,51,0.2); border-color: rgba(255,87,51,0.8); color: #ff5733; }
+
+/* Input area */
+.pe-input-area { margin-top: 0.5rem; }
+.pe-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.6rem;
+}
+/* Live initials preview circle in input row */
+.pe-preview-circle {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  border: 2px dashed rgba(255,87,51,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: rgba(255,255,255,0.3);
+  flex-shrink: 0;
+  transition: all 0.3s;
+  letter-spacing: 0.03em;
+}
+.pe-preview-circle.has-email {
+  background: linear-gradient(135deg, #ff5733, #f97316);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(255,87,51,0.4);
+}
+.pe-input {
+  flex: 1;
+  padding: 0.8rem 1rem;
+  background: rgba(255,255,255,0.05);
+  border: 1.5px solid rgba(255,87,51,0.25);
+  border-radius: 8px;
+  color: #fff;
+  font-family: var(--retro-font);
+  font-size: 1.05rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  min-width: 0;
+}
+.pe-input:focus { border-color: rgba(255,87,51,0.7); box-shadow: 0 0 0 3px rgba(255,87,51,0.12); }
+.pe-input::placeholder { color: rgba(255,255,255,0.2); font-size: 0.95rem; }
+.pe-actions { display: flex; gap: 0.5rem; }
+.pe-save-btn {
+  flex: 1;
+  padding: 0.7rem;
+  background: linear-gradient(90deg, #ff5733, #f97316);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-family: var(--pixel-font);
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.pe-save-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.pe-cancel-btn {
+  padding: 0.7rem 1rem;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.4);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.pe-cancel-btn:hover { color: rgba(255,255,255,0.7); }
+.pe-edit-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255,87,51,0.5);
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 0.2rem 0;
+  transition: color 0.15s;
+}
+.pe-edit-btn:hover { color: #ff5733; }
+.pe-msg { font-size: 0.8rem; margin-top: 0.4rem; min-height: 1em; }
+.pe-msg.ok  { color: #22c55e; }
+.pe-msg.err { color: #ff7b6b; }

@@ -109,6 +109,15 @@
           <span class="login-field-icon">✅</span>
           <input id="reg-pass2" type="password" placeholder="Passwort wiederholen" autocomplete="new-password">
         </div>
+        <!-- Optional E-Mail bei Registrierung -->
+        <div class="reg-email-hint">
+          <span class="reg-email-hint-icon">🔑</span>
+          <span>Optional: E-Mail für Passwort-Reset</span>
+        </div>
+        <div class="login-field-wrap">
+          <span class="login-field-icon">📧</span>
+          <input id="reg-email" type="email" placeholder="deine@email.de (optional)" autocomplete="email">
+        </div>
         <button id="btn-register" class="login-btn-main">▶ KONTO ERSTELLEN</button>
       </div>
     </div>
@@ -208,7 +217,12 @@
   <header>
     <div class="logo">Arcade<span>Box</span></div>
     <div class="user-info">
-      <img id="avatar" class="avatar" src="" alt="">
+      <div class="avatar-spotlight-wrap" id="avatar-spotlight-wrap">
+        <img id="avatar" class="avatar" src="" alt="">
+        <div class="avatar-spotlight-ring" id="avatar-spotlight-ring"></div>
+        <div class="avatar-spotlight-cursor" id="avatar-spotlight-cursor">👆</div>
+        <div class="avatar-spotlight-tooltip" id="avatar-spotlight-tooltip">E-Mail hinterlegen!</div>
+      </div>
       <span>Hallo, <strong id="username"></strong></span>
       <!-- Notification Center Bell -->
       <button class="btn-sm notif-bell-btn" id="btn-notif-center" title="Mitteilungen">
@@ -851,14 +865,37 @@
 
   <!-- E-Mail für Passwort-Reset -->
   <div class="profile-email-row" id="profile-email-row">
-    <div class="pe-label">📧 E-Mail (für Passwort-Reset)</div>
-    <div class="pe-current" id="pe-current-email">Noch keine E-Mail hinterlegt</div>
-    <div class="pe-edit-wrap" id="pe-edit-wrap" style="display:none">
-      <input id="pe-email-input" type="email" placeholder="deine@email.de" class="pe-input">
-      <button id="pe-save-btn" class="pe-save-btn">✓ Speichern</button>
-      <button id="pe-cancel-btn" class="pe-cancel-btn">✕</button>
+    <div class="pe-header-row">
+      <span class="pe-label">🔑 Passwort-Reset E-Mail</span>
+      <span class="pe-status-badge" id="pe-status-badge"></span>
     </div>
-    <button id="pe-edit-btn" class="pe-edit-btn">✏️ E-Mail hinterlegen</button>
+    <!-- Anzeige wenn E-Mail gesetzt -->
+    <div class="pe-set-view" id="pe-set-view" style="display:none">
+      <div class="pe-initials-wrap">
+        <div class="pe-initials-circle" id="pe-initials-circle"></div>
+        <div class="pe-set-info">
+          <div class="pe-set-email" id="pe-set-email"></div>
+          <div class="pe-set-sub">Konto kann wiederhergestellt werden ✓</div>
+        </div>
+      </div>
+      <button id="pe-edit-btn" class="pe-edit-btn">✏️ Ändern</button>
+    </div>
+    <!-- Anzeige wenn keine E-Mail -->
+    <div class="pe-empty-view" id="pe-empty-view">
+      <p class="pe-empty-text">Keine E-Mail hinterlegt — Konto kann bei vergessenem Passwort nicht wiederhergestellt werden.</p>
+      <button id="pe-add-btn" class="pe-add-btn">+ E-Mail jetzt hinterlegen</button>
+    </div>
+    <!-- Eingabe-Bereich -->
+    <div class="pe-input-area" id="pe-input-area" style="display:none">
+      <div class="pe-input-row">
+        <div class="pe-preview-circle" id="pe-preview-circle"></div>
+        <input id="pe-email-input" type="email" placeholder="deine@email.de" class="pe-input" autocomplete="email">
+      </div>
+      <div class="pe-actions">
+        <button id="pe-save-btn" class="pe-save-btn">✓ Speichern</button>
+        <button id="pe-cancel-btn" class="pe-cancel-btn">Abbrechen</button>
+      </div>
+    </div>
     <div id="pe-msg" class="pe-msg"></div>
   </div>
 

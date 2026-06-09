@@ -1587,6 +1587,18 @@ document.getElementById('btn-register').addEventListener('click', async function
     user = data.user;
     saveStoredAccount(data.user.name);
     sessionStorage.removeItem('logged_out');
+    // Optional E-Mail direkt bei Registrierung speichern
+    var regEmail = document.getElementById('reg-email') && document.getElementById('reg-email').value.trim();
+    if (regEmail && regEmail.includes('@')) {
+      try {
+        await fetch(API_URL + '/api/user/set-email', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ user_id: user.id, email: regEmail })
+        });
+        user.email = regEmail.toLowerCase();
+        localStorage.setItem('emailPromptDone_' + user.id, '1');
+      } catch(ex) {}
+    }
     setLoading('btn-register', false, '▶ KONTO ERSTELLEN');
     enterApp();
   } catch (err) {
@@ -1648,18 +1660,22 @@ document.getElementById('fpw-send-btn').addEventListener('click', async function
 });
 
 // ── First-Login Email Prompt ──────────────────────────────
+// ── Spotlight auf Avatar wenn keine E-Mail ────────────────
 function maybeShowEmailPrompt() {
   if (!user) return;
-  if (user.email) return; // already has email
+  if (user.email) return;
   var key = 'emailPromptDone_' + user.id;
-  if (localStorage.getItem(key)) return; // already dismissed
-  // Show prompt after short delay so app is loaded
+  if (localStorage.getItem(key)) return;
+  // Subtiler Spotlight auf Avatar statt penetrantem Modal
   setTimeout(function() {
-    document.getElementById('ep-email-input').value = '';
-    document.getElementById('ep-msg').textContent = '';
-    document.getElementById('ep-confirm-skip').style.display = 'none';
-    document.getElementById('email-prompt-modal').style.display = 'flex';
-  }, 800);
+    var wrap = document.getElementById('avatar-spotlight-wrap');
+    if (wrap) wrap.classList.add('spotlight-active');
+  }, 1200);
+}
+function clearEmailSpotlight() {
+  var wrap = document.getElementById('avatar-spotlight-wrap');
+  if (wrap) wrap.classList.remove('spotlight-active');
+  localStorage.setItem('emailPromptDone_' + (user && user.id), '1');
 }
 document.getElementById('ep-save-btn').addEventListener('click', async function() {
   var email = document.getElementById('ep-email-input').value.trim();
@@ -2173,6 +2189,7 @@ document.getElementById("login-name").classList.remove('lp-prefilled');
 document.getElementById("reg-name").value = "";
 document.getElementById("reg-pass").value = "";
 document.getElementById("reg-pass2").value = "";
+var regEmailEl = document.getElementById("reg-email"); if(regEmailEl) regEmailEl.value = "";
 document.getElementById("login-err").textContent = "";
 // Picker oder Login-Tab anzeigen
 renderAccountPicker();
@@ -3844,6 +3861,17 @@ document.getElementById("avatar").addEventListener("click", function() {
   document.getElementById("profile-overlay").classList.add("on");
   refreshNotifToggle();
   renderProfileEmail();
+  // Spotlight auf E-Mail Row wenn keine E-Mail
+  if (!user.email) {
+    setTimeout(function() {
+      var row = document.getElementById('profile-email-row');
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        row.classList.add('spotlight-highlight');
+        setTimeout(function(){ row.classList.remove('spotlight-highlight'); }, 4000);
+      }
+    }, 300);
+  }
 });
 
 document.getElementById("btn-close-profile").addEventListener("click", function() {
@@ -3851,36 +3879,83 @@ document.getElementById("btn-close-profile").addEventListener("click", function(
 });
 
 /* ── Profil: E-Mail hinterlegen ─────────────────────────── */
-function renderProfileEmail() {
-  if (!user) return;
-  var currentEl = document.getElementById('pe-current-email');
-  var editBtn   = document.getElementById('pe-edit-btn');
-  if (user.email) {
-    currentEl.textContent = user.email;
-    currentEl.className = 'pe-current has-email';
-    editBtn.textContent = '✏️ E-Mail ändern';
-  } else {
-    currentEl.textContent = 'Noch keine E-Mail hinterlegt';
-    currentEl.className = 'pe-current';
-    editBtn.textContent = '✏️ E-Mail hinterlegen';
-  }
-  document.getElementById('pe-edit-wrap').style.display = 'none';
-  document.getElementById('pe-msg').textContent = '';
-  document.getElementById('pe-msg').className = 'pe-msg';
+function getInitials(nameOrEmail) {
+  if (!nameOrEmail) return '?';
+  // Try from name (first 2 chars or first letters of words)
+  var n = nameOrEmail.replace(/@.*/, ''); // strip @domain if email
+  var parts = n.split(/[\s._\-]+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return n.slice(0, 2).toUpperCase();
 }
 
-document.getElementById('pe-edit-btn').addEventListener('click', function() {
-  document.getElementById('pe-edit-wrap').style.display = 'flex';
+function renderProfileEmail() {
+  if (!user) return;
+  var badge    = document.getElementById('pe-status-badge');
+  var setView  = document.getElementById('pe-set-view');
+  var emptyView= document.getElementById('pe-empty-view');
+  var inputArea= document.getElementById('pe-input-area');
+  var msg      = document.getElementById('pe-msg');
+  if (msg) { msg.textContent = ''; msg.className = 'pe-msg'; }
+  if (user.email) {
+    badge.textContent = '✓ Verifiziert'; badge.className = 'pe-status-badge ok';
+    var circle = document.getElementById('pe-initials-circle');
+    if (circle) circle.textContent = getInitials(user.name || user.email);
+    var emailEl = document.getElementById('pe-set-email');
+    if (emailEl) emailEl.textContent = user.email;
+    if (setView)  setView.style.display  = '';
+    if (emptyView) emptyView.style.display = 'none';
+    if (inputArea) inputArea.style.display = 'none';
+  } else {
+    badge.textContent = '⚠ Nicht gesetzt'; badge.className = 'pe-status-badge missing';
+    if (setView)  setView.style.display  = 'none';
+    if (emptyView) emptyView.style.display = '';
+    if (inputArea) inputArea.style.display = 'none';
+  }
+}
+
+function openEmailInput() {
+  var emptyView = document.getElementById('pe-empty-view');
+  var setView   = document.getElementById('pe-set-view');
+  var inputArea = document.getElementById('pe-input-area');
+  if (emptyView) emptyView.style.display = 'none';
+  if (setView)   setView.style.display   = 'none';
+  if (inputArea) inputArea.style.display = '';
   var inp = document.getElementById('pe-email-input');
-  inp.value = user.email || '';
-  this.style.display = 'none';
-  inp.focus();
-});
-document.getElementById('pe-cancel-btn').addEventListener('click', function() {
-  document.getElementById('pe-edit-wrap').style.display = 'none';
-  document.getElementById('pe-edit-btn').style.display = '';
+  if (inp) { inp.value = user.email || ''; inp.focus(); updatePePreview(inp.value); }
+  // Spotlight highlight on the row
+  var row = document.getElementById('profile-email-row');
+  if (row) { row.classList.add('spotlight-highlight'); setTimeout(function(){ row.classList.remove('spotlight-highlight'); }, 4000); }
+}
+
+function updatePePreview(val) {
+  var circle = document.getElementById('pe-preview-circle');
+  if (!circle) return;
+  var name = user && user.name ? user.name : '';
+  if (val && val.includes('@')) {
+    circle.textContent = getInitials(name || val);
+    circle.className = 'pe-preview-circle has-email';
+  } else {
+    circle.textContent = name ? getInitials(name) : '?';
+    circle.className = 'pe-preview-circle';
+  }
+}
+
+// Wire up buttons
+var peAddBtn = document.getElementById('pe-add-btn');
+if (peAddBtn) peAddBtn.addEventListener('click', openEmailInput);
+
+var peEditBtn = document.getElementById('pe-edit-btn');
+if (peEditBtn) peEditBtn.addEventListener('click', openEmailInput);
+
+var peCancelBtn = document.getElementById('pe-cancel-btn');
+if (peCancelBtn) peCancelBtn.addEventListener('click', function() {
+  renderProfileEmail();
   document.getElementById('pe-msg').textContent = '';
 });
+
+var peEmailInput = document.getElementById('pe-email-input');
+if (peEmailInput) peEmailInput.addEventListener('input', function() { updatePePreview(this.value); });
+
 document.getElementById('pe-save-btn').addEventListener('click', async function() {
   var email = document.getElementById('pe-email-input').value.trim();
   var msg = document.getElementById('pe-msg');
@@ -3896,7 +3971,7 @@ document.getElementById('pe-save-btn').addEventListener('click', async function(
       user.email = email.toLowerCase().trim();
       msg.textContent = '✓ Gespeichert!'; msg.className = 'pe-msg ok';
       renderProfileEmail();
-      document.getElementById('pe-edit-btn').style.display = '';
+      clearEmailSpotlight(); // Spotlight entfernen
     } else {
       msg.textContent = data.error || 'Fehler.'; msg.className = 'pe-msg err';
     }
