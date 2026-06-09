@@ -4,32 +4,32 @@ const cookieParser = require('cookie-parser');
 const crypto = require('crypto');
 require('dotenv').config();
 
-// ── Resend via direktem HTTP fetch (kein npm-Package nötig) ─
-const RESEND_API_KEY = process.env.RESEND_API_KEY || null;
-if (RESEND_API_KEY) {
-  console.log('📧 Resend API key ready');
+// ── Brevo (HTTP API, sendet an JEDE E-Mail, 300/Tag kostenlos) ─
+const BREVO_API_KEY = process.env.BREVO_API_KEY || null;
+if (BREVO_API_KEY) {
+  console.log('📧 Brevo API key ready');
 } else {
-  console.log('⚠️  RESEND_API_KEY not set — password reset emails disabled');
+  console.log('⚠️  BREVO_API_KEY not set — password reset emails disabled');
 }
 
 async function sendResetMail(toEmail, resetLink, username) {
-  if (!RESEND_API_KEY) {
-    console.error('❌ sendResetMail: RESEND_API_KEY not set!');
+  if (!BREVO_API_KEY) {
+    console.error('❌ sendResetMail: BREVO_API_KEY not set!');
     return false;
   }
   try {
-    console.log(`📧 Sending reset mail via Resend to: ${toEmail}`);
-    const res = await fetch('https://api.resend.com/emails', {
+    console.log(`📧 Sending reset mail via Brevo to: ${toEmail}`);
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'api-key': BREVO_API_KEY,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: 'ArcadeBox <onboarding@resend.dev>',
-        to: [toEmail],
+        sender: { name: 'ArcadeBox', email: 'noreply@arcadebox.app' },
+        to: [{ email: toEmail }],
         subject: '🔑 ArcadeBox — Passwort zurücksetzen',
-        html: `
+        htmlContent: `
           <div style="font-family:monospace;background:#0a0a14;color:#eee;padding:32px;border-radius:8px;max-width:480px">
             <h2 style="color:#ff5733;margin:0 0 8px">🕹️ ArcadeBox</h2>
             <p style="color:#aaa;margin:0 0 24px;font-size:13px">PASSWORT ZURÜCKSETZEN</p>
@@ -50,11 +50,11 @@ async function sendResetMail(toEmail, resetLink, username) {
       })
     });
     const data = await res.json();
-    if (!res.ok) { console.error('Resend error:', data); return false; }
-    console.log('📧 Resend success, id:', data.id);
+    if (!res.ok) { console.error('Brevo error:', JSON.stringify(data)); return false; }
+    console.log('📧 Brevo success, messageId:', data.messageId);
     return true;
   } catch(e) {
-    console.error('Resend exception:', e.message);
+    console.error('Brevo exception:', e.message);
     return false;
   }
 }
@@ -297,22 +297,22 @@ app.post('/api/user/set-email', async (req, res) => {
 app.get('/api/test-email', async (req, res) => {
   const to = req.query.to;
   if (!to) return res.json({ error: 'Kein ?to= angegeben' });
-  const apiKeySet = RESEND_API_KEY ? `SET (${RESEND_API_KEY.length} Zeichen)` : 'NOT SET';
-  if (!RESEND_API_KEY) return res.json({ configured: false, apiKeySet, error: 'RESEND_API_KEY fehlt' });
+  const apiKeySet = BREVO_API_KEY ? `SET (${BREVO_API_KEY.length} Zeichen)` : 'NOT SET';
+  if (!BREVO_API_KEY) return res.json({ configured: false, apiKeySet, error: 'BREVO_API_KEY fehlt' });
   try {
-    const r = await fetch('https://api.resend.com/emails', {
+    const r = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'ArcadeBox Test <onboarding@resend.dev>',
-        to: [to],
+        sender: { name: 'ArcadeBox Test', email: 'noreply@arcadebox.app' },
+        to: [{ email: to }],
         subject: '🧪 ArcadeBox E-Mail Test',
-        text: 'Wenn du das siehst, funktioniert der E-Mail-Versand! ✅'
+        textContent: 'Wenn du das siehst, funktioniert der E-Mail-Versand via Brevo! ✅'
       })
     });
     const data = await r.json();
     if (!r.ok) return res.json({ success: false, apiKeySet, error: JSON.stringify(data) });
-    res.json({ success: true, apiKeySet, sentTo: to, id: data.id });
+    res.json({ success: true, apiKeySet, sentTo: to, messageId: data.messageId });
   } catch(e) {
     res.json({ success: false, apiKeySet, error: e.message });
   }
