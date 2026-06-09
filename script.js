@@ -1602,10 +1602,16 @@ document.getElementById('btn-register').addEventListener('click', async function
 // ── Forgot-PW Modal ───────────────────────────────────────
 document.getElementById('btn-forgot-pw').addEventListener('click', function() {
   document.getElementById('forgot-pw-modal').style.display = 'flex';
+  // Pre-fill username from login field if already typed
+  var loginName = document.getElementById('login-name').value.trim();
+  if (loginName) document.getElementById('fpw-username').value = loginName;
   document.getElementById('fpw-email').value = '';
   document.getElementById('fpw-msg').textContent = '';
   document.getElementById('fpw-msg').className = 'fpw-msg';
-  setTimeout(function() { document.getElementById('fpw-email').focus(); }, 100);
+  setTimeout(function() {
+    var focus = loginName ? document.getElementById('fpw-email') : document.getElementById('fpw-username');
+    focus.focus();
+  }, 100);
 });
 document.getElementById('fpw-close').addEventListener('click', function() {
   document.getElementById('forgot-pw-modal').style.display = 'none';
@@ -1614,22 +1620,79 @@ document.getElementById('forgot-pw-modal').addEventListener('click', function(e)
   if (e.target === this) this.style.display = 'none';
 });
 document.getElementById('fpw-send-btn').addEventListener('click', async function() {
-  var email = document.getElementById('fpw-email').value.trim();
-  var msg = document.getElementById('fpw-msg');
-  if (!email) { msg.textContent = 'Bitte E-Mail eingeben.'; msg.className = 'fpw-msg error'; return; }
-  this.textContent = '…'; this.disabled = true;
+  var username = document.getElementById('fpw-username').value.trim();
+  var email    = document.getElementById('fpw-email').value.trim();
+  var msg      = document.getElementById('fpw-msg');
+  if (!username) { msg.textContent = 'Bitte Benutzernamen eingeben.'; msg.className = 'fpw-msg error'; return; }
+  if (!email)    { msg.textContent = 'Bitte E-Mail eingeben.';        msg.className = 'fpw-msg error'; return; }
+  var btn = this;
+  btn.textContent = '…'; btn.disabled = true;
+  msg.textContent = ''; msg.className = 'fpw-msg';
   try {
     var res = await fetch(API_URL + '/api/forgot-password', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ email: email })
+      body: JSON.stringify({ username: username, email: email })
     });
     var data = await res.json();
-    msg.textContent = data.message || 'Falls die E-Mail existiert, wurde ein Link gesendet.';
-    msg.className = 'fpw-msg success';
+    if (res.ok && data.success) {
+      msg.textContent = data.message || '✅ Link gesendet!';
+      msg.className = 'fpw-msg success';
+    } else {
+      msg.textContent = data.error || 'Fehler.';
+      msg.className = 'fpw-msg error';
+    }
   } catch(e) {
     msg.textContent = 'Verbindungsfehler.'; msg.className = 'fpw-msg error';
   }
-  this.textContent = '▶ LINK SENDEN'; this.disabled = false;
+  btn.textContent = '▶ LINK SENDEN'; btn.disabled = false;
+});
+
+// ── First-Login Email Prompt ──────────────────────────────
+function maybeShowEmailPrompt() {
+  if (!user) return;
+  if (user.email) return; // already has email
+  var key = 'emailPromptDone_' + user.id;
+  if (localStorage.getItem(key)) return; // already dismissed
+  // Show prompt after short delay so app is loaded
+  setTimeout(function() {
+    document.getElementById('ep-email-input').value = '';
+    document.getElementById('ep-msg').textContent = '';
+    document.getElementById('ep-confirm-skip').style.display = 'none';
+    document.getElementById('email-prompt-modal').style.display = 'flex';
+  }, 800);
+}
+document.getElementById('ep-save-btn').addEventListener('click', async function() {
+  var email = document.getElementById('ep-email-input').value.trim();
+  var msg = document.getElementById('ep-msg');
+  if (!email) { msg.textContent = 'Bitte E-Mail eingeben.'; msg.className = 'fpw-msg error'; return; }
+  var btn = this; btn.textContent = '…'; btn.disabled = true;
+  try {
+    var res = await fetch(API_URL + '/api/user/set-email', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ user_id: user.id, email: email })
+    });
+    var data = await res.json();
+    if (data.success) {
+      user.email = email.toLowerCase().trim();
+      localStorage.setItem('emailPromptDone_' + user.id, '1');
+      document.getElementById('email-prompt-modal').style.display = 'none';
+      renderProfileEmail();
+    } else {
+      msg.textContent = data.error || 'Fehler.'; msg.className = 'fpw-msg error';
+    }
+  } catch(e) { msg.textContent = 'Verbindungsfehler.'; msg.className = 'fpw-msg error'; }
+  btn.textContent = '✓ E-MAIL SPEICHERN & SICHER SEIN'; btn.disabled = false;
+});
+document.getElementById('ep-skip-btn').addEventListener('click', function() {
+  document.getElementById('ep-confirm-skip').style.display = 'flex';
+});
+document.getElementById('ep-confirm-no').addEventListener('click', function() {
+  document.getElementById('ep-confirm-skip').style.display = 'none';
+  document.getElementById('ep-email-input').focus();
+});
+document.getElementById('ep-confirm-yes').addEventListener('click', function() {
+  localStorage.setItem('emailPromptDone_' + user.id, 'skipped');
+  document.getElementById('email-prompt-modal').style.display = 'none';
 });
 
 // ── Reset-PW Panel (URL ?reset=TOKEN) ────────────────────
@@ -1865,6 +1928,8 @@ document.getElementById("avatar").src =
   setTimeout(initPushNotifications, 1200);
   // Start arcade particle system
   startArcadeParticles();
+  // Show email prompt if not yet set
+  maybeShowEmailPrompt();
 }
 
 /* ════════════════════════════════════════════════

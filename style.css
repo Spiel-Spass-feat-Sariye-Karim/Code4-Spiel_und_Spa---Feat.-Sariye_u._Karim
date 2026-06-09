@@ -5389,3 +5389,101 @@ body.light .hero.hero-enhanced::before { opacity: 0.15; }
 }
 .pe-msg.ok  { color: #22c55e; }
 .pe-msg.err { color: #ff7b6b; }
+
+/* ════════════════════════════════════════════════
+   FIRST-LOGIN EMAIL PROMPT MODAL
+   ════════════════════════════════════════════════ */
+.email-prompt-box {
+  text-align: center;
+  max-width: 420px;
+  position: relative;
+  overflow: hidden;
+}
+.ep-badge {
+  display: inline-block;
+  background: linear-gradient(90deg,#ff5733,#f97316);
+  color: #fff;
+  font-family: var(--pixel-font);
+  font-size: 0.5rem;
+  padding: 4px 12px;
+  border-radius: 20px;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.8rem;
+}
+.ep-icon { font-size: 2.5rem; margin-bottom: 0.5rem; filter: drop-shadow(0 0 12px rgba(255,87,51,0.6)); }
+.ep-title {
+  font-family: var(--retro-font);
+  font-size: 1.6rem;
+  font-weight: normal;
+  color: #fff;
+  margin: 0 0 0.6rem;
+  letter-spacing: 0.05em;
+}
+.ep-desc {
+  color: rgba(255,255,255,0.55);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  margin-bottom: 1.2rem;
+}
+.ep-desc strong { color: #ff9977; }
+.ep-save-btn { margin-bottom: 0.5rem !important; }
+.ep-skip-btn {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.2);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.4rem;
+  width: 100%;
+  transition: color 0.15s;
+  box-shadow: none;
+  margin-top: 0;
+}
+.ep-skip-btn:hover { color: rgba(255,255,255,0.45); transform: none; box-shadow: none; }
+
+/* Confirm skip overlay inside modal */
+.ep-confirm-skip {
+  position: absolute;
+  inset: 0;
+  background: rgba(6,6,18,0.97);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  padding: 2rem;
+  animation: loginBoxIn 0.2s ease both;
+}
+.ep-confirm-inner { text-align: center; }
+.ep-confirm-inner p { color: rgba(255,255,255,0.7); font-size: 0.85rem; line-height: 1.6; margin: 0.8rem 0 1.2rem; }
+.ep-confirm-inner strong { color: #ff7b6b; }
+.ep-confirm-danger {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(255,60,60,0.15);
+  border: 1px solid rgba(255,60,60,0.4);
+  border-radius: 4px;
+  color: #ff7b6b;
+  font-family: var(--retro-font);
+  font-size: 0.85rem;
+  cursor: pointer;
+  margin-bottom: 0.6rem;
+  transition: background 0.15s;
+  letter-spacing: 0.03em;
+}
+.ep-confirm-danger:hover { background: rgba(255,60,60,0.25); transform: none; box-shadow: none; }
+.ep-confirm-back {
+  display: block;
+  width: 100%;
+  padding: 0.65rem;
+  background: linear-gradient(90deg,#ff5733,#f97316);
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-family: var(--pixel-font);
+  font-size: 0.52rem;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  transition: opacity 0.15s;
+}
+.ep-confirm-back:hover { opacity: 0.9; transform: none; }

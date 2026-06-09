@@ -124,13 +124,44 @@
       <h2>Passwort vergessen</h2>
       <button class="fpw-close" id="fpw-close">✕</button>
     </div>
-    <p class="fpw-desc">Gib deine E-Mail-Adresse ein. Wir schicken dir einen Reset-Link.</p>
+    <p class="fpw-desc">Gib deinen Benutzernamen und die E-Mail ein, die du im Profil hinterlegt hast.</p>
+    <div class="login-field-wrap">
+      <span class="login-field-icon">👤</span>
+      <input id="fpw-username" placeholder="Benutzername" maxlength="20" autocomplete="username">
+    </div>
     <div class="login-field-wrap">
       <span class="login-field-icon">📧</span>
       <input id="fpw-email" type="email" placeholder="deine@email.de" autocomplete="email">
     </div>
     <button id="fpw-send-btn" class="login-btn-main">▶ LINK SENDEN</button>
     <div id="fpw-msg" class="fpw-msg"></div>
+  </div>
+</div>
+
+<!-- FIRST-LOGIN EMAIL PROMPT MODAL -->
+<div id="email-prompt-modal" class="fpw-overlay" style="display:none">
+  <div class="fpw-box email-prompt-box">
+    <div class="ep-badge">NEU 🔒</div>
+    <div class="ep-icon">📧</div>
+    <h2 class="ep-title">E-Mail hinterlegen</h2>
+    <p class="ep-desc">Hinterlege deine E-Mail-Adresse damit du bei einem vergessenen Passwort dein Konto zurücksetzen kannst.<br><strong>Ohne E-Mail ist dein Konto bei vergessenem Passwort unwiederbringlich verloren.</strong></p>
+    <div class="login-field-wrap">
+      <span class="login-field-icon">📧</span>
+      <input id="ep-email-input" type="email" placeholder="deine@email.de" autocomplete="email">
+    </div>
+    <button id="ep-save-btn" class="login-btn-main ep-save-btn">✓ E-MAIL SPEICHERN &amp; SICHER SEIN</button>
+    <button id="ep-skip-btn" class="ep-skip-btn">Nein danke, ich verzichte bewusst</button>
+    <div id="ep-msg" class="fpw-msg" style="margin-top:0.5rem"></div>
+
+    <!-- Confirm skip overlay (shown inside modal) -->
+    <div id="ep-confirm-skip" class="ep-confirm-skip" style="display:none">
+      <div class="ep-confirm-inner">
+        <div style="font-size:2rem">⚠️</div>
+        <p><strong>Bist du sicher?</strong><br>Wenn du dein Passwort vergisst, kann dein Konto <strong>nicht wiederhergestellt</strong> werden.</p>
+        <button id="ep-confirm-yes" class="ep-confirm-danger">Ja, ich nehme das Risiko bewusst in Kauf</button>
+        <button id="ep-confirm-no" class="ep-confirm-back">← Zurück, E-Mail hinterlegen</button>
+      </div>
+    </div>
   </div>
 </div>
 

@@ -20,8 +20,12 @@ try {
 } catch(e) { console.log('⚠️  nodemailer not installed:', e.message); }
 
 async function sendResetMail(toEmail, resetLink, username) {
-  if (!transporter) return false;
+  if (!transporter) {
+    console.error('❌ sendResetMail: transporter is null — GMAIL_USER/GMAIL_PASS not set!');
+    return false;
+  }
   try {
+    console.log(`📧 Sending reset mail to: ${toEmail}`);
     await transporter.sendMail({
       from: `"ArcadeBox 🕹️" <${process.env.GMAIL_USER}>`,
       to: toEmail,
@@ -287,13 +291,25 @@ app.post('/api/user/set-email', async (req, res) => {
 
 // ── Passwort vergessen — Reset-Link senden ──────────────────
 app.post('/api/forgot-password', async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ error: 'E-Mail erforderlich' });
-  // Always respond success to prevent user enumeration
-  const safe = { success: true, message: 'Falls ein Konto mit dieser E-Mail existiert, wurde ein Link gesendet.' };
+  const { email, username } = req.body;
+  if (!email || !username) return res.status(400).json({ error: 'Benutzername und E-Mail erforderlich' });
+
   try {
-    const { data: user } = await db.from('users').select('id, name, email').ilike('email', email.trim()).single();
-    if (!user || !user.email) return res.json(safe);
+    // Find user by username AND verify email matches — security: both must match
+    const { data: user } = await db.from('users')
+      .select('id, name, email')
+      .ilike('name', username.trim())
+      .single();
+
+    if (!user) {
+      return res.status(404).json({ error: 'Kein Konto mit diesem Benutzernamen gefunden.' });
+    }
+    if (!user.email) {
+      return res.status(400).json({ error: 'Für dieses Konto ist keine E-Mail hinterlegt. Bitte logge dich ein und hinterlege eine E-Mail im Profil.' });
+    }
+    if (user.email.toLowerCase() !== email.trim().toLowerCase()) {
+      return res.status(400).json({ error: 'E-Mail stimmt nicht mit dem Konto überein.' });
+    }
 
     // Invalidate old tokens
     await db.from('password_reset_tokens').update({ used: true }).eq('user_id', user.id).eq('used', false);
@@ -305,10 +321,19 @@ app.post('/api/forgot-password', async (req, res) => {
 
     const appUrl = process.env.APP_URL || 'https://code4-spiel-und-spa-feat-sariye-u-karim.onrender.com';
     const resetLink = `${appUrl}/?reset=${token}`;
-    await sendResetMail(user.email, resetLink, user.name);
 
-    res.json(safe);
-  } catch(e) { res.json(safe); }
+    // Respond immediately, send email async (non-blocking = schnell)
+    res.json({ success: true, message: '✅ Reset-Link wurde an deine E-Mail gesendet!' });
+
+    // Fire-and-forget
+    sendResetMail(user.email, resetLink, user.name).then(ok => {
+      console.log(`📧 Reset mail to ${user.email}: ${ok ? 'sent' : 'FAILED'}`);
+    });
+
+  } catch(e) {
+    console.error('forgot-password error:', e);
+    res.status(500).json({ error: 'Server-Fehler. Bitte erneut versuchen.' });
+  }
 });
 
 // ── Reset-Token validieren ──────────────────────────────────
