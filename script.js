@@ -2035,9 +2035,9 @@ function buildGuideSteps() {
       text: '🏆 Globales Scoreboard — sieh wo du stehst. Filter: Top 3, Top 5, Top 10 oder alle Spieler!',
       before: null, after: null
     },
-    // Step 13: Friends tab — full bar including ❓
+    // Step 13: Friends tab button only
     {
-      target: 'board-tabs', rounded: false, pad: 8,
+      target: 'board-tab-friends', rounded: false, pad: 10,
       text: '👥 Der Freunde-Tab — füge Freunde hinzu, suche Spieler und fordere sie zu Duellen heraus!',
       before: null, after: null
     },
