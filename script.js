@@ -1963,14 +1963,14 @@ function buildGuideSteps() {
   var name = user ? user.name : 'Spieler';
   return [
     {
-      target: null, rounded: false, pad: 0,
-      text: 'Hallo ' + name + '! 👋 Ich bin dein Guide — ich zeige dir kurz alles Wichtige. Los geht\'s!',
-      before: null, after: null
+      target: 'avatar-spotlight-wrap', rounded: true, pad: 20,
+      text: 'Willkommen ' + name + '! 👋 Ich bin Arci — dein Guide durch die ArcadeBox. Ich zeige dir alles in ~30 Sekunden!',
+      before: function(cb){ closeAllPanels(); setTimeout(cb,150); }, after: null
     },
     {
-      target: 'avatar-spotlight-wrap', rounded: true, pad: 8,
+      target: 'avatar-spotlight-wrap', rounded: true, pad: 12,
       text: 'Das ist dein Avatar! Klick ihn an um dein Profil zu öffnen, deinen Avatar zu ändern und deine E-Mail zu hinterlegen.',
-      before: function(cb){ closeAllPanels(); setTimeout(cb,200); }, after: null
+      before: null, after: null
     },
     {
       target: 'profile-email-row', rounded: false, pad: 12,
@@ -2062,7 +2062,15 @@ function initGuideListeners() {
   if (btnNext) btnNext.addEventListener('click', function(){ if(!guideTransitioning) guideNext(); });
   if (btnPrev) btnPrev.addEventListener('click', function(){ if(!guideTransitioning) guidePrev(); });
 }
-document.addEventListener('DOMContentLoaded', initGuideListeners);
+document.addEventListener('DOMContentLoaded', function() {
+  initGuideListeners();
+  // Guide restart button in header
+  var restartBtn = document.getElementById('btn-guide-restart');
+  if (restartBtn) restartBtn.addEventListener('click', function() {
+    if (guideActive) finishGuide();
+    else startGuide();
+  });
+});
 
 document.addEventListener('keydown', function(e) {
   if (!guideActive) return;
@@ -2096,21 +2104,23 @@ function showGuideStep(idx) {
   if (!step) { finishGuide(); return; }
   guideTransitioning = true;
 
-  // Update counter
+  // Update counter + button text immediately
   document.getElementById('guide-step-counter').textContent = (idx+1) + ' / ' + guideSteps.length;
   document.getElementById('guide-btn-prev').disabled = idx === 0;
   document.getElementById('guide-btn-next').textContent = idx === guideSteps.length-1 ? 'FERTIG ✓' : 'WEITER ▶';
 
-  function doShow() {
+  // Start typewriter right away
+  typewriteText(step.text);
+
+  function doPosition() {
     positionSpotlight(step);
-    typewriteText(step.text);
     guideTransitioning = false;
   }
 
   if (step.before) {
-    step.before(function(){ setTimeout(doShow, 200); });
+    step.before(function(){ setTimeout(doPosition, 150); });
   } else {
-    doShow();
+    doPosition();
   }
 }
 
@@ -2138,15 +2148,42 @@ function positionSpotlight(step) {
   }
   var el = document.getElementById(step.target);
   if (!el) { spotlight.className = 'guide-spotlight hidden'; return; }
-  var pad = step.pad || 8;
-  var rect = el.getBoundingClientRect();
-  spotlight.style.left   = (rect.left - pad) + 'px';
-  spotlight.style.top    = (rect.top - pad) + 'px';
-  spotlight.style.width  = (rect.width + pad*2) + 'px';
-  spotlight.style.height = (rect.height + pad*2) + 'px';
-  spotlight.className = 'guide-spotlight' + (step.rounded ? ' rounded' : '');
-  // Scroll element into view
-  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  // Scroll element into view first, then measure after scroll settles
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  setTimeout(function() {
+    var rect = el.getBoundingClientRect();
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+
+    // Adaptive padding — bigger elements get more breathing room
+    var basePad = step.pad !== undefined ? step.pad : 16;
+    var pad = Math.max(basePad, Math.min(rect.width, rect.height) * 0.08);
+
+    var spotW = rect.width  + pad * 2;
+    var spotH = rect.height + pad * 2;
+    var spotL = rect.left   - pad;
+    var spotT = rect.top    - pad;
+
+    // If the element is too large for viewport, clamp to 90% of screen
+    var maxW = vw * 0.90;
+    var maxH = vh * 0.75;
+    if (spotW > maxW) { spotW = maxW; spotL = (vw - maxW) / 2; }
+    if (spotH > maxH) { spotH = maxH; spotT = (vh - maxH) / 2; }
+
+    // Keep spotlight within viewport
+    if (spotL < 4) spotL = 4;
+    if (spotT < 4) spotT = 4;
+    if (spotL + spotW > vw - 4) spotL = vw - spotW - 4;
+    if (spotT + spotH > vh - 4) spotT = vh - spotH - 4;
+
+    spotlight.style.left   = spotL + 'px';
+    spotlight.style.top    = spotT + 'px';
+    spotlight.style.width  = spotW + 'px';
+    spotlight.style.height = spotH + 'px';
+    spotlight.className    = 'guide-spotlight' + (step.rounded ? ' rounded' : '');
+  }, 320); // wait for scroll to finish
 }
 
 function typewriteText(text) {

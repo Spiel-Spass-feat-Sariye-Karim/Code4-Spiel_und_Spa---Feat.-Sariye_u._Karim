@@ -10,6 +10,48 @@ body {
   min-height: 100vh;
   background: #080810;
   overflow-x: hidden;
+  /* RGB border frame — slow smooth hue cycle */
+  border: 3px solid transparent;
+  border-image: none;
+  outline: 3px solid transparent;
+}
+
+/* ── RGB border via fixed pseudo on html ────────────────── */
+html::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  pointer-events: none;
+  border-radius: 0;
+  border: 3px solid transparent;
+  background:
+    linear-gradient(#080810, #080810) padding-box,
+    linear-gradient(
+      var(--rgb-angle, 0deg),
+      #ff0040, #ff6a00, #ffe600, #00ff87, #00cfff, #7b2fff, #ff0040
+    ) border-box;
+  animation: rgbBorderCycle 8s linear infinite;
+}
+@keyframes rgbBorderCycle {
+  0%   { --rgb-angle: 0deg;   }
+  100% { --rgb-angle: 360deg; }
+}
+/* Fallback: animiere die Hue direkt mit filter */
+html::before {
+  border: 3px solid hsl(0,100%,55%);
+  background: none;
+  animation: rgbBorderHue 8s linear infinite;
+  filter: none;
+}
+@keyframes rgbBorderHue {
+  0%   { border-color: hsl(0,  100%,55%); box-shadow: 0 0 8px hsl(0,  100%,55%,0.35); }
+  15%  { border-color: hsl(40, 100%,55%); box-shadow: 0 0 8px hsl(40, 100%,55%,0.35); }
+  30%  { border-color: hsl(100,100%,45%); box-shadow: 0 0 8px hsl(100,100%,45%,0.35); }
+  50%  { border-color: hsl(180,100%,45%); box-shadow: 0 0 8px hsl(180,100%,45%,0.35); }
+  65%  { border-color: hsl(220,100%,60%); box-shadow: 0 0 8px hsl(220,100%,60%,0.35); }
+  80%  { border-color: hsl(270,100%,65%); box-shadow: 0 0 8px hsl(270,100%,65%,0.35); }
+  100% { border-color: hsl(360,100%,55%); box-shadow: 0 0 8px hsl(360,100%,55%,0.35); }
 }
 
 /* ── Retro VT323 for headings & labels ───────────────── */
@@ -620,6 +662,32 @@ body.light .logo { animation: logoGlowLight 3.5s ease-in-out infinite alternate;
 .avatar:hover { box-shadow: 0 0 0 3px rgba(255,87,51,0.4), 0 0 12px rgba(255,87,51,0.3); }
 .btn-sm{background:none;border:1px solid #333;color:var(--dim);padding:0.3rem 0.7rem;border-radius:6px;cursor:pointer;font-family:inherit;font-size:0.75rem;transition:border-color 0.2s,color 0.2s,box-shadow 0.2s}
 .btn-sm:hover{border-color:var(--c1);color:var(--tx);box-shadow:0 0 8px rgba(255,87,51,0.25)}
+/* Guide restart button — subtle pixel mascot glow */
+#btn-guide-restart {
+  font-size: 1rem;
+  padding: 0.25rem 0.55rem;
+  border-color: rgba(139,92,246,0.4);
+  color: rgba(255,255,255,0.55);
+  position: relative;
+}
+#btn-guide-restart:hover {
+  border-color: #8b5cf6;
+  color: #fff;
+  box-shadow: 0 0 12px rgba(139,92,246,0.45), 0 0 4px rgba(139,92,246,0.6);
+  animation: none;
+}
+#btn-guide-restart::after {
+  content: 'Guide';
+  position: absolute;
+  bottom: -16px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.45rem;
+  color: rgba(139,92,246,0.7);
+  white-space: nowrap;
+  font-family: var(--pixel-font);
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
 
 /* ════════════════════════════════════════════════
    HERO — Arcade Machine Style
@@ -5290,6 +5358,60 @@ body.light .hero.hero-enhanced::before { opacity: 0.15; }
 .fpw-msg.success { color: #22c55e; }
 .fpw-msg.error   { color: #ff7b6b; }
 
+/* ── Arcade input fields — used in forgot-PW + other modals ── */
+.arcade-field-wrap {
+  position: relative;
+  margin-bottom: 0.9rem;
+}
+.arcade-field-icon {
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1rem;
+  pointer-events: none;
+  opacity: 0.6;
+  z-index: 1;
+}
+.arcade-input {
+  width: 100%;
+  padding: 0.85rem 1rem 0.85rem 2.8rem;
+  background: rgba(255,255,255,0.04);
+  color: #fff;
+  font-family: var(--retro-font);
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+  border: none;
+  border-radius: 8px;
+  outline: none;
+  box-sizing: border-box;
+  /* RGB cycling border via box-shadow */
+  box-shadow:
+    inset 0 0 0 1.5px rgba(255,255,255,0.1),
+    0 0 0 1.5px rgba(255,255,255,0.12);
+  transition: box-shadow 0.2s, background 0.2s;
+  animation: arcadeInputBorder 6s linear infinite;
+}
+@keyframes arcadeInputBorder {
+  0%   { box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1.5px hsl(0,  90%,55%,0.55), 0 2px 14px hsl(0,  90%,55%,0.12); }
+  17%  { box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1.5px hsl(40, 90%,55%,0.55), 0 2px 14px hsl(40, 90%,55%,0.12); }
+  33%  { box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1.5px hsl(120,80%,45%,0.55), 0 2px 14px hsl(120,80%,45%,0.12); }
+  50%  { box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1.5px hsl(180,90%,45%,0.55), 0 2px 14px hsl(180,90%,45%,0.12); }
+  67%  { box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1.5px hsl(220,90%,60%,0.55), 0 2px 14px hsl(220,90%,60%,0.12); }
+  83%  { box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1.5px hsl(280,90%,65%,0.55), 0 2px 14px hsl(280,90%,65%,0.12); }
+  100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1.5px hsl(360,90%,55%,0.55), 0 2px 14px hsl(360,90%,55%,0.12); }
+}
+.arcade-input:focus {
+  background: rgba(255,255,255,0.07);
+  animation: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05),
+              0 0 0 2px rgba(255,255,255,0.55),
+              0 2px 20px rgba(255,255,255,0.18);
+}
+.arcade-input::placeholder { color: rgba(255,255,255,0.28); font-size: 0.95rem; }
+body.light .arcade-input { background: rgba(0,0,0,0.04); color: #111; }
+body.light .arcade-input::placeholder { color: rgba(0,0,0,0.35); }
+
 /* Reset-PW Panel — full screen like #login */
 .reset-panel {
   position: fixed;
@@ -5783,55 +5905,54 @@ body.light .hero.hero-enhanced::before { opacity: 0.15; }
 }
 .guide-overlay.active { pointer-events: auto; }
 
-/* ── Real stage / theatre spotlight ───────────────────────── */
-/* Dark overlay covers whole screen EXCEPT the spotlight hole  */
+/* ── Real stage spotlight — WHITE, bright, strong ──────────── */
 .guide-spotlight {
   position: fixed;
-  border-radius: 12px;
-  /* The "hole": box-shadow fills screen outside element */
+  border-radius: 14px;
+  /* Dark veil outside + bright white glow on the lit element */
   box-shadow:
-    0 0 0 100vmax rgba(0,0,0,0.82),
-    /* Warm cone of light bleeding outward — theatre effect */
-    0 0 60px 30px rgba(255,200,80,0.18),
-    0 0 120px 60px rgba(255,160,40,0.10);
-  transition: left 0.45s cubic-bezier(0.4,0,0.2,1),
-              top 0.45s cubic-bezier(0.4,0,0.2,1),
-              width 0.45s cubic-bezier(0.4,0,0.2,1),
-              height 0.45s cubic-bezier(0.4,0,0.2,1);
+    0 0 0 9999px rgba(0,0,0,0.86),
+    /* White halo — theatre spotlight bloom */
+    0 0 0     4px  rgba(255,255,255,0.90),
+    0 0 25px  12px rgba(255,255,255,0.55),
+    0 0 60px  30px rgba(255,255,255,0.22),
+    0 0 110px 55px rgba(255,255,255,0.10);
+  transition: left 0.4s cubic-bezier(0.4,0,0.2,1),
+              top  0.4s cubic-bezier(0.4,0,0.2,1),
+              width  0.4s cubic-bezier(0.4,0,0.2,1),
+              height 0.4s cubic-bezier(0.4,0,0.2,1);
   pointer-events: none;
   z-index: 99001;
-  /* Subtle warm shimmer on the lit area */
+  /* Subtle bright fill inside the lit area */
   background: radial-gradient(
     ellipse at 50% 0%,
-    rgba(255,220,100,0.12) 0%,
+    rgba(255,255,255,0.07) 0%,
     transparent 70%
   );
-  outline: none;
 }
-/* Extra "beam" element above the spotlight using ::before pseudo —
-   simulates light cone coming from top */
+/* Light cone beam coming from top — like a real stage light */
 .guide-spotlight::before {
   content: '';
   position: absolute;
-  left: 50%; top: -200px;
-  transform: translateX(-50%);
-  width: 120%;
-  height: 220px;
+  left: 10%; top: -180px;
+  width: 80%;
+  height: 190px;
   background: linear-gradient(
     to bottom,
-    rgba(255,200,80,0.0) 0%,
-    rgba(255,200,80,0.08) 50%,
-    rgba(255,200,80,0.0) 100%
+    rgba(255,255,255,0.0)  0%,
+    rgba(255,255,255,0.12) 60%,
+    rgba(255,255,255,0.0)  100%
   );
-  clip-path: polygon(30% 0%, 70% 0%, 100% 100%, 0% 100%);
+  clip-path: polygon(25% 0%, 75% 0%, 100% 100%, 0% 100%);
   pointer-events: none;
 }
 .guide-spotlight.rounded { border-radius: 50%; }
 .guide-spotlight.hidden {
-  box-shadow: 0 0 0 100vmax rgba(0,0,0,0.82);
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.86);
   background: none;
   width: 0 !important; height: 0 !important;
   left: 50% !important; top: 50% !important;
+  opacity: 0;
 }
 
 /* Mascot wrap — positioned relative to spotlight */
