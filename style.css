@@ -13,42 +13,35 @@ body {
 }
 
 /* ══════════════════════════════════════════════════════════
-   RAINBOW RGB FRAME — rotating conic gradient stripe
-   Classic technique: spinning gradient + inner mask cover
+   RAINBOW RGB FRAME — mask-composite technique (no content cover)
+   padding-box creates hole in center → only border strip visible
    ══════════════════════════════════════════════════════════ */
 #rgb-frame {
   position: fixed;
   inset: 0;
   z-index: 999997;
   pointer-events: none;
-  border-radius: 14px;        /* match site corner feel */
-  overflow: hidden;
-}
-/* The spinning rainbow disc — larger than viewport so corners fill */
-#rgb-frame::before {
-  content: '';
-  position: absolute;
-  inset: -100%;
+  border-radius: 14px;
+  padding: 3px;                /* border thickness */
   background: conic-gradient(
     from 0deg,
     #ff0040, #ff6600, #ffee00, #00ff88,
     #00ccff, #7700ff, #ff00cc, #ff0040
   );
-  animation: rgbFrameSpin 5s linear infinite;
-}
-/* Inner cover — hides everything except the border strip */
-#rgb-frame::after {
-  content: '';
-  position: absolute;
-  inset: 3px;               /* border thickness = 3px */
-  background: #080810;
-  border-radius: 12px;
+  /* Show ONLY the padding strip — hide interior */
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: rgbFrameSpin 14s linear infinite;
 }
 @keyframes rgbFrameSpin {
   to { transform: rotate(360deg); }
 }
-/* Light mode: slightly dimmer frame */
-body.light #rgb-frame::after { background: #f4f4f8; }
 
 /* ── Retro VT323 for headings & labels ───────────────── */
 h1, h2, h3, .card h3, .cat-title, .pbot b,
