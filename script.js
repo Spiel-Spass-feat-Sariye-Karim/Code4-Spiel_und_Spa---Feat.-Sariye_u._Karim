@@ -1595,6 +1595,96 @@ document.getElementById('btn-register').addEventListener('click', async function
   }
 });
 
+/* ════════════════════════════════════════════════════════
+   PASSWORT VERGESSEN / RESET
+   ════════════════════════════════════════════════════════ */
+
+// ── Forgot-PW Modal ───────────────────────────────────────
+document.getElementById('btn-forgot-pw').addEventListener('click', function() {
+  document.getElementById('forgot-pw-modal').style.display = 'flex';
+  document.getElementById('fpw-email').value = '';
+  document.getElementById('fpw-msg').textContent = '';
+  document.getElementById('fpw-msg').className = 'fpw-msg';
+  setTimeout(function() { document.getElementById('fpw-email').focus(); }, 100);
+});
+document.getElementById('fpw-close').addEventListener('click', function() {
+  document.getElementById('forgot-pw-modal').style.display = 'none';
+});
+document.getElementById('forgot-pw-modal').addEventListener('click', function(e) {
+  if (e.target === this) this.style.display = 'none';
+});
+document.getElementById('fpw-send-btn').addEventListener('click', async function() {
+  var email = document.getElementById('fpw-email').value.trim();
+  var msg = document.getElementById('fpw-msg');
+  if (!email) { msg.textContent = 'Bitte E-Mail eingeben.'; msg.className = 'fpw-msg error'; return; }
+  this.textContent = '…'; this.disabled = true;
+  try {
+    var res = await fetch(API_URL + '/api/forgot-password', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ email: email })
+    });
+    var data = await res.json();
+    msg.textContent = data.message || 'Falls die E-Mail existiert, wurde ein Link gesendet.';
+    msg.className = 'fpw-msg success';
+  } catch(e) {
+    msg.textContent = 'Verbindungsfehler.'; msg.className = 'fpw-msg error';
+  }
+  this.textContent = '▶ LINK SENDEN'; this.disabled = false;
+});
+
+// ── Reset-PW Panel (URL ?reset=TOKEN) ────────────────────
+(async function checkResetToken() {
+  var params = new URLSearchParams(window.location.search);
+  var token = params.get('reset');
+  if (!token) return;
+  // Show reset panel, hide login
+  document.getElementById('login').classList.add('hide');
+  document.getElementById('reset-pw-panel').style.display = 'flex';
+  try {
+    var res = await fetch(API_URL + '/api/verify-reset-token/' + token);
+    var data = await res.json();
+    document.getElementById('reset-pw-loading').style.display = 'none';
+    if (data.valid) {
+      document.getElementById('reset-pw-username').textContent = 'Neues Passwort für: ' + data.username;
+      document.getElementById('reset-pw-form').style.display = '';
+    } else {
+      document.getElementById('reset-pw-invalid').style.display = '';
+    }
+  } catch(e) {
+    document.getElementById('reset-pw-loading').style.display = 'none';
+    document.getElementById('reset-pw-invalid').style.display = '';
+  }
+})();
+
+document.getElementById('reset-pw-btn').addEventListener('click', async function() {
+  var params = new URLSearchParams(window.location.search);
+  var token = params.get('reset');
+  var p1 = document.getElementById('reset-new-pass').value;
+  var p2 = document.getElementById('reset-new-pass2').value;
+  var err = document.getElementById('reset-pw-err');
+  if (!p1 || !p2) { err.textContent = 'Bitte beide Felder ausfüllen.'; return; }
+  if (p1 !== p2) { err.textContent = 'Passwörter stimmen nicht überein.'; return; }
+  if (p1.length < 4) { err.textContent = 'Passwort zu kurz (min. 4 Zeichen).'; return; }
+  this.textContent = '…'; this.disabled = true;
+  try {
+    var res = await fetch(API_URL + '/api/reset-password', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ token: token, newPass: p1 })
+    });
+    var data = await res.json();
+    if (data.success) {
+      document.getElementById('reset-pw-form').style.display = 'none';
+      document.getElementById('reset-pw-success').style.display = '';
+      err.textContent = '';
+      // Clean URL
+      window.history.replaceState({}, '', '/');
+    } else {
+      err.textContent = data.error || 'Fehler beim Zurücksetzen.';
+    }
+  } catch(e) { err.textContent = 'Verbindungsfehler.'; }
+  this.textContent = '▶ PASSWORT SPEICHERN'; this.disabled = false;
+});
+
 /* ---- ACCOUNT PICKER (localStorage) ---- */
 function getStoredAccounts() {
   try { return JSON.parse(localStorage.getItem('arcadeAccounts') || '[]'); } catch(e) { return []; }
@@ -3688,10 +3778,65 @@ document.getElementById("avatar").addEventListener("click", function() {
     "Spiele gespielt: " + (user.games_played || 0);
   document.getElementById("profile-overlay").classList.add("on");
   refreshNotifToggle();
+  renderProfileEmail();
 });
 
 document.getElementById("btn-close-profile").addEventListener("click", function() {
   document.getElementById("profile-overlay").classList.remove("on");
+});
+
+/* ── Profil: E-Mail hinterlegen ─────────────────────────── */
+function renderProfileEmail() {
+  if (!user) return;
+  var currentEl = document.getElementById('pe-current-email');
+  var editBtn   = document.getElementById('pe-edit-btn');
+  if (user.email) {
+    currentEl.textContent = user.email;
+    currentEl.className = 'pe-current has-email';
+    editBtn.textContent = '✏️ E-Mail ändern';
+  } else {
+    currentEl.textContent = 'Noch keine E-Mail hinterlegt';
+    currentEl.className = 'pe-current';
+    editBtn.textContent = '✏️ E-Mail hinterlegen';
+  }
+  document.getElementById('pe-edit-wrap').style.display = 'none';
+  document.getElementById('pe-msg').textContent = '';
+  document.getElementById('pe-msg').className = 'pe-msg';
+}
+
+document.getElementById('pe-edit-btn').addEventListener('click', function() {
+  document.getElementById('pe-edit-wrap').style.display = 'flex';
+  var inp = document.getElementById('pe-email-input');
+  inp.value = user.email || '';
+  this.style.display = 'none';
+  inp.focus();
+});
+document.getElementById('pe-cancel-btn').addEventListener('click', function() {
+  document.getElementById('pe-edit-wrap').style.display = 'none';
+  document.getElementById('pe-edit-btn').style.display = '';
+  document.getElementById('pe-msg').textContent = '';
+});
+document.getElementById('pe-save-btn').addEventListener('click', async function() {
+  var email = document.getElementById('pe-email-input').value.trim();
+  var msg = document.getElementById('pe-msg');
+  if (!email) { msg.textContent = 'Bitte E-Mail eingeben.'; msg.className = 'pe-msg err'; return; }
+  this.textContent = '…'; this.disabled = true;
+  try {
+    var res = await fetch(API_URL + '/api/user/set-email', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ user_id: user.id, email: email })
+    });
+    var data = await res.json();
+    if (data.success) {
+      user.email = email.toLowerCase().trim();
+      msg.textContent = '✓ Gespeichert!'; msg.className = 'pe-msg ok';
+      renderProfileEmail();
+      document.getElementById('pe-edit-btn').style.display = '';
+    } else {
+      msg.textContent = data.error || 'Fehler.'; msg.className = 'pe-msg err';
+    }
+  } catch(e) { msg.textContent = 'Verbindungsfehler.'; msg.className = 'pe-msg err'; }
+  this.textContent = '✓ Speichern'; this.disabled = false;
 });
 
 // Notification toggle button in profile

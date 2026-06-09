@@ -93,6 +93,7 @@
           <input id="login-pass" type="password" placeholder="Passwort" autocomplete="current-password">
         </div>
         <button id="btn-login" class="login-btn-main">▶ EINLOGGEN</button>
+        <button type="button" class="login-forgot-link" id="btn-forgot-pw">Passwort vergessen?</button>
         <button class="lp-back-btn" id="lp-back-btn" style="display:none">← Konten-Auswahl</button>
       </div>
       <div id="form-register" class="auth-form">
@@ -115,6 +116,62 @@
   </div>
 </div>
  
+<!-- PASSWORT VERGESSEN MODAL -->
+<div id="forgot-pw-modal" class="fpw-overlay" style="display:none">
+  <div class="fpw-box">
+    <div class="fpw-header">
+      <span class="fpw-icon">🔑</span>
+      <h2>Passwort vergessen</h2>
+      <button class="fpw-close" id="fpw-close">✕</button>
+    </div>
+    <p class="fpw-desc">Gib deine E-Mail-Adresse ein. Wir schicken dir einen Reset-Link.</p>
+    <div class="login-field-wrap">
+      <span class="login-field-icon">📧</span>
+      <input id="fpw-email" type="email" placeholder="deine@email.de" autocomplete="email">
+    </div>
+    <button id="fpw-send-btn" class="login-btn-main">▶ LINK SENDEN</button>
+    <div id="fpw-msg" class="fpw-msg"></div>
+  </div>
+</div>
+
+<!-- PASSWORT RESET PANEL (wird über Login gezeigt wenn ?reset=TOKEN in URL) -->
+<div id="reset-pw-panel" class="reset-panel" style="display:none">
+  <div class="login-crt" aria-hidden="true"></div>
+  <div class="login-grid" aria-hidden="true"></div>
+  <div class="login-orbs" aria-hidden="true">
+    <div class="lo lo1"></div><div class="lo lo2"></div><div class="lo lo3"></div>
+  </div>
+  <div class="login-box">
+    <div class="login-logo-wrap">
+      <div class="login-pixel-badge">PASSWORT RESET</div>
+      <div class="login-logo-icon">🔑</div>
+      <h1>Arcade<span>Box</span></h1>
+    </div>
+    <div id="reset-pw-loading" style="color:rgba(255,255,255,0.5);font-family:var(--retro-font);font-size:1rem;padding:1rem 0">Überprüfe Link…</div>
+    <div id="reset-pw-form" style="display:none">
+      <p class="fpw-desc" id="reset-pw-username"></p>
+      <div class="login-field-wrap">
+        <span class="login-field-icon">🔒</span>
+        <input id="reset-new-pass" type="password" placeholder="Neues Passwort" autocomplete="new-password">
+      </div>
+      <div class="login-field-wrap">
+        <span class="login-field-icon">✅</span>
+        <input id="reset-new-pass2" type="password" placeholder="Passwort wiederholen" autocomplete="new-password">
+      </div>
+      <button id="reset-pw-btn" class="login-btn-main">▶ PASSWORT SPEICHERN</button>
+    </div>
+    <div id="reset-pw-invalid" style="display:none;color:#ff7b6b;font-family:var(--retro-font);font-size:1rem;padding:1rem 0">
+      ❌ Dieser Link ist ungültig oder abgelaufen.<br>
+      <button class="login-forgot-link" onclick="document.getElementById('reset-pw-panel').style.display='none'">← Zurück zum Login</button>
+    </div>
+    <div id="reset-pw-success" style="display:none;color:#22c55e;font-family:var(--retro-font);font-size:1rem;padding:1rem 0">
+      ✅ Passwort gesetzt!<br>
+      <button class="login-forgot-link" onclick="document.getElementById('reset-pw-panel').style.display='none'">← Zum Login</button>
+    </div>
+    <div id="reset-pw-err" class="fpw-msg" style="color:#ff7b6b"></div>
+  </div>
+</div>
+
 <!-- HAUPTSEITE -->
 <div id="app">
   <header>
@@ -760,6 +817,19 @@
   <div id="profile-name"></div>
   <div id="profile-info"></div>
   <button id="btn-save-avatar" class="btn-action">✓ Übernehmen</button>
+
+  <!-- E-Mail für Passwort-Reset -->
+  <div class="profile-email-row" id="profile-email-row">
+    <div class="pe-label">📧 E-Mail (für Passwort-Reset)</div>
+    <div class="pe-current" id="pe-current-email">Noch keine E-Mail hinterlegt</div>
+    <div class="pe-edit-wrap" id="pe-edit-wrap" style="display:none">
+      <input id="pe-email-input" type="email" placeholder="deine@email.de" class="pe-input">
+      <button id="pe-save-btn" class="pe-save-btn">✓ Speichern</button>
+      <button id="pe-cancel-btn" class="pe-cancel-btn">✕</button>
+    </div>
+    <button id="pe-edit-btn" class="pe-edit-btn">✏️ E-Mail hinterlegen</button>
+    <div id="pe-msg" class="pe-msg"></div>
+  </div>
 
   <!-- Notification toggle -->
   <div class="notif-setting-row" id="notif-setting-row">

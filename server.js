@@ -1,7 +1,56 @@
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const crypto = require('crypto');
 require('dotenv').config();
+
+// ── Nodemailer (Gmail) ──────────────────────────────────────
+let transporter = null;
+try {
+  const nodemailer = require('nodemailer');
+  if (process.env.GMAIL_USER && process.env.GMAIL_PASS) {
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_PASS }
+    });
+    console.log('📧 Nodemailer ready:', process.env.GMAIL_USER);
+  } else {
+    console.log('⚠️  GMAIL_USER/GMAIL_PASS not set — password reset emails disabled');
+  }
+} catch(e) { console.log('⚠️  nodemailer not installed:', e.message); }
+
+async function sendResetMail(toEmail, resetLink, username) {
+  if (!transporter) return false;
+  try {
+    await transporter.sendMail({
+      from: `"ArcadeBox 🕹️" <${process.env.GMAIL_USER}>`,
+      to: toEmail,
+      subject: '🔑 ArcadeBox — Passwort zurücksetzen',
+      html: `
+        <div style="font-family:monospace;background:#0a0a14;color:#eee;padding:32px;border-radius:8px;max-width:480px">
+          <h2 style="color:#ff5733;margin:0 0 8px">🕹️ ArcadeBox</h2>
+          <p style="color:#aaa;margin:0 0 24px;font-size:13px">PASSWORT ZURÜCKSETZEN</p>
+          <p>Hi <strong style="color:#ff9977">${username}</strong>,</p>
+          <p>Du hast eine Passwort-Rücksetzung angefordert. Klick den Button um ein neues Passwort zu setzen:</p>
+          <a href="${resetLink}"
+             style="display:inline-block;background:linear-gradient(90deg,#ff5733,#f97316);color:#fff;padding:14px 28px;border-radius:4px;text-decoration:none;font-weight:bold;margin:16px 0;letter-spacing:1px">
+            ▶ PASSWORT ZURÜCKSETZEN
+          </a>
+          <p style="color:#666;font-size:12px;margin-top:24px">
+            Dieser Link ist <strong style="color:#aaa">1 Stunde</strong> gültig.<br>
+            Falls du das nicht warst, kannst du diese E-Mail ignorieren.
+          </p>
+          <hr style="border:none;border-top:1px solid #333;margin:20px 0">
+          <p style="color:#444;font-size:11px">ArcadeBox — Spiel Spaß</p>
+        </div>
+      `
+    });
+    return true;
+  } catch(e) {
+    console.error('Mail error:', e.message);
+    return false;
+  }
+}
 
 console.log('Starting server...');
 
@@ -221,6 +270,79 @@ app.get('/api/user/:id', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }
+});
+
+// ── E-Mail zu Konto hinzufügen ──────────────────────────────
+app.post('/api/user/set-email', async (req, res) => {
+  const { user_id, email } = req.body;
+  if (!user_id || !email) return res.status(400).json({ error: 'Fehlende Daten' });
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) return res.status(400).json({ error: 'Ungültige E-Mail-Adresse' });
+  try {
+    const { error } = await db.from('users').update({ email: email.toLowerCase().trim() }).eq('id', user_id);
+    if (error) return res.status(400).json({ error: 'Fehler beim Speichern' });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: 'Server-Fehler' }); }
+});
+
+// ── Passwort vergessen — Reset-Link senden ──────────────────
+app.post('/api/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'E-Mail erforderlich' });
+  // Always respond success to prevent user enumeration
+  const safe = { success: true, message: 'Falls ein Konto mit dieser E-Mail existiert, wurde ein Link gesendet.' };
+  try {
+    const { data: user } = await db.from('users').select('id, name, email').ilike('email', email.trim()).single();
+    if (!user || !user.email) return res.json(safe);
+
+    // Invalidate old tokens
+    await db.from('password_reset_tokens').update({ used: true }).eq('user_id', user.id).eq('used', false);
+
+    // Create new token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await db.from('password_reset_tokens').insert({ user_id: user.id, token, expires_at: expiresAt.toISOString() });
+
+    const appUrl = process.env.APP_URL || 'https://code4-spiel-und-spa-feat-sariye-u-karim.onrender.com';
+    const resetLink = `${appUrl}/?reset=${token}`;
+    await sendResetMail(user.email, resetLink, user.name);
+
+    res.json(safe);
+  } catch(e) { res.json(safe); }
+});
+
+// ── Reset-Token validieren ──────────────────────────────────
+app.get('/api/verify-reset-token/:token', async (req, res) => {
+  const { token } = req.params;
+  try {
+    const { data } = await db.from('password_reset_tokens')
+      .select('id, user_id, expires_at, used')
+      .eq('token', token).single();
+    if (!data || data.used || new Date(data.expires_at) < new Date()) {
+      return res.json({ valid: false });
+    }
+    const { data: user } = await db.from('users').select('name').eq('id', data.user_id).single();
+    res.json({ valid: true, username: user?.name || '' });
+  } catch(e) { res.json({ valid: false }); }
+});
+
+// ── Passwort zurücksetzen ───────────────────────────────────
+app.post('/api/reset-password', async (req, res) => {
+  const { token, newPass } = req.body;
+  if (!token || !newPass) return res.status(400).json({ error: 'Fehlende Daten' });
+  if (newPass.length < 4) return res.status(400).json({ error: 'Passwort zu kurz (min. 4 Zeichen)' });
+  try {
+    const { data: tokenRow } = await db.from('password_reset_tokens')
+      .select('id, user_id, expires_at, used').eq('token', token).single();
+    if (!tokenRow || tokenRow.used || new Date(tokenRow.expires_at) < new Date()) {
+      return res.status(400).json({ error: 'Link ungültig oder abgelaufen' });
+    }
+    // Update password
+    await db.from('users').update({ pass: newPass }).eq('id', tokenRow.user_id);
+    // Mark token as used
+    await db.from('password_reset_tokens').update({ used: true }).eq('id', tokenRow.id);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: 'Server-Fehler' }); }
 });
 
 // Update User (Avatar)
