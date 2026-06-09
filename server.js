@@ -4,36 +4,27 @@ const cookieParser = require('cookie-parser');
 const crypto = require('crypto');
 require('dotenv').config();
 
-// ── Nodemailer (Gmail) ──────────────────────────────────────
-let transporter = null;
+// ── Resend (HTTP-based, works on Render) ───────────────────
+let resendClient = null;
 try {
-  const nodemailer = require('nodemailer');
-  if (process.env.GMAIL_USER && process.env.GMAIL_PASS) {
-    transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false, // STARTTLS
-      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_PASS },
-      connectionTimeout: 8000,
-      greetingTimeout: 8000,
-      socketTimeout: 10000,
-      tls: { rejectUnauthorized: false }
-    });
-    console.log('📧 Nodemailer ready:', process.env.GMAIL_USER);
+  if (process.env.RESEND_API_KEY) {
+    const { Resend } = require('resend');
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+    console.log('📧 Resend ready');
   } else {
-    console.log('⚠️  GMAIL_USER/GMAIL_PASS not set — password reset emails disabled');
+    console.log('⚠️  RESEND_API_KEY not set — password reset emails disabled');
   }
-} catch(e) { console.log('⚠️  nodemailer not installed:', e.message); }
+} catch(e) { console.log('⚠️  resend not installed:', e.message); }
 
 async function sendResetMail(toEmail, resetLink, username) {
-  if (!transporter) {
-    console.error('❌ sendResetMail: transporter is null — GMAIL_USER/GMAIL_PASS not set!');
+  if (!resendClient) {
+    console.error('❌ sendResetMail: resendClient is null — RESEND_API_KEY not set!');
     return false;
   }
   try {
-    console.log(`📧 Sending reset mail to: ${toEmail}`);
-    await transporter.sendMail({
-      from: `"ArcadeBox 🕹️" <${process.env.GMAIL_USER}>`,
+    console.log(`📧 Sending reset mail via Resend to: ${toEmail}`);
+    const { error } = await resendClient.emails.send({
+      from: 'ArcadeBox 🕹️ <onboarding@resend.dev>',
       to: toEmail,
       subject: '🔑 ArcadeBox — Passwort zurücksetzen',
       html: `
@@ -55,9 +46,10 @@ async function sendResetMail(toEmail, resetLink, username) {
         </div>
       `
     });
+    if (error) { console.error('Resend error:', error); return false; }
     return true;
   } catch(e) {
-    console.error('Mail error:', e.message);
+    console.error('Resend exception:', e.message);
     return false;
   }
 }
@@ -300,27 +292,21 @@ app.post('/api/user/set-email', async (req, res) => {
 app.get('/api/test-email', async (req, res) => {
   const to = req.query.to;
   if (!to) return res.json({ error: 'Kein ?to= angegeben' });
-  const gmailUser = process.env.GMAIL_USER || 'NOT SET';
-  const gmailPass = process.env.GMAIL_PASS ? `SET (${process.env.GMAIL_PASS.length} Zeichen)` : 'NOT SET';
-  if (!transporter) {
-    return res.json({ configured: false, gmailUser, gmailPass, error: 'transporter ist null' });
+  const apiKeySet = process.env.RESEND_API_KEY ? `SET (${process.env.RESEND_API_KEY.length} Zeichen)` : 'NOT SET';
+  if (!resendClient) {
+    return res.json({ configured: false, apiKeySet, error: 'resendClient ist null — RESEND_API_KEY fehlt' });
   }
-  // Hard timeout after 12s so browser doesn't hang forever
-  const timeout = setTimeout(() => {
-    if (!res.headersSent) res.json({ success: false, error: 'TIMEOUT — SMTP-Verbindung hängt (Port 587 blockiert?)' });
-  }, 12000);
   try {
-    await transporter.sendMail({
-      from: `"ArcadeBox Test" <${process.env.GMAIL_USER}>`,
+    const { data, error } = await resendClient.emails.send({
+      from: 'ArcadeBox Test <onboarding@resend.dev>',
       to,
       subject: '🧪 ArcadeBox E-Mail Test',
       text: 'Wenn du das siehst, funktioniert der E-Mail-Versand! ✅'
     });
-    clearTimeout(timeout);
-    if (!res.headersSent) res.json({ success: true, gmailUser, gmailPass, sentTo: to });
+    if (error) return res.json({ success: false, apiKeySet, error: error.message || JSON.stringify(error) });
+    res.json({ success: true, apiKeySet, sentTo: to, id: data?.id });
   } catch(e) {
-    clearTimeout(timeout);
-    if (!res.headersSent) res.json({ success: false, gmailUser, gmailPass, error: e.message, code: e.code });
+    res.json({ success: false, apiKeySet, error: e.message });
   }
 });
 
