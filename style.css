@@ -1239,122 +1239,15 @@ body.light .cards::before { color: rgba(200,60,20,0.18); }
 }
 
 /* ════════════════════════════════════════════════
-   EXTRA ARCADE DESIGN ELEMENTS
+   EXTRA ARCADE DESIGN ELEMENTS (safe — no pseudo conflicts)
    ════════════════════════════════════════════════ */
 
-/* Pixel corner ornaments on every game card via outline trick */
-.card::after {
-  content: '';
-  position: absolute;
-  inset: 4px;
-  border-radius: calc(var(--r) - 4px);
-  border: 1px solid transparent;
-  pointer-events: none;
-  transition: border-color 0.25s;
-}
-.card:hover::after {
-  border-color: rgba(255,87,51,0.12);
-  box-shadow: inset 0 0 12px rgba(255,87,51,0.05);
-}
-
-/* Pixel-corner brackets on cat-header — retro arcade cabinet feel */
-.cat-header::before {
-  content: '▶';
-  font-family: 'Press Start 2P', monospace;
-  font-size: 0.5rem;
-  margin-right: 0.5rem;
-  opacity: 0.6;
-  animation: blinkStart 2s step-end infinite;
-}
-
-/* Category count badge */
-.cat-header::after {
-  content: attr(data-count);
-  font-family: 'Press Start 2P', monospace;
-  font-size: 0.38rem;
-  color: rgba(255,255,255,0.3);
-  margin-left: auto;
-  margin-right: 0.5rem;
-  letter-spacing: 0.05em;
-}
-
-/* Neon horizontal rule between major sections */
-.section-divider {
-  border: none;
-  height: 1px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    rgba(255,87,51,0.35) 20%,
-    rgba(255,200,50,0.5) 50%,
-    rgba(255,87,51,0.35) 80%,
-    transparent 100%
-  );
-  margin: 1.5rem 0;
-  position: relative;
-}
-.section-divider::after {
-  content: '✦';
-  position: absolute;
-  left: 50%; top: 50%;
-  transform: translate(-50%,-50%);
-  background: var(--bg,#080810);
-  padding: 0 8px;
-  font-size: 0.65rem;
-  color: rgba(255,87,51,0.5);
-  animation: blinkStart 2.8s step-end infinite;
-}
-
-/* Animated neon glow pulse on category headers */
+/* Neon glow pulse on category headers (box-shadow only — no pseudo used) */
 @keyframes catHeaderGlow {
-  0%,100% { box-shadow: inset 0 -2px 8px rgba(255,87,51,0.08); }
-  50%     { box-shadow: inset 0 -2px 18px rgba(255,87,51,0.18); }
+  0%,100% { box-shadow: inset 0 -2px 8px rgba(255,87,51,0.06); }
+  50%     { box-shadow: inset 0 -2px 20px rgba(255,87,51,0.16); }
 }
 .cat-header { animation: catHeaderGlow 4s ease-in-out infinite; }
-
-/* Score display: small retro counter style */
-.sbt-td-rp { font-family: 'Press Start 2P', monospace; font-size: 0.7rem !important; letter-spacing: 0.04em; }
-
-/* Blinking cursor on stat values */
-.stat-val::after {
-  content: '▌';
-  animation: blinkStart 1s step-end infinite;
-  margin-left: 2px;
-  font-size: 0.7em;
-  opacity: 0.6;
-}
-
-/* Floating pixel particles on hero — extra 2 via js, here is CSS glow dot */
-@keyframes floatDot {
-  0%   { transform: translateY(0)   scale(1);   opacity: 0.6; }
-  50%  { transform: translateY(-18px) scale(1.3); opacity: 1; }
-  100% { transform: translateY(0)   scale(1);   opacity: 0.6; }
-}
-.arcade-dot {
-  display: inline-block;
-  width: 6px; height: 6px;
-  border-radius: 1px;
-  background: var(--c1);
-  animation: floatDot 2s ease-in-out infinite;
-}
-.arcade-dot:nth-child(2) { animation-delay: 0.4s; background: #7b2fff; }
-.arcade-dot:nth-child(3) { animation-delay: 0.8s; background: #00cfff; }
-
-/* Retro "GAME OVER" flash animation (used when scores reset etc) */
-@keyframes gameOverFlash {
-  0%,100% { color: #ff0040; text-shadow: 0 0 10px #ff0040; }
-  50%     { color: #ffee00; text-shadow: 0 0 10px #ffee00; }
-}
-
-/* Header title neon flicker */
-@keyframes neonFlicker {
-  0%,19%,21%,23%,25%,54%,56%,100% { text-shadow: 0 0 4px #fff, 0 0 11px #fff, 0 0 19px var(--c1), 0 0 40px var(--c1); }
-  20%,24%,55% { text-shadow: none; }
-}
-header .logo, header h1, .hero h1 {
-  animation: neonFlicker 8s 3s infinite;
-}
-body.light header .logo,
-body.light .hero h1 { animation: none; }
 
 /* Pixel grid on scoreboard background */
 .sb-unified {
@@ -1364,25 +1257,56 @@ body.light .hero h1 { animation: none; }
   background-size: 28px 28px;
 }
 
-/* Retro "PLAYER" label on avatar in scoreboard */
-.sbt-td-player { position: relative; }
-
-/* Scanline shimmer on whole page header */
-header::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0,0,0,0.04) 2px,
-    rgba(0,0,0,0.04) 4px
-  );
-  pointer-events: none;
-  z-index: 0;
+/* Retro counter style for RP column */
+.sbt-td-rp {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.65rem !important;
+  letter-spacing: 0.04em;
 }
-header { position: relative; overflow: hidden; }
+
+/* Header title neon flicker */
+@keyframes neonFlicker {
+  0%,19%,21%,23%,25%,54%,56%,100% {
+    text-shadow: 0 0 4px rgba(255,255,255,0.6),
+                 0 0 14px var(--c1),
+                 0 0 30px rgba(255,87,51,0.3);
+  }
+  20%,24%,55% { text-shadow: none; }
+}
+.hero h1 { animation: neonFlicker 9s 4s infinite; }
+body.light .hero h1 { animation: none; }
+
+/* Neon horizontal rule */
+.section-divider {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%, rgba(255,87,51,0.4) 25%,
+    rgba(255,200,50,0.55) 50%,
+    rgba(255,87,51,0.4) 75%, transparent 100%
+  );
+  margin: 1.5rem 0;
+}
+
+/* Floating pixel dot element */
+@keyframes floatDot {
+  0%,100% { transform: translateY(0) scale(1); opacity: 0.55; }
+  50%     { transform: translateY(-14px) scale(1.2); opacity: 0.9; }
+}
+.arcade-dot {
+  display: inline-block; width: 5px; height: 5px;
+  border-radius: 1px; background: var(--c1);
+  animation: floatDot 2.2s ease-in-out infinite;
+}
+.arcade-dot:nth-child(2) { animation-delay: 0.5s; background: #7b2fff; }
+.arcade-dot:nth-child(3) { animation-delay: 1s;   background: #00cfff; }
+
+/* Subtle card inner glow on hover (via box-shadow, not ::after) */
+.card:hover {
+  box-shadow: 0 8px 28px rgba(0,0,0,0.45),
+              0 0 0 1px rgba(255,87,51,0.2),
+              inset 0 0 18px rgba(255,87,51,0.04);
+}
 
 /* ── Scrollable high score ticker at bottom of hero ── */
 .hero-ticker {
@@ -6052,21 +5976,17 @@ body.light .arcade-input::placeholder { color: rgba(0,0,0,0.35); }
   clip-path: polygon(25% 0%, 75% 0%, 100% 100%, 0% 100%);
   pointer-events: none;
 }
-/* ── Rounded spotlight — PERFECT circle, no N/S/W/O gaps ──────
-   Key fix: use outline (follows border-radius perfectly) for the
-   sharp white ring. box-shadow only for the dark overlay + soft glow.
-   box-shadow blur on border-radius:50% creates cardinal-point gaps — outline does not.
+/* ── Rounded spotlight — perfect circle, dezent ───────────────
+   outline follows border-radius:50% exactly → no gaps at N/S/W/O
    ─────────────────────────────────────────────────────────────── */
 .guide-spotlight.rounded {
   border-radius: 50%;
-  /* outline follows border-radius exactly → perfect white circle, no gaps */
-  outline: 5px solid rgba(255,255,255,0.95);
-  outline-offset: 3px;
-  /* Dark overlay outside + soft ambient glow (NO sharp spread layers that cause gaps) */
+  outline: 2.5px solid rgba(255,255,255,0.75);
+  outline-offset: 4px;
   box-shadow:
-    0 0 0 9999px rgba(0,0,0,0.86),
-    0 0 32px 14px rgba(255,255,255,0.45),
-    0 0 70px 32px rgba(255,255,255,0.18);
+    0 0 0 9999px rgba(0,0,0,0.84),
+    0 0 18px 8px rgba(255,255,255,0.28),
+    0 0 45px 20px rgba(255,255,255,0.10);
 }
 .guide-spotlight.rounded::before { display: none; }
 

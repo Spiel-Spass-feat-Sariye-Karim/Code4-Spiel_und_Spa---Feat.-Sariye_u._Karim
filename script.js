@@ -1971,7 +1971,7 @@ function buildGuideSteps() {
     },
     // Step 2: Avatar — perfect white circle, centered
     {
-      target: 'avatar-spotlight-wrap', rounded: true, pad: 14,
+      target: 'avatar-spotlight-wrap', rounded: true, pad: 8,
       text: 'Das ist dein Avatar! Klick ihn an um dein Profil zu öffnen, Avatar zu wechseln und E-Mail zu hinterlegen.',
       before: null, after: null
     },
@@ -1989,13 +1989,13 @@ function buildGuideSteps() {
     },
     // Step 5: Close profile button — perfect circle
     {
-      target: 'btn-close-profile', rounded: true, pad: 10,
+      target: 'btn-close-profile', rounded: true, pad: 8,
       text: 'Mit diesem X-Button schließt du das Profil wieder.',
       before: null, after: function(cb){ closeProfileForGuide(cb); }
     },
     // Step 6: Notification bell — perfect circle
     {
-      target: 'btn-notif-center', rounded: true, pad: 10,
+      target: 'btn-notif-center', rounded: true, pad: 8,
       text: 'Das Benachrichtigungs-Center 🔔 — hier siehst du Freundesanfragen, Spieleinladungen und Neuigkeiten!',
       before: null, after: null
     },
@@ -2007,7 +2007,7 @@ function buildGuideSteps() {
     },
     // Step 8: Theme button — perfect circle
     {
-      target: 'btn-theme', rounded: true, pad: 10,
+      target: 'btn-theme', rounded: true, pad: 8,
       text: 'Dark & Light Mode 🌙☀️ — hier wechselst du das Design ganz nach Geschmack!',
       before: function(cb){ closeNotifForGuide(cb); }, after: null
     },
@@ -2043,7 +2043,7 @@ function buildGuideSteps() {
     },
     // Step 14: Rank-info ❓ — circle spotlight
     {
-      target: 'rank-info-btn', rounded: true, pad: 10,
+      target: 'rank-info-btn', rounded: true, pad: 8,
       text: '❓ Das Rang-System! Klick hier um zu sehen wie Rang-Punkte vergeben werden — von Neuling bis Legende!',
       before: null, after: null
     },
