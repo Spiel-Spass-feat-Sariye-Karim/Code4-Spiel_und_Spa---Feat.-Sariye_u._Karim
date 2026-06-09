@@ -26,7 +26,7 @@ async function sendResetMail(toEmail, resetLink, username) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        sender: { name: 'ArcadeBox', email: 'noreply@arcadebox.app' },
+        sender: { name: 'ArcadeBox', email: process.env.BREVO_SENDER || process.env.GMAIL_USER || 'noreply@arcadebox.app' },
         to: [{ email: toEmail }],
         subject: '🔑 ArcadeBox — Passwort zurücksetzen',
         htmlContent: `
@@ -304,7 +304,7 @@ app.get('/api/test-email', async (req, res) => {
       method: 'POST',
       headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sender: { name: 'ArcadeBox Test', email: 'noreply@arcadebox.app' },
+        sender: { name: 'ArcadeBox Test', email: process.env.BREVO_SENDER || process.env.GMAIL_USER || 'noreply@arcadebox.app' },
         to: [{ email: to }],
         subject: '🧪 ArcadeBox E-Mail Test',
         textContent: 'Wenn du das siehst, funktioniert der E-Mail-Versand via Brevo! ✅'
