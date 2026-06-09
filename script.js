@@ -1944,8 +1944,253 @@ document.getElementById("avatar").src =
   setTimeout(initPushNotifications, 1200);
   // Start arcade particle system
   startArcadeParticles();
-  // Show email prompt if not yet set
+  // Show email prompt spotlight if not yet set
   maybeShowEmailPrompt();
+  // Show onboarding guide for new users
+  setTimeout(maybeShowGuide, 600);
+}
+
+/* ════════════════════════════════════════════════════════════
+   ONBOARDING GUIDE SYSTEM
+   ════════════════════════════════════════════════════════════ */
+var guideActive = false;
+var guideCurrentStep = 0;
+var guideSteps = [];
+var guideTypewriterTimer = null;
+var guideTransitioning = false;
+
+function buildGuideSteps() {
+  var name = user ? user.name : 'Spieler';
+  return [
+    {
+      target: null, rounded: false, pad: 0,
+      text: 'Hallo ' + name + '! 👋 Ich bin dein Guide — ich zeige dir kurz alles Wichtige. Los geht\'s!',
+      before: null, after: null
+    },
+    {
+      target: 'avatar-spotlight-wrap', rounded: true, pad: 8,
+      text: 'Das ist dein Avatar! Klick ihn an um dein Profil zu öffnen, deinen Avatar zu ändern und deine E-Mail zu hinterlegen.',
+      before: function(cb){ closeAllPanels(); setTimeout(cb,200); }, after: null
+    },
+    {
+      target: 'profile-email-row', rounded: false, pad: 12,
+      text: 'Hier kannst du deine E-Mail für Passwort-Reset hinterlegen. Wichtig — ohne E-Mail ist dein Konto bei vergessenem Passwort verloren!',
+      before: function(cb){ openProfileForGuide(cb); }, after: null
+    },
+    {
+      target: 'avatar-prev', rounded: false, pad: 10,
+      text: 'Mit diesen Pfeilen kannst du deinen Avatar wechseln. Wähle einen der über 100 Avatare!',
+      before: null, after: null
+    },
+    {
+      target: 'btn-close-profile', rounded: true, pad: 8,
+      text: 'Mit diesem Button schließt du das Profil wieder.',
+      before: null, after: function(cb){ closeProfileForGuide(cb); }
+    },
+    {
+      target: 'btn-notif-center', rounded: true, pad: 8,
+      text: 'Das ist dein Benachrichtigungs-Center 🔔 — hier siehst du Freundesanfragen, Spieleinladungen und Neuigkeiten!',
+      before: null, after: null
+    },
+    {
+      target: 'nc-tabs-wrap', rounded: false, pad: 6,
+      text: 'Drei Tabs: Aktivität, Freunde-Anfragen und Patchnotes. Klick sie durch!',
+      before: function(cb){ openNotifForGuide(cb); }, after: null
+    },
+    {
+      target: 'btn-theme', rounded: true, pad: 8,
+      text: 'Hier wechselst du zwischen Dark & Light Mode 🌙☀️ — ganz nach Geschmack!',
+      before: function(cb){ closeNotifForGuide(cb); }, after: null
+    },
+    {
+      target: 'btn-logout', rounded: false, pad: 8,
+      text: 'Und hier kannst du dich abmelden. Deine Scores werden natürlich gespeichert!',
+      before: null, after: null
+    },
+    {
+      target: 'cat-single', rounded: false, pad: 10,
+      text: '🎮 Hier sind alle Singleplayer-Spiele — 9 Stück! Gedächtnis, Reaction, Flappy Bird, Snake und mehr. Alle mit Highscore-System!',
+      before: null, after: null
+    },
+    {
+      target: 'cat-multi', rounded: false, pad: 10,
+      text: '⚔️ Multiplayer-Games! Schach, TicTacToe, 4 Gewinnt, Tipp-Rennen, Schere-Stein-Papier, Rechen-Duell — alle gegen Freunde oder KI!',
+      before: null, after: null
+    },
+    {
+      target: 'board-global', rounded: false, pad: 10,
+      text: '🏆 Das Globale Scoreboard — sieh wo du im Vergleich zu allen anderen stehst. Filter nach Top 3, Top 10 oder Freunde!',
+      before: null, after: null
+    },
+    {
+      target: 'board-friends', rounded: false, pad: 10,
+      text: '👥 Der Freunde-Tab — füge Freunde hinzu, suche Spieler und fordere sie zu Duellen heraus!',
+      before: function(cb){ switchToFriendsTab(cb); }, after: null
+    },
+    {
+      target: null, rounded: false, pad: 0,
+      text: 'Das war\'s! Viel Spaß beim Spielen, ' + name + '! 🎮 Möge der beste Spieler gewinnen! 🏆',
+      before: null, after: null
+    }
+  ];
+}
+
+function maybeShowGuide() {
+  if (!user) return;
+  var key = 'guideShown_' + user.id;
+  if (localStorage.getItem(key)) return;
+  // Show guide-start modal
+  document.getElementById('guide-start-modal').style.display = 'flex';
+}
+
+document.getElementById('guide-start-yes').addEventListener('click', function() {
+  document.getElementById('guide-start-modal').style.display = 'none';
+  localStorage.setItem('guideShown_' + (user&&user.id), '1');
+  startGuide();
+});
+document.getElementById('guide-start-no').addEventListener('click', function() {
+  document.getElementById('guide-start-modal').style.display = 'none';
+  localStorage.setItem('guideShown_' + (user&&user.id), '1');
+});
+document.getElementById('guide-btn-skip').addEventListener('click', finishGuide);
+document.getElementById('guide-btn-next').addEventListener('click', function(){ if(!guideTransitioning) guideNext(); });
+document.getElementById('guide-btn-prev').addEventListener('click', function(){ if(!guideTransitioning) guidePrev(); });
+document.addEventListener('keydown', function(e) {
+  if (!guideActive) return;
+  if (e.key === 'ArrowRight' || e.key === 'Enter') { if(!guideTransitioning) guideNext(); }
+  if (e.key === 'ArrowLeft') { if(!guideTransitioning) guidePrev(); }
+  if (e.key === 'Escape') finishGuide();
+});
+
+function startGuide() {
+  guideSteps = buildGuideSteps();
+  guideCurrentStep = 0;
+  guideActive = true;
+  var overlay = document.getElementById('guide-overlay');
+  overlay.style.display = '';
+  overlay.classList.add('active');
+  showGuideStep(0);
+}
+
+function finishGuide() {
+  guideActive = false;
+  document.getElementById('guide-overlay').style.display = 'none';
+  document.getElementById('guide-overlay').classList.remove('active');
+  closeAllPanels();
+  // Clear any spotlight
+  var wrap = document.getElementById('avatar-spotlight-wrap');
+  if (wrap) wrap.classList.remove('spotlight-active');
+}
+
+function showGuideStep(idx) {
+  var step = guideSteps[idx];
+  if (!step) { finishGuide(); return; }
+  guideTransitioning = true;
+
+  // Update counter
+  document.getElementById('guide-step-counter').textContent = (idx+1) + ' / ' + guideSteps.length;
+  document.getElementById('guide-btn-prev').disabled = idx === 0;
+  document.getElementById('guide-btn-next').textContent = idx === guideSteps.length-1 ? '✓' : '▶';
+
+  function doShow() {
+    positionSpotlight(step);
+    typewriteText(step.text);
+    guideTransitioning = false;
+  }
+
+  if (step.before) {
+    step.before(function(){ setTimeout(doShow, 200); });
+  } else {
+    doShow();
+  }
+}
+
+function guideNext() {
+  var step = guideSteps[guideCurrentStep];
+  function proceed() {
+    guideCurrentStep++;
+    if (guideCurrentStep >= guideSteps.length) { finishGuide(); return; }
+    showGuideStep(guideCurrentStep);
+  }
+  if (step && step.after) { guideTransitioning=true; step.after(proceed); }
+  else proceed();
+}
+function guidePrev() {
+  if (guideCurrentStep <= 0) return;
+  guideCurrentStep--;
+  showGuideStep(guideCurrentStep);
+}
+
+function positionSpotlight(step) {
+  var spotlight = document.getElementById('guide-spotlight');
+  if (!step.target) {
+    spotlight.className = 'guide-spotlight hidden';
+    return;
+  }
+  var el = document.getElementById(step.target);
+  if (!el) { spotlight.className = 'guide-spotlight hidden'; return; }
+  var pad = step.pad || 8;
+  var rect = el.getBoundingClientRect();
+  spotlight.style.left   = (rect.left - pad) + 'px';
+  spotlight.style.top    = (rect.top - pad) + 'px';
+  spotlight.style.width  = (rect.width + pad*2) + 'px';
+  spotlight.style.height = (rect.height + pad*2) + 'px';
+  spotlight.className = 'guide-spotlight' + (step.rounded ? ' rounded' : '');
+  // Scroll element into view
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function typewriteText(text) {
+  if (guideTypewriterTimer) clearInterval(guideTypewriterTimer);
+  var el = document.getElementById('guide-bubble-text');
+  el.textContent = '';
+  var i = 0;
+  guideTypewriterTimer = setInterval(function() {
+    if (i < text.length) { el.textContent += text[i++]; }
+    else { clearInterval(guideTypewriterTimer); guideTypewriterTimer = null; }
+  }, 28);
+}
+
+// Guide helper: open/close profile
+function openProfileForGuide(cb) {
+  var overlay = document.getElementById('profile-overlay');
+  if (overlay && !overlay.classList.contains('on')) {
+    var avatarBtn = document.getElementById('avatar');
+    if (avatarBtn) avatarBtn.click();
+    setTimeout(cb, 400);
+  } else { cb(); }
+}
+function closeProfileForGuide(cb) {
+  var overlay = document.getElementById('profile-overlay');
+  if (overlay && overlay.classList.contains('on')) {
+    document.getElementById('btn-close-profile').click();
+  }
+  setTimeout(cb, 300);
+}
+function openNotifForGuide(cb) {
+  closeAllPanels();
+  setTimeout(function() {
+    openNotifCenter();
+    setTimeout(cb, 350);
+  }, 200);
+}
+function closeNotifForGuide(cb) {
+  closeNotifCenter();
+  setTimeout(cb, 300);
+}
+function switchToFriendsTab(cb) {
+  closeAllPanels();
+  var tab = document.querySelector('[data-board="friends"]');
+  if (tab) tab.click();
+  setTimeout(cb, 200);
+}
+function closeAllPanels() {
+  var profileOverlay = document.getElementById('profile-overlay');
+  if (profileOverlay && profileOverlay.classList.contains('on')) {
+    var closeBtn = document.getElementById('btn-close-profile');
+    if (closeBtn) closeBtn.click();
+  }
+  closeNotifCenter();
 }
 
 /* ════════════════════════════════════════════════
@@ -2260,6 +2505,77 @@ function showHS() {
 }
 
 /* ---- GLOBALES SCOREBOARD ---- */
+var sbAllScores = [];
+var sbFilterLimit = 'all';
+
+// Scoreboard filter buttons
+document.querySelectorAll('.sb-filter-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.sb-filter-btn').forEach(function(b){ b.classList.remove('active'); });
+    this.classList.add('active');
+    sbFilterLimit = this.dataset.limit;
+    renderSbTable();
+  });
+});
+
+function renderSbTable() {
+  var scores = sbAllScores;
+  if (!scores || !scores.length) return;
+
+  // Filter
+  var filtered = scores;
+  if (sbFilterLimit === 'friends') {
+    filtered = scores.filter(function(s) {
+      return (user && s.name === user.name) || friendIdsSet.has && Array.from(friendIdsSet).some(function(fid){
+        return false; // friendIdsSet stores IDs, scores store names — filter by name from friends list
+      });
+    });
+    // Use friendNames set instead
+    var friendNames = new Set();
+    document.querySelectorAll('.friend-name').forEach(function(el){ friendNames.add(el.textContent.trim().toLowerCase()); });
+    filtered = scores.filter(function(s){ return (user && s.name===user.name) || friendNames.has(s.name.toLowerCase()); });
+  } else if (sbFilterLimit !== 'all') {
+    filtered = scores.slice(0, parseInt(sbFilterLimit));
+  }
+
+  function avUrl(item) { return 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(item.avatar_seed || item.name || 'x'); }
+  function isMeClass(item) { return (user && item.name === user.name) ? ' sb-me' : ''; }
+  function medal(i) { return i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+''; }
+  function fmtVal(val, key) {
+    if (!val || val === 0) return '<span style="opacity:0.3">—</span>';
+    if (key === 'reaction_ms') return '<span class="sbt-val-num">'+val+'</span><span class="sbt-val-unit">ms</span>';
+    if (key === 'stack') return '<span class="sbt-val-num">'+val+'</span><span class="sbt-val-unit"> Et.</span>';
+    return '<span class="sbt-val-num">'+val+'</span>';
+  }
+  var cols = [
+    { key:'memory',      th:'🧠', label:'Gedächtnis', cls:'sbt-memory'   },
+    { key:'stack',       th:'🧱', label:'Turm',       cls:'sbt-stack'    },
+    { key:'reaction_ms', th:'⚡', label:'Reaktion',   cls:'sbt-reaction' },
+    { key:'precision',   th:'🫧', label:'Bubble',     cls:'sbt-bubble'   },
+    { key:'guess',       th:'🔢', label:'Zahlen',     cls:'sbt-guess'    },
+    { key:'wordle',      th:'💻', label:'Wordle',     cls:'sbt-wordle'   },
+    { key:'flappy',      th:'🐦', label:'Flappy',     cls:'sbt-flappy'   },
+    { key:'snake',       th:'🐍', label:'Schlange',   cls:'sbt-snake'    },
+    { key:'wortblitz',   th:'⌨️', label:'Wort-Blitz', cls:'sbt-wortblitz'}
+  ];
+  var thead = '<thead><tr><th class="sbt-th-rank"></th><th class="sbt-th-player">Spieler</th><th class="sbt-divider-after sbt-rp-col" style="min-width:44px">RP<span class="sbt-th-label">Rang-Pkt.</span></th>';
+  for (var ci=0;ci<cols.length;ci++) thead += '<th class="'+cols[ci].cls+'">'+cols[ci].th+'<span class="sbt-th-label">'+cols[ci].label+'</span></th>';
+  thead += '</tr></thead>';
+  var tbody = '<tbody>';
+  for (var i=0;i<filtered.length;i++) {
+    var s = filtered[i]; var rp = s.rank_points||0;
+    if (isMeClass(s)) { myRankPoints=rp; var re=document.getElementById('stat-rank'); if(re) re.textContent=getRank(rp); }
+    var meClass = isMeClass(s) ? ' sbt-me':'';
+    tbody += '<tr class="sbt-row'+meClass+'"><td class="sbt-td-rank">'+medal(i)+'</td><td class="sbt-td-player"><div class="sbt-player-inner"><img src="'+avUrl(s)+'" class="sb-av" loading="lazy"><span class="sbt-player-name">'+escHtml(s.name)+'</span><span class="sbt-rank-badge" style="color:'+getRankColor(rp)+'">'+getRank(rp)+'</span></div></td><td class="sbt-td-rp sbt-divider-after">'+rp+'<span class="sbt-rp-unit"> RP</span></td>';
+    for (var ci2=0;ci2<cols.length;ci2++) tbody += '<td class="sbt-td-val">'+fmtVal(s[cols[ci2].key],cols[ci2].key)+'</td>';
+    tbody += '</tr>';
+  }
+  if (!filtered.length) tbody += '<tr><td colspan="12" class="sb-empty">Keine Einträge</td></tr>';
+  tbody += '</tbody>';
+  var label = sbFilterLimit==='all'?'Alle Spieler':sbFilterLimit==='friends'?'Freunde':('Top '+sbFilterLimit);
+  document.getElementById('global-hs').innerHTML = '<div class="sb-unified"><div class="sb-unified-header">🏆 '+label+' — Gesamtranking</div><div class="sb-table-wrap"><table class="sb-table">'+thead+tbody+'</table></div></div>';
+}
+
 async function loadGlobalHS() {
   try {
     var res = await fetch(API_URL + '/api/global-highscores');
@@ -2269,86 +2585,8 @@ async function loadGlobalHS() {
       document.getElementById('global-hs').innerHTML = '<p class="sb-empty">Noch keine Scores</p>';
       return;
     }
-
-    function avUrl(item) {
-      return 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(item.avatar_seed || item.name || 'x');
-    }
-    function isMeClass(item) { return (user && item.name === user.name) ? ' sb-me' : ''; }
-    function medal(i) {
-      if (i === 0) return '🥇';
-      if (i === 1) return '🥈';
-      if (i === 2) return '🥉';
-      return (i+1)+'';
-    }
-
-    // Helpers for formatting per-game score cells
-    function fmtVal(val, key) {
-      if (!val || val === 0) return '<span style="opacity:0.3">—</span>';
-      if (key === 'reaction_ms') return '<span class="sbt-val-num">'+val+'</span><span class="sbt-val-unit">ms</span>';
-      if (key === 'stack') return '<span class="sbt-val-num">'+val+'</span><span class="sbt-val-unit"> Et.</span>';
-      return '<span class="sbt-val-num">'+val+'</span>';
-    }
-
-    // Build unified table — top 15 players sorted by RP
-    var cols = [
-      { key:'memory',      th:'🧠', label:'Gedächtnis', cls:'sbt-memory'   },
-      { key:'stack',       th:'🧱', label:'Turm',       cls:'sbt-stack'    },
-      { key:'reaction_ms', th:'⚡', label:'Reaktion',   cls:'sbt-reaction' },
-      { key:'precision',   th:'🫧', label:'Bubble',     cls:'sbt-bubble'   },
-      { key:'guess',       th:'🔢', label:'Zahlen',     cls:'sbt-guess'    },
-      { key:'wordle',      th:'💻', label:'Wordle',     cls:'sbt-wordle'   },
-      { key:'flappy',      th:'🐦', label:'Flappy',     cls:'sbt-flappy'   },
-      { key:'snake',       th:'🐍', label:'Schlange',   cls:'sbt-snake'    },
-      { key:'wortblitz',   th:'⌨️', label:'Wort-Blitz', cls:'sbt-wortblitz'}
-    ];
-
-    var thead = '<thead><tr>' +
-      '<th class="sbt-th-rank"></th>' +
-      '<th class="sbt-th-player">Spieler</th>' +
-      '<th class="sbt-divider-after sbt-rp-col" style="min-width:44px">RP<span class="sbt-th-label">Rang-Pkt.</span></th>';
-    for (var ci = 0; ci < cols.length; ci++) {
-      thead += '<th class="'+cols[ci].cls+'">'+cols[ci].th+'<span class="sbt-th-label">'+cols[ci].label+'</span></th>';
-    }
-    thead += '</tr></thead>';
-
-    var tbody = '<tbody>';
-    var limit = scores.length;
-    for (var i = 0; i < limit; i++) {
-      var s = scores[i];
-      var rp = s.rank_points || 0;
-      if (isMeClass(s)) {
-        myRankPoints = rp; // store for profile display
-        // Update rank badge immediately when we know our RP
-        var rankEl2 = document.getElementById('stat-rank');
-        if (rankEl2) rankEl2.textContent = getRank(rp);
-      }
-      var meClass = isMeClass(s) ? ' sbt-me' : '';
-      var rankLabel = getRank(rp);
-      var rankCol = getRankColor(rp);
-      tbody += '<tr class="sbt-row'+meClass+'">' +
-        '<td class="sbt-td-rank">'+medal(i)+'</td>' +
-        '<td class="sbt-td-player">' +
-          '<div class="sbt-player-inner">' +
-            '<img src="'+avUrl(s)+'" class="sb-av" loading="lazy">' +
-            '<span class="sbt-player-name">'+escHtml(s.name)+'</span>' +
-            '<span class="sbt-rank-badge" style="color:'+rankCol+'">'+rankLabel+'</span>' +
-          '</div>' +
-        '</td>' +
-        '<td class="sbt-td-rp sbt-divider-after">'+rp+'<span class="sbt-rp-unit"> RP</span></td>';
-      for (var ci = 0; ci < cols.length; ci++) {
-        tbody += '<td class="sbt-td-val">'+fmtVal(s[cols[ci].key], cols[ci].key)+'</td>';
-      }
-      tbody += '</tr>';
-    }
-    if (limit === 0) tbody += '<tr><td colspan="11" class="sb-empty">Noch keine Einträge</td></tr>';
-    tbody += '</tbody>';
-
-    var html = '<div class="sb-unified">' +
-      '<div class="sb-unified-header">🏆 Gesamtranking — alle Spiele</div>' +
-      '<div class="sb-table-wrap"><table class="sb-table">'+thead+tbody+'</table></div>' +
-      '</div>';
-
-    document.getElementById('global-hs').innerHTML = html;
+    sbAllScores = scores;
+    renderSbTable();
   } catch (err) {
     console.error('Fehler beim Laden der Highscores:', err);
     document.getElementById('global-hs').innerHTML = '<p class="sb-empty">Fehler beim Laden</p>';
