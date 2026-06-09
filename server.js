@@ -4,49 +4,54 @@ const cookieParser = require('cookie-parser');
 const crypto = require('crypto');
 require('dotenv').config();
 
-// ── Resend (HTTP-based, works on Render) ───────────────────
-let resendClient = null;
-try {
-  if (process.env.RESEND_API_KEY) {
-    const { Resend } = require('resend');
-    resendClient = new Resend(process.env.RESEND_API_KEY);
-    console.log('📧 Resend ready');
-  } else {
-    console.log('⚠️  RESEND_API_KEY not set — password reset emails disabled');
-  }
-} catch(e) { console.log('⚠️  resend not installed:', e.message); }
+// ── Resend via direktem HTTP fetch (kein npm-Package nötig) ─
+const RESEND_API_KEY = process.env.RESEND_API_KEY || null;
+if (RESEND_API_KEY) {
+  console.log('📧 Resend API key ready');
+} else {
+  console.log('⚠️  RESEND_API_KEY not set — password reset emails disabled');
+}
 
 async function sendResetMail(toEmail, resetLink, username) {
-  if (!resendClient) {
-    console.error('❌ sendResetMail: resendClient is null — RESEND_API_KEY not set!');
+  if (!RESEND_API_KEY) {
+    console.error('❌ sendResetMail: RESEND_API_KEY not set!');
     return false;
   }
   try {
     console.log(`📧 Sending reset mail via Resend to: ${toEmail}`);
-    const { error } = await resendClient.emails.send({
-      from: 'ArcadeBox 🕹️ <onboarding@resend.dev>',
-      to: toEmail,
-      subject: '🔑 ArcadeBox — Passwort zurücksetzen',
-      html: `
-        <div style="font-family:monospace;background:#0a0a14;color:#eee;padding:32px;border-radius:8px;max-width:480px">
-          <h2 style="color:#ff5733;margin:0 0 8px">🕹️ ArcadeBox</h2>
-          <p style="color:#aaa;margin:0 0 24px;font-size:13px">PASSWORT ZURÜCKSETZEN</p>
-          <p>Hi <strong style="color:#ff9977">${username}</strong>,</p>
-          <p>Du hast eine Passwort-Rücksetzung angefordert. Klick den Button um ein neues Passwort zu setzen:</p>
-          <a href="${resetLink}"
-             style="display:inline-block;background:linear-gradient(90deg,#ff5733,#f97316);color:#fff;padding:14px 28px;border-radius:4px;text-decoration:none;font-weight:bold;margin:16px 0;letter-spacing:1px">
-            ▶ PASSWORT ZURÜCKSETZEN
-          </a>
-          <p style="color:#666;font-size:12px;margin-top:24px">
-            Dieser Link ist <strong style="color:#aaa">1 Stunde</strong> gültig.<br>
-            Falls du das nicht warst, kannst du diese E-Mail ignorieren.
-          </p>
-          <hr style="border:none;border-top:1px solid #333;margin:20px 0">
-          <p style="color:#444;font-size:11px">ArcadeBox — Spiel Spaß</p>
-        </div>
-      `
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'ArcadeBox <onboarding@resend.dev>',
+        to: [toEmail],
+        subject: '🔑 ArcadeBox — Passwort zurücksetzen',
+        html: `
+          <div style="font-family:monospace;background:#0a0a14;color:#eee;padding:32px;border-radius:8px;max-width:480px">
+            <h2 style="color:#ff5733;margin:0 0 8px">🕹️ ArcadeBox</h2>
+            <p style="color:#aaa;margin:0 0 24px;font-size:13px">PASSWORT ZURÜCKSETZEN</p>
+            <p>Hi <strong style="color:#ff9977">${username}</strong>,</p>
+            <p>Du hast eine Passwort-Rücksetzung angefordert. Klick den Button um ein neues Passwort zu setzen:</p>
+            <a href="${resetLink}"
+               style="display:inline-block;background:linear-gradient(90deg,#ff5733,#f97316);color:#fff;padding:14px 28px;border-radius:4px;text-decoration:none;font-weight:bold;margin:16px 0;letter-spacing:1px">
+              ▶ PASSWORT ZURÜCKSETZEN
+            </a>
+            <p style="color:#666;font-size:12px;margin-top:24px">
+              Dieser Link ist <strong style="color:#aaa">1 Stunde</strong> gültig.<br>
+              Falls du das nicht warst, kannst du diese E-Mail ignorieren.
+            </p>
+            <hr style="border:none;border-top:1px solid #333;margin:20px 0">
+            <p style="color:#444;font-size:11px">ArcadeBox — Spiel Spaß</p>
+          </div>
+        `
+      })
     });
-    if (error) { console.error('Resend error:', error); return false; }
+    const data = await res.json();
+    if (!res.ok) { console.error('Resend error:', data); return false; }
+    console.log('📧 Resend success, id:', data.id);
     return true;
   } catch(e) {
     console.error('Resend exception:', e.message);
@@ -292,19 +297,22 @@ app.post('/api/user/set-email', async (req, res) => {
 app.get('/api/test-email', async (req, res) => {
   const to = req.query.to;
   if (!to) return res.json({ error: 'Kein ?to= angegeben' });
-  const apiKeySet = process.env.RESEND_API_KEY ? `SET (${process.env.RESEND_API_KEY.length} Zeichen)` : 'NOT SET';
-  if (!resendClient) {
-    return res.json({ configured: false, apiKeySet, error: 'resendClient ist null — RESEND_API_KEY fehlt' });
-  }
+  const apiKeySet = RESEND_API_KEY ? `SET (${RESEND_API_KEY.length} Zeichen)` : 'NOT SET';
+  if (!RESEND_API_KEY) return res.json({ configured: false, apiKeySet, error: 'RESEND_API_KEY fehlt' });
   try {
-    const { data, error } = await resendClient.emails.send({
-      from: 'ArcadeBox Test <onboarding@resend.dev>',
-      to,
-      subject: '🧪 ArcadeBox E-Mail Test',
-      text: 'Wenn du das siehst, funktioniert der E-Mail-Versand! ✅'
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: 'ArcadeBox Test <onboarding@resend.dev>',
+        to: [to],
+        subject: '🧪 ArcadeBox E-Mail Test',
+        text: 'Wenn du das siehst, funktioniert der E-Mail-Versand! ✅'
+      })
     });
-    if (error) return res.json({ success: false, apiKeySet, error: error.message || JSON.stringify(error) });
-    res.json({ success: true, apiKeySet, sentTo: to, id: data?.id });
+    const data = await r.json();
+    if (!r.ok) return res.json({ success: false, apiKeySet, error: JSON.stringify(data) });
+    res.json({ success: true, apiKeySet, sentTo: to, id: data.id });
   } catch(e) {
     res.json({ success: false, apiKeySet, error: e.message });
   }
