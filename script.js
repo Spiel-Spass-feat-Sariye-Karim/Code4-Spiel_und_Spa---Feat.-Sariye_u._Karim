@@ -1556,23 +1556,7 @@ btn.innerHTML = isLoading
 }
 
 // Tab-Umschaltung zwischen Anmelden / Registrieren
-document.querySelectorAll('.tab').forEach(function(tab) {
-  tab.addEventListener('click', function() {
-    var target = tab.dataset.tab; // 'login' oder 'register'
-    // Alle Tabs und Formulare zuruecksetzen
-    document.querySelectorAll('.tab').forEach(function(t) {
-      t.classList.remove('active');
-    });
-    document.querySelectorAll('.auth-form').forEach(function(f) {
-      f.classList.remove('active');
-    });
-    // Aktiven Tab markieren und passendes Formular zeigen
-    tab.classList.add('active');
-    document.getElementById('form-' + target).classList.add('active');
-    // Fehlermeldung zuruecksetzen
-    document.getElementById('login-err').textContent = '';
-  });
-});
+// Tab-Switching is now handled in the Account Picker block below
 
 /* ---- REGISTRIEREN ---- */
 document.getElementById('btn-register').addEventListener('click', async function() {
@@ -1586,7 +1570,7 @@ document.getElementById('btn-register').addEventListener('click', async function
   if (p1.length < 4) { e.textContent = 'Passwort zu kurz (min. 4 Zeichen).'; return; }
   if (p1 !== p2) { e.textContent = 'Passwoerter stimmen nicht ueberein.'; return; }
 
-  setLoading('btn-register', true, 'Registrieren');
+  setLoading('btn-register', true, '▶ KONTO ERSTELLEN');
 
   try {
     var res = await fetch(API_URL + '/api/register', {
@@ -1597,18 +1581,116 @@ document.getElementById('btn-register').addEventListener('click', async function
     var data = await res.json();
     if (!res.ok || !data.user) {
       e.textContent = data.error || 'Registrierung fehlgeschlagen.';
-      setLoading('btn-register', false, 'Registrieren');
+      setLoading('btn-register', false, '▶ KONTO ERSTELLEN');
       return;
     }
     user = data.user;
+    saveStoredAccount(data.user.name);
     sessionStorage.removeItem('logged_out');
-    setLoading('btn-register', false, 'Registrieren');
+    setLoading('btn-register', false, '▶ KONTO ERSTELLEN');
     enterApp();
   } catch (err) {
     e.textContent = 'Verbindungsfehler zum Server!';
-    setLoading('btn-register', false, 'Registrieren');
+    setLoading('btn-register', false, '▶ KONTO ERSTELLEN');
   }
 });
+
+/* ---- ACCOUNT PICKER (localStorage) ---- */
+function getStoredAccounts() {
+  try { return JSON.parse(localStorage.getItem('arcadeAccounts') || '[]'); } catch(e) { return []; }
+}
+function saveStoredAccount(name) {
+  var accounts = getStoredAccounts();
+  // remove if exists, then push to front
+  accounts = accounts.filter(function(a) { return a.toLowerCase() !== name.toLowerCase(); });
+  accounts.unshift(name);
+  localStorage.setItem('arcadeAccounts', JSON.stringify(accounts.slice(0, 8)));
+}
+function removeStoredAccount(name) {
+  var accounts = getStoredAccounts().filter(function(a) { return a.toLowerCase() !== name.toLowerCase(); });
+  localStorage.setItem('arcadeAccounts', JSON.stringify(accounts));
+  renderAccountPicker();
+}
+function renderAccountPicker() {
+  var accounts = getStoredAccounts();
+  var picker = document.getElementById('login-picker');
+  var forms = document.getElementById('login-forms');
+  var backBtn = document.getElementById('lp-back-btn');
+  if (accounts.length === 0) {
+    picker.style.display = 'none';
+    forms.style.display = '';
+    if (backBtn) backBtn.style.display = 'none';
+    return;
+  }
+  picker.style.display = '';
+  forms.style.display = 'none';
+  if (backBtn) backBtn.style.display = 'none';
+  var container = document.getElementById('lp-accounts');
+  container.innerHTML = '';
+  accounts.forEach(function(name, idx) {
+    var card = document.createElement('div');
+    card.className = 'lp-account-card';
+    card.style.animationDelay = (idx * 0.06) + 's';
+    var seed = encodeURIComponent(name);
+    card.innerHTML =
+      '<img class="lp-av" src="https://api.dicebear.com/7.x/adventurer/svg?seed='+seed+'" loading="lazy">' +
+      '<div class="lp-card-info">' +
+        '<div class="lp-card-name">'+escHtml(name)+'</div>' +
+        '<div class="lp-card-sub">Passwort eingeben →</div>' +
+      '</div>' +
+      '<span class="lp-card-arrow">▶</span>' +
+      '<button class="lp-card-delete" title="Konto entfernen" data-name="'+escHtml(name)+'">✕</button>';
+    // Click card → go to login form with prefilled name
+    card.querySelector('.lp-av, .lp-card-info, .lp-card-arrow').addEventListener
+    && card.addEventListener('click', function(e) {
+      if (e.target.classList.contains('lp-card-delete')) return;
+      picker.style.display = 'none';
+      forms.style.display = '';
+      // switch to login tab
+      document.querySelector('.tab[data-tab="login"]').click();
+      var nameInput = document.getElementById('login-name');
+      nameInput.value = name;
+      nameInput.classList.add('lp-prefilled');
+      document.getElementById('login-pass').focus();
+      if (backBtn) backBtn.style.display = '';
+    });
+    card.querySelector('.lp-card-delete').addEventListener('click', function(e) {
+      e.stopPropagation();
+      removeStoredAccount(name);
+    });
+    container.appendChild(card);
+  });
+}
+// New account button
+document.getElementById('lp-new-btn').addEventListener('click', function() {
+  document.getElementById('login-picker').style.display = 'none';
+  document.getElementById('login-forms').style.display = '';
+  document.getElementById('lp-back-btn').style.display = '';
+  document.getElementById('login-name').value = '';
+  document.getElementById('login-name').classList.remove('lp-prefilled');
+  document.getElementById('login-pass').value = '';
+  // switch to register tab
+  document.querySelector('.tab[data-tab="register"]').click();
+});
+// Back to picker button
+document.getElementById('lp-back-btn').addEventListener('click', function() {
+  document.getElementById('login-name').classList.remove('lp-prefilled');
+  renderAccountPicker();
+});
+// Tab switching
+document.querySelectorAll('.tab[data-tab]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var tab = this.dataset.tab;
+    document.querySelectorAll('.tab[data-tab]').forEach(function(b){ b.classList.remove('active'); });
+    this.classList.add('active');
+    document.querySelectorAll('.auth-form').forEach(function(f){ f.classList.remove('active'); });
+    var form = document.getElementById('form-' + tab);
+    if (form) form.classList.add('active');
+    document.getElementById('login-err').textContent = '';
+  });
+});
+// Init picker on page load
+renderAccountPicker();
 
 /* ---- LOGIN ---- */
 document.getElementById('btn-login').addEventListener('click', async function() {
@@ -1619,7 +1701,7 @@ document.getElementById('btn-login').addEventListener('click', async function() 
   if (!n || !p) { e.textContent = 'Bitte beides ausfüllen.'; return; }
   if (n.length < 2) { e.textContent = 'Name zu kurz.'; return; }
 
-  setLoading('btn-login', true, 'Einloggen');
+  setLoading('btn-login', true, '▶ EINLOGGEN');
 
   try {
     var res = await fetch(API_URL + '/api/login', {
@@ -1630,17 +1712,17 @@ document.getElementById('btn-login').addEventListener('click', async function() 
     var data = await res.json();
     if (!res.ok || !data.user) {
       e.textContent = data.error || 'Login fehlgeschlagen.';
-      setLoading('btn-login', false, 'Einloggen');
+      setLoading('btn-login', false, '▶ EINLOGGEN');
       return;
     }
     user = data.user;
-    localStorage.setItem('lastUser', n);
+    saveStoredAccount(data.user.name); // save with correct casing from server
     sessionStorage.removeItem('logged_out');
-    setLoading('btn-login', false, 'Einloggen');
+    setLoading('btn-login', false, '▶ EINLOGGEN');
     enterApp();
   } catch (err) {
     e.textContent = 'Verbindungsfehler zum Server!';
-    setLoading('btn-login', false, 'Einloggen');
+    setLoading('btn-login', false, '▶ EINLOGGEN');
   }
 });
 
@@ -1932,13 +2014,16 @@ document.getElementById("app").classList.remove("show");
 document.getElementById("login").classList.remove("hide");
 document.getElementById("login-pass").value = "";
 document.getElementById("login-name").value = "";
+document.getElementById("login-name").classList.remove('lp-prefilled');
 document.getElementById("reg-name").value = "";
 document.getElementById("reg-pass").value = "";
 document.getElementById("reg-pass2").value = "";
 document.getElementById("login-err").textContent = "";
-// Zurück zum Anmelden-Tab
-document.querySelector('.tab[data-tab="login"]')
-.click();
+// Picker oder Login-Tab anzeigen
+renderAccountPicker();
+if (!getStoredAccounts().length) {
+  document.querySelector('.tab[data-tab="login"]').click();
+}
 }
 );
 
@@ -1997,7 +2082,9 @@ function showHS() {
     '<div class="hs-row"><span>🫧 Bubble Pop</span><span>' + badge(user.precision||0) + (user.precision||0) + '</span></div>' +
     '<div class="hs-row"><span>🔢 Zahlen-Raten</span><span>' + badge(user.guess||0) + (user.guess||0) + '</span></div>' +
     '<div class="hs-row"><span>💻 Info-Wordle</span><span>' + badge(user.wordle||0) + (user.wordle||0) + '</span></div>' +
-    '<div class="hs-row"><span>🐦 Flappy Bird</span><span>' + badge(user.flappy||0) + (user.flappy||0) + '</span></div>';
+    '<div class="hs-row"><span>🐦 Flappy Bird</span><span>' + badge(user.flappy||0) + (user.flappy||0) + '</span></div>' +
+    '<div class="hs-row"><span>🐍 Schlange</span><span>' + badge(user.snake||0) + (user.snake||0) + '</span></div>' +
+    '<div class="hs-row"><span>⌨️ Wort-Blitz</span><span>' + badge(user.wortblitz||0) + (user.wortblitz||0) + '</span></div>';
 }
 
 /* ---- GLOBALES SCOREBOARD ---- */
@@ -2053,7 +2140,7 @@ async function loadGlobalHS() {
     thead += '</tr></thead>';
 
     var tbody = '<tbody>';
-    var limit = Math.min(15, scores.length);
+    var limit = scores.length;
     for (var i = 0; i < limit; i++) {
       var s = scores[i];
       var rp = s.rank_points || 0;

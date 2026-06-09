@@ -197,11 +197,25 @@ app.get('/api/user/:id', async (req, res) => {
       .select('*')
       .eq('id', req.params.id)
       .single();
-    
+
     if (error || !user) {
       return res.status(404).json({ error: 'User nicht gefunden' });
     }
-    
+
+    // Load personal bests for games that don't have a users-table column
+    const extraGames = ['snake', 'wortblitz', 'flappy'];
+    const { data: extraScores } = await db
+      .from('highscores')
+      .select('game_type, score')
+      .eq('user_id', user.id)
+      .in('game_type', extraGames);
+    if (extraScores) {
+      extraScores.forEach(row => {
+        const cur = user[row.game_type] || 0;
+        user[row.game_type] = Math.max(cur, row.score);
+      });
+    }
+
     delete user.pass;
     res.json(user);
   } catch (err) {
@@ -313,7 +327,7 @@ app.get('/api/global-highscores', async (req, res) => {
     const result = users
       .map(u => ({ ...u, rank_points: pts[u.name.toLowerCase()] }))
       .sort((a, b) => b.rank_points - a.rank_points)
-      .slice(0, 20);
+      .slice(0, 100);
 
     res.json(result);
   } catch (err) {

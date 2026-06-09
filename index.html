@@ -42,39 +42,74 @@
 <!-- Backend Server statt Supabase -->
  
 <div id="login">
-  <!-- Animated background shapes -->
-  <div class="login-bg-shapes" aria-hidden="true">
-    <div class="lbs lbs1"></div>
-    <div class="lbs lbs2"></div>
-    <div class="lbs lbs3"></div>
-    <div class="lbs lbs4"></div>
-    <div class="lbs lbs5"></div>
+  <!-- CRT scanlines overlay -->
+  <div class="login-crt" aria-hidden="true"></div>
+  <!-- Animated grid floor -->
+  <div class="login-grid" aria-hidden="true"></div>
+  <!-- Glow orbs -->
+  <div class="login-orbs" aria-hidden="true">
+    <div class="lo lo1"></div><div class="lo lo2"></div><div class="lo lo3"></div>
   </div>
-  <!-- Scrolling ticker text -->
+  <!-- Pixel corner decorations -->
+  <div class="login-corner lc-tl" aria-hidden="true"></div>
+  <div class="login-corner lc-tr" aria-hidden="true"></div>
+  <div class="login-corner lc-bl" aria-hidden="true"></div>
+  <div class="login-corner lc-br" aria-hidden="true"></div>
+  <!-- Scrolling ticker -->
   <div class="login-ticker" aria-hidden="true">
-    <span>⚔️ ARCADEBOX &nbsp;&nbsp; 🎮 SPIELEN &nbsp;&nbsp; 🏆 HIGHSCORES &nbsp;&nbsp; 👥 FREUNDE &nbsp;&nbsp; 🔴 CONNECT4 &nbsp;&nbsp; 🏓 PONG &nbsp;&nbsp; ✊ SSP &nbsp;&nbsp; ♟️ SCHACH &nbsp;&nbsp; 🐦 FLAPPY &nbsp;&nbsp; 🧠 MEMORY &nbsp;&nbsp; 🧱 STACK &nbsp;&nbsp; 🫧 BUBBLE &nbsp;&nbsp; 💻 WORDLE &nbsp;&nbsp;</span>
-    <span>⚔️ ARCADEBOX &nbsp;&nbsp; 🎮 SPIELEN &nbsp;&nbsp; 🏆 HIGHSCORES &nbsp;&nbsp; 👥 FREUNDE &nbsp;&nbsp; 🔴 CONNECT4 &nbsp;&nbsp; 🏓 PONG &nbsp;&nbsp; ✊ SSP &nbsp;&nbsp; ♟️ SCHACH &nbsp;&nbsp; 🐦 FLAPPY &nbsp;&nbsp; 🧠 MEMORY &nbsp;&nbsp; 🧱 STACK &nbsp;&nbsp; 🫧 BUBBLE &nbsp;&nbsp; 💻 WORDLE &nbsp;&nbsp;</span>
+    <span>INSERT COIN &nbsp;✦&nbsp; ARCADEBOX &nbsp;✦&nbsp; 10 SPIELE &nbsp;✦&nbsp; HIGHSCORES &nbsp;✦&nbsp; MULTIPLAYER &nbsp;✦&nbsp; CONNECT4 &nbsp;✦&nbsp; TIPP-RENNEN &nbsp;✦&nbsp; SCHACH &nbsp;✦&nbsp; FLAPPY &nbsp;✦&nbsp; MEMORY &nbsp;✦&nbsp; STACK &nbsp;✦&nbsp; BUBBLE &nbsp;✦&nbsp; WORDLE &nbsp;✦&nbsp; SCHLANGE &nbsp;✦&nbsp; WORT-BLITZ &nbsp;✦&nbsp;</span>
+    <span>INSERT COIN &nbsp;✦&nbsp; ARCADEBOX &nbsp;✦&nbsp; 10 SPIELE &nbsp;✦&nbsp; HIGHSCORES &nbsp;✦&nbsp; MULTIPLAYER &nbsp;✦&nbsp; CONNECT4 &nbsp;✦&nbsp; TIPP-RENNEN &nbsp;✦&nbsp; SCHACH &nbsp;✦&nbsp; FLAPPY &nbsp;✦&nbsp; MEMORY &nbsp;✦&nbsp; STACK &nbsp;✦&nbsp; BUBBLE &nbsp;✦&nbsp; WORDLE &nbsp;✦&nbsp; SCHLANGE &nbsp;✦&nbsp; WORT-BLITZ &nbsp;✦&nbsp;</span>
   </div>
+
   <div class="login-box">
+    <!-- Logo -->
     <div class="login-logo-wrap">
-      <div class="login-logo-icon">🎮</div>
+      <div class="login-pixel-badge">PLAYER SELECT</div>
+      <div class="login-logo-icon">🕹️</div>
       <h1>Arcade<span>Box</span></h1>
-      <p class="login-tagline">10 Spiele. Deine Highscores. Jetzt spielen.</p>
+      <p class="login-tagline">▶ PRESS START TO PLAY ◀</p>
     </div>
-    <div class="auth-tabs">
-      <button class="tab active" data-tab="login">Anmelden</button>
-      <button class="tab" data-tab="register">Registrieren</button>
+
+    <!-- Account picker (shown when saved accounts exist) -->
+    <div id="login-picker" class="login-picker" style="display:none">
+      <div class="lp-label">— Konto wählen —</div>
+      <div id="lp-accounts" class="lp-accounts"></div>
+      <button class="lp-new-btn" id="lp-new-btn">＋ Neues Konto</button>
     </div>
-    <div id="form-login" class="auth-form active">
-      <input id="login-name" placeholder="Benutzername" maxlength="20">
-      <input id="login-pass" type="password" placeholder="Passwort">
-      <button id="btn-login">Einloggen</button>
-    </div>
-    <div id="form-register" class="auth-form">
-      <input id="reg-name" placeholder="Benutzername" maxlength="20">
-      <input id="reg-pass" type="password" placeholder="Passwort (min. 4 Zeichen)">
-      <input id="reg-pass2" type="password" placeholder="Passwort wiederholen">
-      <button id="btn-register">Konto erstellen</button>
+
+    <!-- Standard Login / Register forms -->
+    <div id="login-forms">
+      <div class="auth-tabs">
+        <button class="tab active" data-tab="login">Anmelden</button>
+        <button class="tab" data-tab="register">Registrieren</button>
+      </div>
+      <div id="form-login" class="auth-form active">
+        <div class="login-field-wrap">
+          <span class="login-field-icon">👤</span>
+          <input id="login-name" placeholder="Benutzername" maxlength="20" autocomplete="username">
+        </div>
+        <div class="login-field-wrap">
+          <span class="login-field-icon">🔒</span>
+          <input id="login-pass" type="password" placeholder="Passwort" autocomplete="current-password">
+        </div>
+        <button id="btn-login" class="login-btn-main">▶ EINLOGGEN</button>
+        <button class="lp-back-btn" id="lp-back-btn" style="display:none">← Konten-Auswahl</button>
+      </div>
+      <div id="form-register" class="auth-form">
+        <div class="login-field-wrap">
+          <span class="login-field-icon">👤</span>
+          <input id="reg-name" placeholder="Benutzername" maxlength="20" autocomplete="username">
+        </div>
+        <div class="login-field-wrap">
+          <span class="login-field-icon">🔒</span>
+          <input id="reg-pass" type="password" placeholder="Passwort (min. 4 Zeichen)" autocomplete="new-password">
+        </div>
+        <div class="login-field-wrap">
+          <span class="login-field-icon">✅</span>
+          <input id="reg-pass2" type="password" placeholder="Passwort wiederholen" autocomplete="new-password">
+        </div>
+        <button id="btn-register" class="login-btn-main">▶ KONTO ERSTELLEN</button>
+      </div>
     </div>
     <div id="login-err"></div>
   </div>
