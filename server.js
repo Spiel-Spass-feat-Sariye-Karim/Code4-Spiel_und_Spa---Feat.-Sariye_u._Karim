@@ -10,8 +10,14 @@ try {
   const nodemailer = require('nodemailer');
   if (process.env.GMAIL_USER && process.env.GMAIL_PASS) {
     transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_PASS }
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false, // STARTTLS
+      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_PASS },
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 10000,
+      tls: { rejectUnauthorized: false }
     });
     console.log('📧 Nodemailer ready:', process.env.GMAIL_USER);
   } else {
@@ -294,12 +300,15 @@ app.post('/api/user/set-email', async (req, res) => {
 app.get('/api/test-email', async (req, res) => {
   const to = req.query.to;
   if (!to) return res.json({ error: 'Kein ?to= angegeben' });
-  const configured = !!transporter;
   const gmailUser = process.env.GMAIL_USER || 'NOT SET';
-  const gmailPass = process.env.GMAIL_PASS ? `SET (${process.env.GMAIL_PASS.length} chars)` : 'NOT SET';
+  const gmailPass = process.env.GMAIL_PASS ? `SET (${process.env.GMAIL_PASS.length} Zeichen)` : 'NOT SET';
   if (!transporter) {
     return res.json({ configured: false, gmailUser, gmailPass, error: 'transporter ist null' });
   }
+  // Hard timeout after 12s so browser doesn't hang forever
+  const timeout = setTimeout(() => {
+    if (!res.headersSent) res.json({ success: false, error: 'TIMEOUT — SMTP-Verbindung hängt (Port 587 blockiert?)' });
+  }, 12000);
   try {
     await transporter.sendMail({
       from: `"ArcadeBox Test" <${process.env.GMAIL_USER}>`,
@@ -307,9 +316,11 @@ app.get('/api/test-email', async (req, res) => {
       subject: '🧪 ArcadeBox E-Mail Test',
       text: 'Wenn du das siehst, funktioniert der E-Mail-Versand! ✅'
     });
-    res.json({ success: true, configured: true, gmailUser, gmailPass, sentTo: to });
+    clearTimeout(timeout);
+    if (!res.headersSent) res.json({ success: true, gmailUser, gmailPass, sentTo: to });
   } catch(e) {
-    res.json({ success: false, configured: true, gmailUser, gmailPass, error: e.message });
+    clearTimeout(timeout);
+    if (!res.headersSent) res.json({ success: false, gmailUser, gmailPass, error: e.message, code: e.code });
   }
 });
 
