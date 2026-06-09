@@ -13,8 +13,8 @@ body {
 }
 
 /* ══════════════════════════════════════════════════════════
-   RAINBOW RGB FRAME — mask-composite technique (no content cover)
-   padding-box creates hole in center → only border strip visible
+   RAINBOW RGB FRAME — border only, transparent background
+   Uses border + filter:hue-rotate so NOTHING is covered
    ══════════════════════════════════════════════════════════ */
 #rgb-frame {
   position: fixed;
@@ -22,25 +22,22 @@ body {
   z-index: 999997;
   pointer-events: none;
   border-radius: 14px;
-  padding: 3px;                /* border thickness */
-  background: conic-gradient(
-    from 0deg,
-    #ff0040, #ff6600, #ffee00, #00ff88,
-    #00ccff, #7700ff, #ff00cc, #ff0040
-  );
-  /* Show ONLY the padding strip — hide interior */
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  animation: rgbFrameSpin 14s linear infinite;
+  background: transparent;          /* never covers content */
+  border: 3px solid #ff0040;
+  box-shadow:
+    inset 0 0 0 0 transparent,
+    0 0 10px rgba(255,0,64,0.25);
+  animation: rgbFrameColor 12s linear infinite;
 }
-@keyframes rgbFrameSpin {
-  to { transform: rotate(360deg); }
+@keyframes rgbFrameColor {
+  0%   { border-color: #ff0040; box-shadow: 0 0 10px rgba(255,0,64,0.25); }
+  14%  { border-color: #ff6600; box-shadow: 0 0 10px rgba(255,102,0,0.25); }
+  28%  { border-color: #ffee00; box-shadow: 0 0 10px rgba(255,238,0,0.22); }
+  42%  { border-color: #00ff88; box-shadow: 0 0 10px rgba(0,255,136,0.25); }
+  57%  { border-color: #00ccff; box-shadow: 0 0 10px rgba(0,204,255,0.25); }
+  71%  { border-color: #7700ff; box-shadow: 0 0 10px rgba(119,0,255,0.25); }
+  85%  { border-color: #ff00cc; box-shadow: 0 0 10px rgba(255,0,204,0.25); }
+  100% { border-color: #ff0040; box-shadow: 0 0 10px rgba(255,0,64,0.25); }
 }
 
 /* ── Retro VT323 for headings & labels ───────────────── */
