@@ -1962,74 +1962,96 @@ var guideTransitioning = false;
 function buildGuideSteps() {
   var name = user ? user.name : 'Spieler';
   return [
+    // Step 1: Spotlight on mascot (guide-mascot-wrap), blinking arrow on WEITER
     {
-      target: 'avatar-spotlight-wrap', rounded: true, pad: 20,
-      text: 'Willkommen ' + name + '! 👋 Ich bin Arci — dein Guide durch die ArcadeBox. Ich zeige dir alles in ~30 Sekunden!',
+      target: 'guide-mascot-wrap', rounded: false, pad: 18,
+      mascotTarget: true, // tells showGuideStep to set first-step class
+      text: 'Willkommen ' + name + '! 👋 Ich bin Arci — dein Guide! Ich zeige dir alles in ~30 Sekunden. Klick WEITER ▶ um zu starten!',
       before: function(cb){ closeAllPanels(); setTimeout(cb,150); }, after: null
     },
+    // Step 2: Avatar — perfect white circle, centered
     {
-      target: 'avatar-spotlight-wrap', rounded: true, pad: 12,
-      text: 'Das ist dein Avatar! Klick ihn an um dein Profil zu öffnen, deinen Avatar zu ändern und deine E-Mail zu hinterlegen.',
+      target: 'avatar-spotlight-wrap', rounded: true, pad: 14,
+      text: 'Das ist dein Avatar! Klick ihn an um dein Profil zu öffnen, Avatar zu wechseln und E-Mail zu hinterlegen.',
       before: null, after: null
     },
+    // Step 3: Email row in profile
     {
       target: 'profile-email-row', rounded: false, pad: 12,
-      text: 'Hier kannst du deine E-Mail für Passwort-Reset hinterlegen. Wichtig — ohne E-Mail ist dein Konto bei vergessenem Passwort verloren!',
+      text: 'Hier kannst du deine E-Mail für Passwort-Reset hinterlegen. Wichtig — ohne E-Mail ist dein Konto verloren!',
       before: function(cb){ openProfileForGuide(cb); }, after: null
     },
+    // Step 4: Avatar arrows
     {
       target: 'avatar-prev', rounded: false, pad: 10,
-      text: 'Mit diesen Pfeilen kannst du deinen Avatar wechseln. Wähle einen der über 100 Avatare!',
+      text: 'Mit diesen Pfeilen kannst du deinen Avatar wechseln. Über 100 Avatare zur Auswahl!',
       before: null, after: null
     },
+    // Step 5: Close profile button — perfect circle
     {
-      target: 'btn-close-profile', rounded: true, pad: 8,
-      text: 'Mit diesem Button schließt du das Profil wieder.',
+      target: 'btn-close-profile', rounded: true, pad: 10,
+      text: 'Mit diesem X-Button schließt du das Profil wieder.',
       before: null, after: function(cb){ closeProfileForGuide(cb); }
     },
+    // Step 6: Notification bell — perfect circle
     {
-      target: 'btn-notif-center', rounded: true, pad: 8,
-      text: 'Das ist dein Benachrichtigungs-Center 🔔 — hier siehst du Freundesanfragen, Spieleinladungen und Neuigkeiten!',
+      target: 'btn-notif-center', rounded: true, pad: 10,
+      text: 'Das Benachrichtigungs-Center 🔔 — hier siehst du Freundesanfragen, Spieleinladungen und Neuigkeiten!',
       before: null, after: null
     },
+    // Step 7: Notif tabs
     {
-      target: 'nc-tabs-wrap', rounded: false, pad: 6,
-      text: 'Drei Tabs: Aktivität, Freunde-Anfragen und Patchnotes. Klick sie durch!',
+      target: 'nc-tabs-wrap', rounded: false, pad: 8,
+      text: 'Drei Tabs: Aktivität, Freundesanfragen und Patchnotes. Einfach durchklicken!',
       before: function(cb){ openNotifForGuide(cb); }, after: null
     },
+    // Step 8: Theme button — perfect circle
     {
-      target: 'btn-theme', rounded: true, pad: 8,
-      text: 'Hier wechselst du zwischen Dark & Light Mode 🌙☀️ — ganz nach Geschmack!',
+      target: 'btn-theme', rounded: true, pad: 10,
+      text: 'Dark & Light Mode 🌙☀️ — hier wechselst du das Design ganz nach Geschmack!',
       before: function(cb){ closeNotifForGuide(cb); }, after: null
     },
+    // Step 9: Logout
     {
       target: 'btn-logout', rounded: false, pad: 8,
-      text: 'Und hier kannst du dich abmelden. Deine Scores werden natürlich gespeichert!',
+      text: 'Hier kannst du dich abmelden. Deine Scores & Freunde sind natürlich gespeichert!',
       before: null, after: null
     },
+    // Step 10: Singleplayer games
     {
-      target: 'cat-single', rounded: false, pad: 10,
-      text: '🎮 Hier sind alle Singleplayer-Spiele — 9 Stück! Gedächtnis, Reaction, Flappy Bird, Snake und mehr. Alle mit Highscore-System!',
+      target: 'cat-single', rounded: false, pad: 12,
+      text: '🎮 Singleplayer-Spiele — 9 Stück! Gedächtnis, Reaktion, Flappy Bird, Snake, Wort-Blitz und mehr. Alle mit Highscore!',
       before: null, after: null
     },
+    // Step 11: Multiplayer games
     {
-      target: 'cat-multi', rounded: false, pad: 10,
-      text: '⚔️ Multiplayer-Games! Schach, TicTacToe, 4 Gewinnt, Tipp-Rennen, Schere-Stein-Papier, Rechen-Duell — alle gegen Freunde oder KI!',
+      target: 'cat-multi', rounded: false, pad: 12,
+      text: '⚔️ Multiplayer! Schach, TicTacToe, 4 Gewinnt, Tipp-Rennen, Rechen-Duell — alle gegen Freunde oder KI!',
       before: null, after: null
     },
+    // Step 12: Global scoreboard tab
     {
       target: 'board-tab-global', rounded: false, pad: 10,
-      text: '🏆 Das Globale Scoreboard — sieh wo du im Vergleich zu allen anderen stehst. Filter nach Top 3, Top 10 oder zeig alle Spieler!',
+      text: '🏆 Globales Scoreboard — sieh wo du stehst. Filter: Top 3, Top 5, Top 10 oder alle Spieler!',
       before: null, after: null
     },
+    // Step 13: Friends tab — full bar including ❓
     {
-      target: 'board-tab-friends', rounded: false, pad: 10,
+      target: 'board-tabs', rounded: false, pad: 8,
       text: '👥 Der Freunde-Tab — füge Freunde hinzu, suche Spieler und fordere sie zu Duellen heraus!',
       before: null, after: null
     },
+    // Step 14: Rank-info ❓ — circle spotlight
     {
-      target: null, rounded: false, pad: 0,
-      text: 'Das war\'s! Viel Spaß beim Spielen, ' + name + '! 🎮 Möge der beste Spieler gewinnen! 🏆',
+      target: 'rank-info-btn', rounded: true, pad: 10,
+      text: '❓ Das Rang-System! Klick hier um zu sehen wie Rang-Punkte vergeben werden — von Neuling bis Legende!',
+      before: null, after: null
+    },
+    // Step 15: Goodbye — spotlight back on mascot, walk-out
+    {
+      target: 'guide-mascot-wrap', rounded: false, pad: 18,
+      mascotWalkOut: true,
+      text: 'Das war\'s! Viel Spaß ' + name + '! 🎮 Möge der beste Spieler gewinnen! 🏆',
       before: null, after: null
     }
   ];
@@ -2091,10 +2113,12 @@ function startGuide() {
 
 function finishGuide() {
   guideActive = false;
-  document.getElementById('guide-overlay').style.display = 'none';
-  document.getElementById('guide-overlay').classList.remove('active');
+  var overlay = document.getElementById('guide-overlay');
+  overlay.style.display = 'none';
+  overlay.classList.remove('active', 'first-step');
   closeAllPanels();
-  // Clear any spotlight
+  var mascot = document.getElementById('guide-mascot');
+  if (mascot) mascot.classList.remove('walk-out', 'waving');
   var wrap = document.getElementById('avatar-spotlight-wrap');
   if (wrap) wrap.classList.remove('spotlight-active');
 }
@@ -2108,6 +2132,24 @@ function showGuideStep(idx) {
   document.getElementById('guide-step-counter').textContent = (idx+1) + ' / ' + guideSteps.length;
   document.getElementById('guide-btn-prev').disabled = idx === 0;
   document.getElementById('guide-btn-next').textContent = idx === guideSteps.length-1 ? 'FERTIG ✓' : 'WEITER ▶';
+
+  // first-step blinking arrow class
+  var overlay = document.getElementById('guide-overlay');
+  if (step.mascotTarget && idx === 0) {
+    overlay.classList.add('first-step');
+  } else {
+    overlay.classList.remove('first-step');
+  }
+
+  // mascot waving / walk-out
+  var mascot = document.getElementById('guide-mascot');
+  if (mascot) {
+    mascot.classList.remove('walk-out', 'waving');
+    if (step.mascotTarget) mascot.classList.add('waving');
+    if (step.mascotWalkOut) {
+      setTimeout(function(){ mascot.classList.add('walk-out'); }, 600);
+    }
+  }
 
   // Start typewriter right away
   typewriteText(step.text);
@@ -2177,6 +2219,14 @@ function positionSpotlight(step) {
     if (spotT < 4) spotT = 4;
     if (spotL + spotW > vw - 4) spotL = vw - spotW - 4;
     if (spotT + spotH > vh - 4) spotT = vh - spotH - 4;
+
+    // For rounded (circle) spotlights: force square so circle is perfect
+    if (step.rounded) {
+      var side = Math.max(spotW, spotH);
+      spotL = spotL - (side - spotW) / 2;
+      spotT = spotT - (side - spotH) / 2;
+      spotW = side; spotH = side;
+    }
 
     spotlight.style.left   = spotL + 'px';
     spotlight.style.top    = spotT + 'px';

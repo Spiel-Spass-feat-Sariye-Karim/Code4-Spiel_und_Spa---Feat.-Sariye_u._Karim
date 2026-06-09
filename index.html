@@ -25,6 +25,8 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<!-- Rainbow RGB frame border -->
+<div id="rgb-frame"></div>
 
 <!-- Push notification permission dialog -->
 <div id="notif-dialog" class="notif-dialog" style="display:none" role="dialog" aria-modal="true">
@@ -359,7 +361,7 @@
 </div>
 
 <div class="hs-section global-board">
-  <div class="board-tabs">
+  <div class="board-tabs" id="board-tabs">
     <button id="board-tab-global" class="board-tab active" data-board="global">🌍 Global</button>
     <button id="board-tab-friends" class="board-tab" data-board="friends">👥 Freunde<span id="friends-badge" class="badge" style="display:none">0</span></button>
     <button id="rank-info-btn" class="rank-info-btn" title="Rang-System & Punkte erklären">❓</button>
@@ -947,7 +949,7 @@
     <button class="guide-btn-skip" id="guide-btn-skip">Überspringen ✕</button>
     <div class="guide-nav-center">
       <button class="guide-btn-prev" id="guide-btn-prev" title="Zurück">◀</button>
-      <span class="guide-step-counter" id="guide-step-counter">1 / 14</span>
+      <span class="guide-step-counter" id="guide-step-counter">1 / 15</span>
       <button class="guide-btn-next" id="guide-btn-next">WEITER ▶</button>
     </div>
     <div style="width:80px"></div>

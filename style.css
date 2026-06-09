@@ -10,49 +10,45 @@ body {
   min-height: 100vh;
   background: #080810;
   overflow-x: hidden;
-  /* RGB border frame — slow smooth hue cycle */
-  border: 3px solid transparent;
-  border-image: none;
-  outline: 3px solid transparent;
 }
 
-/* ── RGB border via fixed pseudo on html ────────────────── */
-html::before {
-  content: '';
+/* ══════════════════════════════════════════════════════════
+   RAINBOW RGB FRAME — rotating conic gradient stripe
+   Classic technique: spinning gradient + inner mask cover
+   ══════════════════════════════════════════════════════════ */
+#rgb-frame {
   position: fixed;
   inset: 0;
-  z-index: 999999;
+  z-index: 999997;
   pointer-events: none;
-  border-radius: 0;
-  border: 3px solid transparent;
-  background:
-    linear-gradient(#080810, #080810) padding-box,
-    linear-gradient(
-      var(--rgb-angle, 0deg),
-      #ff0040, #ff6a00, #ffe600, #00ff87, #00cfff, #7b2fff, #ff0040
-    ) border-box;
-  animation: rgbBorderCycle 8s linear infinite;
+  border-radius: 14px;        /* match site corner feel */
+  overflow: hidden;
 }
-@keyframes rgbBorderCycle {
-  0%   { --rgb-angle: 0deg;   }
-  100% { --rgb-angle: 360deg; }
+/* The spinning rainbow disc — larger than viewport so corners fill */
+#rgb-frame::before {
+  content: '';
+  position: absolute;
+  inset: -100%;
+  background: conic-gradient(
+    from 0deg,
+    #ff0040, #ff6600, #ffee00, #00ff88,
+    #00ccff, #7700ff, #ff00cc, #ff0040
+  );
+  animation: rgbFrameSpin 5s linear infinite;
 }
-/* Fallback: animiere die Hue direkt mit filter */
-html::before {
-  border: 3px solid hsl(0,100%,55%);
-  background: none;
-  animation: rgbBorderHue 8s linear infinite;
-  filter: none;
+/* Inner cover — hides everything except the border strip */
+#rgb-frame::after {
+  content: '';
+  position: absolute;
+  inset: 3px;               /* border thickness = 3px */
+  background: #080810;
+  border-radius: 12px;
 }
-@keyframes rgbBorderHue {
-  0%   { border-color: hsl(0,  100%,55%); box-shadow: 0 0 8px hsl(0,  100%,55%,0.35); }
-  15%  { border-color: hsl(40, 100%,55%); box-shadow: 0 0 8px hsl(40, 100%,55%,0.35); }
-  30%  { border-color: hsl(100,100%,45%); box-shadow: 0 0 8px hsl(100,100%,45%,0.35); }
-  50%  { border-color: hsl(180,100%,45%); box-shadow: 0 0 8px hsl(180,100%,45%,0.35); }
-  65%  { border-color: hsl(220,100%,60%); box-shadow: 0 0 8px hsl(220,100%,60%,0.35); }
-  80%  { border-color: hsl(270,100%,65%); box-shadow: 0 0 8px hsl(270,100%,65%,0.35); }
-  100% { border-color: hsl(360,100%,55%); box-shadow: 0 0 8px hsl(360,100%,55%,0.35); }
+@keyframes rgbFrameSpin {
+  to { transform: rotate(360deg); }
 }
+/* Light mode: slightly dimmer frame */
+body.light #rgb-frame::after { background: #f4f4f8; }
 
 /* ── Retro VT323 for headings & labels ───────────────── */
 h1, h2, h3, .card h3, .cat-title, .pbot b,
@@ -5946,13 +5942,71 @@ body.light .arcade-input::placeholder { color: rgba(0,0,0,0.35); }
   clip-path: polygon(25% 0%, 75% 0%, 100% 100%, 0% 100%);
   pointer-events: none;
 }
+/* Rounded spotlight — must be square → JS forces equal W/H */
 .guide-spotlight.rounded { border-radius: 50%; }
+
+/* Uniform white glow all around for circle steps */
+.guide-spotlight.rounded {
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 9999px rgba(0,0,0,0.86),
+    0 0 0     5px  rgba(255,255,255,1),
+    0 0 22px  10px rgba(255,255,255,0.7),
+    0 0 55px  26px rgba(255,255,255,0.30),
+    0 0 100px 50px rgba(255,255,255,0.12);
+}
+/* Hide beam for circle (beam only makes sense for rectangles) */
+.guide-spotlight.rounded::before { display: none; }
+
 .guide-spotlight.hidden {
   box-shadow: 0 0 0 9999px rgba(0,0,0,0.86);
   background: none;
   width: 0 !important; height: 0 !important;
   left: 50% !important; top: 50% !important;
   opacity: 0;
+}
+
+/* ── Blinking "WEITER" arrow — shown on step 1 (first-step class) ── */
+.guide-overlay.first-step .guide-btn-next::after {
+  content: '▲';
+  position: absolute;
+  top: -22px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 1rem;
+  color: #ff3355;
+  animation: blinkArrow 0.7s ease-in-out infinite;
+}
+.guide-btn-next { position: relative; }
+@keyframes blinkArrow {
+  0%,100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  50%     { opacity: 0.2; transform: translateX(-50%) translateY(-4px); }
+}
+/* Step counter pulse on first step */
+.guide-overlay.first-step .guide-step-counter {
+  color: #ff3355;
+  animation: counterPulse 1.2s ease-in-out infinite;
+}
+@keyframes counterPulse {
+  0%,100% { opacity: 1; }
+  50%     { opacity: 0.35; }
+}
+
+/* ── Mascot walk-out animation (last step) ── */
+.guide-mascot.walk-out {
+  animation: mascotWalkOut 1.2s cubic-bezier(0.4,0,1,1) forwards !important;
+}
+@keyframes mascotWalkOut {
+  0%   { transform: translateX(0)    scaleX(1); opacity: 1; }
+  80%  { transform: translateX(160px) scaleX(1); opacity: 1; }
+  100% { transform: translateX(260px) scaleX(-1); opacity: 0; }
+}
+/* Mascot on guide: wave both arms on mascot-target step */
+.guide-mascot.waving .gm-arm-l {
+  animation: guideMascotWave 0.4s ease-in-out infinite !important;
+  transform-origin: top center;
+}
+.guide-mascot.waving .gm-arm-r {
+  animation: guideMascotWave 0.4s ease-in-out infinite reverse !important;
 }
 
 /* Mascot wrap — positioned relative to spotlight */
@@ -6056,7 +6110,7 @@ body.light .arcade-input::placeholder { color: rgba(0,0,0,0.35); }
 /* Navigation bar */
 .guide-nav {
   position: fixed;
-  bottom: 24px;
+  bottom: 44px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
