@@ -225,6 +225,16 @@
         <div class="avatar-spotlight-ring" id="avatar-spotlight-ring"></div>
         <div class="avatar-spotlight-cursor" id="avatar-spotlight-cursor">👆</div>
         <div class="avatar-spotlight-tooltip" id="avatar-spotlight-tooltip">E-Mail hinterlegen!</div>
+        <div class="avatar-status-menu" id="avatar-status-menu">
+          <div class="avatar-status-menu-label">📶 Status ändern</div>
+          <div class="status-options" id="status-setting-row">
+            <button class="status-option" id="status-opt-online" data-status="online"><span class="online-dot green"></span>Aktiv</button>
+            <button class="status-option" id="status-opt-away" data-status="away"><span class="online-dot orange"></span>Abwesend</button>
+            <button class="status-option" id="status-opt-dnd" data-status="dnd"><span class="online-dot red"></span>Nicht stören</button>
+          </div>
+          <div class="avatar-status-menu-divider"></div>
+          <button class="avatar-status-menu-link" id="avatar-menu-profile-btn">👤 Profil</button>
+        </div>
       </div>
       <span>Hallo, <strong id="username"></strong></span>
       <!-- Notification Center Bell -->
@@ -232,6 +242,7 @@
         🔔 <span class="notif-bell-badge" id="notif-bell-badge" style="display:none">0</span>
       </button>
       <button class="btn-sm" id="btn-guide-restart" title="Guide starten">👾</button>
+      <button class="btn-sm" id="btn-settings" title="Einstellungen">⚙️</button>
       <button class="btn-sm" id="btn-theme" title="Dark/Light Mode">🌙</button>
       <button class="btn-sm" id="btn-logout">Abmelden</button>
     </div>
@@ -880,6 +891,19 @@
   <div id="profile-name"></div>
   <div id="profile-info"></div>
   <button id="btn-save-avatar" class="btn-action">✓ Übernehmen</button>
+  <button id="btn-open-settings-from-profile" class="btn-action btn-action-secondary">⚙️ Einstellungen öffnen</button>
+</div>
+</div>
+</div>
+
+<!-- EINSTELLUNGEN-OVERLAY -->
+<div id="settings-overlay" class="overlay">
+<div class="overlay-box">
+<div class="overlay-top">
+<h3>⚙️ Einstellungen</h3>
+<button id="btn-close-settings">x</button>
+</div>
+<div class="overlay-body">
 
   <!-- E-Mail für Passwort-Reset -->
   <div class="profile-email-row" id="profile-email-row">
@@ -917,16 +941,6 @@
     <div id="pe-msg" class="pe-msg"></div>
   </div>
 
-  <!-- Status-Auswahl -->
-  <div class="status-setting-row" id="status-setting-row">
-    <span class="status-setting-label">📶 Dein Status</span>
-    <div class="status-options">
-      <button class="status-option" id="status-opt-online" data-status="online"><span class="online-dot green"></span>Aktiv</button>
-      <button class="status-option" id="status-opt-away" data-status="away"><span class="online-dot orange"></span>Abwesend</button>
-      <button class="status-option" id="status-opt-dnd" data-status="dnd"><span class="online-dot red"></span>Nicht stören</button>
-    </div>
-  </div>
-
   <!-- Chat-Icons anzeigen/ausblenden -->
   <div class="notif-setting-row" id="hide-chat-setting-row">
     <span class="notif-setting-label">💬 Chat-Icons anzeigen</span>
@@ -955,6 +969,24 @@
   </div>
   <div id="notif-setting-hint" class="notif-setting-hint"></div>
   <button id="notif-test-btn" class="notif-test-btn" style="display:none">🔔 Test-Benachrichtigung senden</button>
+
+  <!-- Sound-Effekte -->
+  <div class="notif-setting-row" id="sound-setting-row">
+    <span class="notif-setting-label">🔊 Sound-Effekte</span>
+    <button class="notif-toggle-btn on" id="sound-toggle-btn" title="Sound-Effekte ein/aus">
+      <span class="notif-toggle-track"><span class="notif-toggle-thumb"></span></span>
+      <span class="notif-toggle-text" id="sound-toggle-text">An</span>
+    </button>
+  </div>
+
+  <!-- Online-Zeit für andere sichtbar -->
+  <div class="notif-setting-row" id="show-last-seen-setting-row">
+    <span class="notif-setting-label">🕒 "Zuletzt online" anzeigen</span>
+    <button class="notif-toggle-btn on" id="show-last-seen-toggle-btn" title="Zuletzt-online-Zeit ein/aus">
+      <span class="notif-toggle-track"><span class="notif-toggle-thumb"></span></span>
+      <span class="notif-toggle-text" id="show-last-seen-toggle-text">An</span>
+    </button>
+  </div>
 </div>
 </div>
 </div>

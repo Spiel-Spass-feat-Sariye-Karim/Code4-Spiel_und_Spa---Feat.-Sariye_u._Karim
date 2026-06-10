@@ -249,6 +249,7 @@ function showLocalNotif(title, body) {
 /* ---- SOUNDS ---- */
 var audioCtx = null;
 function playTone(freq, dur, type) {
+if (localStorage.getItem('soundEffects') === 'off') return;
 if (!audioCtx) {
 audioCtx = new (window.AudioContext ||
 window.webkitAudioContext)();
@@ -615,9 +616,14 @@ function isRecentlyActive(u) {
   return (Date.now() - new Date(u.last_seen).getTime()) < 60 * 60 * 1000; // 60 min
 }
 
+function showLastSeenEnabled() {
+  return localStorage.getItem('showLastSeen') !== 'off';
+}
+
 function formatLastSeen(last_seen, is_online) {
   if (is_online) return '<span class="online-dot green"></span>Online';
   if (!last_seen) return '<span class="online-dot gray"></span>Offline';
+  if (!showLastSeenEnabled()) return '<span class="online-dot gray"></span>Offline';
   var diff = Date.now() - new Date(last_seen).getTime();
   var mins = Math.floor(diff / 60000);
   if (mins < 5) return '<span class="online-dot yellow"></span>Gerade eben';
@@ -655,7 +661,7 @@ function presenceLabel(presence, lastSeen) {
   if (presence === 'online') return presenceDot(presence) + 'Online';
   if (presence === 'away') return presenceDot(presence) + 'Abwesend';
   if (presence === 'dnd') return presenceDot(presence) + 'Nicht stören';
-  if (!lastSeen) return presenceDot('offline') + 'Offline';
+  if (!lastSeen || !showLastSeenEnabled()) return presenceDot('offline') + 'Offline';
   var mins = Math.floor((Date.now() - new Date(lastSeen).getTime()) / 60000);
   var txt;
   if (mins < 1) txt = 'Gerade eben online';
@@ -2266,26 +2272,33 @@ function buildGuideSteps() {
     // Step 2: Avatar — perfect white circle, centered
     {
       target: 'avatar-spotlight-wrap', rounded: true, pad: 8,
-      text: 'Das ist dein Avatar! Klick ihn an um dein Profil zu öffnen, Avatar zu wechseln und E-Mail zu hinterlegen.',
-      before: null, after: null
+      text: 'Das ist dein Avatar! Klick ihn an um dein Status-Menü (Aktiv/Abwesend/Nicht stören) zu öffnen oder dein Profil zu bearbeiten.',
+      before: function(cb){ closeAllPanels(); setTimeout(cb,150); }, after: null
     },
-    // Step 3: Email row in profile
-    {
-      target: 'profile-email-row', rounded: false, pad: 12,
-      text: 'Hier kannst du deine E-Mail für Passwort-Reset hinterlegen. Wichtig — ohne E-Mail ist dein Konto verloren!',
-      before: function(cb){ openProfileForGuide(cb); }, after: null
-    },
-    // Step 4: Avatar arrows
+    // Step 3: Avatar arrows (in profile overlay)
     {
       target: 'avatar-prev', rounded: false, pad: 10,
       text: 'Mit diesen Pfeilen kannst du deinen Avatar wechseln. Über 100 Avatare zur Auswahl!',
-      before: null, after: null
+      before: function(cb){ openProfileForGuide(cb); }, after: null
     },
-    // Step 5: Close profile button — perfect circle
+    // Step 4: Email row in settings
     {
-      target: 'btn-close-profile', rounded: true, pad: 8,
-      text: 'Mit diesem X-Button schließt du das Profil wieder.',
-      before: null, after: function(cb){ closeProfileForGuide(cb); }
+      target: 'profile-email-row', rounded: false, pad: 12,
+      text: 'In den Einstellungen ⚙️ kannst du deine E-Mail für Passwort-Reset hinterlegen. Wichtig — ohne E-Mail ist dein Konto verloren!',
+      before: function(cb){
+        document.getElementById('profile-overlay').classList.remove('on');
+        openSettingsOverlay();
+        setTimeout(cb, 250);
+      }, after: null
+    },
+    // Step 5: Close settings button — perfect circle
+    {
+      target: 'btn-close-settings', rounded: true, pad: 8,
+      text: 'Mit diesem X-Button schließt du die Einstellungen wieder.',
+      before: null, after: function(cb){
+        document.getElementById('settings-overlay').classList.remove('on');
+        setTimeout(cb, 300);
+      }
     },
     // Step 6: Notification bell — perfect circle
     {
@@ -2545,8 +2558,7 @@ function typewriteText(text) {
 function openProfileForGuide(cb) {
   var overlay = document.getElementById('profile-overlay');
   if (overlay && !overlay.classList.contains('on')) {
-    var avatarBtn = document.getElementById('avatar');
-    if (avatarBtn) avatarBtn.click();
+    openProfileOverlay();
     setTimeout(cb, 400);
   } else { cb(); }
 }
@@ -2580,6 +2592,13 @@ function closeAllPanels() {
     var closeBtn = document.getElementById('btn-close-profile');
     if (closeBtn) closeBtn.click();
   }
+  var settingsOverlay = document.getElementById('settings-overlay');
+  if (settingsOverlay && settingsOverlay.classList.contains('on')) {
+    var closeSettingsBtn = document.getElementById('btn-close-settings');
+    if (closeSettingsBtn) closeSettingsBtn.click();
+  }
+  var statusMenu = document.getElementById('avatar-status-menu');
+  if (statusMenu) statusMenu.classList.remove('on');
   closeNotifCenter();
 }
 
@@ -4484,8 +4503,7 @@ document.getElementById('btn-save-avatar').addEventListener('click', async funct
   }
 });
 
-document.getElementById("avatar").style.cursor = "pointer";
-document.getElementById("avatar").addEventListener("click", function() {
+function openProfileOverlay() {
   // Reset history to current saved avatar each time the overlay opens
   var seed = user.avatar_seed || user.name;
   avatarHistory = [seed];
@@ -4501,6 +4519,10 @@ document.getElementById("avatar").addEventListener("click", function() {
     "Mitglied seit: " + created + "<br>" +
     "Spiele gespielt: " + (user.games_played || 0);
   document.getElementById("profile-overlay").classList.add("on");
+}
+
+function openSettingsOverlay() {
+  document.getElementById("settings-overlay").classList.add("on");
   refreshNotifToggle();
   refreshStatusMenu();
   renderProfileEmail();
@@ -4515,6 +4537,41 @@ document.getElementById("avatar").addEventListener("click", function() {
       }
     }, 300);
   }
+}
+
+/* ---- AVATAR-DROPDOWN (Status-Menü direkt unter dem Avatar) ---- */
+document.getElementById("avatar-spotlight-wrap").style.cursor = "pointer";
+document.getElementById("avatar").addEventListener("click", function(e) {
+  e.stopPropagation();
+  refreshStatusMenu();
+  document.getElementById("avatar-status-menu").classList.toggle("on");
+});
+document.getElementById("avatar-status-menu").addEventListener("click", function(e) {
+  e.stopPropagation();
+});
+document.addEventListener("click", function() {
+  document.getElementById("avatar-status-menu").classList.remove("on");
+});
+document.getElementById("avatar-menu-profile-btn").addEventListener("click", function() {
+  document.getElementById("avatar-status-menu").classList.remove("on");
+  openProfileOverlay();
+});
+
+/* ---- ZAHNRAD: Einstellungen-Overlay ---- */
+document.getElementById("btn-settings").addEventListener("click", function() {
+  openSettingsOverlay();
+});
+document.getElementById("btn-open-settings-from-profile").addEventListener("click", function() {
+  document.getElementById("profile-overlay").classList.remove("on");
+  openSettingsOverlay();
+});
+document.getElementById("btn-close-settings").addEventListener("click", function() {
+  document.getElementById("settings-overlay").classList.remove("on");
+});
+document.getElementById("settings-overlay").addEventListener("click", function(e) {
+  if (e.target.id === "settings-overlay") {
+    document.getElementById("settings-overlay").classList.remove("on");
+  }
 });
 
 /* ---- STATUS-MENÜ (Aktiv / Abwesend / Nicht stören + Einstellungen) ---- */
@@ -4526,6 +4583,8 @@ function refreshStatusMenu() {
   });
   setToggleUI('hide-chat-toggle-btn', 'hide-chat-toggle-text', !user.hide_chat_icons);
   setToggleUI('accept-invites-toggle-btn', 'accept-invites-toggle-text', user.accept_invites !== false);
+  setToggleUI('sound-toggle-btn', 'sound-toggle-text', localStorage.getItem('soundEffects') !== 'off');
+  setToggleUI('show-last-seen-toggle-btn', 'show-last-seen-toggle-text', showLastSeenEnabled());
   updateHeaderStatusDot();
 }
 
@@ -4581,6 +4640,18 @@ document.getElementById('accept-invites-toggle-btn').addEventListener('click', f
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ user_id: user.id, accept_invites: user.accept_invites })
   }).catch(function() {});
+});
+
+document.getElementById('sound-toggle-btn').addEventListener('click', function() {
+  var on = localStorage.getItem('soundEffects') !== 'off';
+  localStorage.setItem('soundEffects', on ? 'off' : 'on');
+  refreshStatusMenu();
+});
+
+document.getElementById('show-last-seen-toggle-btn').addEventListener('click', function() {
+  var on = showLastSeenEnabled();
+  localStorage.setItem('showLastSeen', on ? 'off' : 'on');
+  refreshStatusMenu();
 });
 
 document.getElementById("btn-close-profile").addEventListener("click", function() {
