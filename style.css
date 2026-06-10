@@ -6083,6 +6083,8 @@ body.light .avatar-status-menu-link:hover { background: #f0f0f6; }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
   margin-bottom: 0.7rem;
 }
 .pe-label {
@@ -6091,9 +6093,19 @@ body.light .avatar-status-menu-link:hover { background: #f0f0f6; }
   color: rgba(255,255,255,0.5);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .pe-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  white-space: nowrap;
   font-size: 0.68rem;
+  line-height: 1.4;
   padding: 2px 8px;
   border-radius: 20px;
   font-weight: 700;
