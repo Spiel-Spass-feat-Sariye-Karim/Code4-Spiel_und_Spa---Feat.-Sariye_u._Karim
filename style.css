@@ -3575,7 +3575,13 @@ body.light .chat-receipt.tick-1 { color: rgba(0,0,0,0.4); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sidebar-friend-status { font-size: 0.7rem; color: var(--dim); }
+.sidebar-friend-status {
+  font-size: 0.7rem;
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* Mobile sidebar toggle button */
 .sidebar-mobile-btn {
