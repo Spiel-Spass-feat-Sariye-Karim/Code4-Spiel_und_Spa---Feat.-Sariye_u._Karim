@@ -2180,6 +2180,9 @@ header {
 .hero h1 { font-size: 1.3rem; }
 .cards { flex-direction: column; align-items: center; }
 .card { width: 90%; max-width: 340px; }
+/* Singleplayer cards stack to full height on mobile — raise the cap so
+   the last card (Wort-Blitz) isn't clipped by overflow:hidden */
+#cat-single .cat-body { max-height: 1800px; }
 .card-featured { width: 90%; max-width: 340px; }
 .login-box { width: 90%; padding: 1.8rem; }
 .memory-pads { width: min(80vmin, 320px); }
