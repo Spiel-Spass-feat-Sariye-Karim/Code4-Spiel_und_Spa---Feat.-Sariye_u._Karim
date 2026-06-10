@@ -2147,6 +2147,13 @@ grid-template-columns: 1fr 1fr;
 .stats-grid .stat-box:last-child {
 grid-column: 1 / -1;
 }
+.stats-grid .stat-box {
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+text-align: center;
+}
 /* Ensure game areas use full height on portrait mobile */
 .pgame { justify-content: flex-start; padding: 0.4rem; }
 .reaction-area { padding: 12px 10px 8px; gap: 10px; }
