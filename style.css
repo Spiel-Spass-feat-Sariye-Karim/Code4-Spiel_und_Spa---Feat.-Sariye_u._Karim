@@ -6422,8 +6422,8 @@ body.light .avatar-status-menu-link:hover { background: #f0f0f6; }
   .sb-table thead th.sbt-th-player { padding-left: 8px; }
   .sb-table thead th .sbt-th-label { font-size: 0.5rem; }
   .sb-table thead th.sbt-rp-col { min-width: 38px !important; }
-  .sb-table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.15); }
-  .sb-table tbody td { padding: 6px 4px; }
+  .sb-table tbody td { padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.15); }
+  .sb-table tbody tr:last-child td { border-bottom: none; }
   .sb-table tbody td.sbt-td-rank { font-size: 0.95rem; width: 28px; padding: 6px 2px; }
   .sb-table tbody td.sbt-td-player { padding-left: 6px; min-width: 90px; max-width: 125px; }
   .sbt-player-inner { gap: 4px; }
