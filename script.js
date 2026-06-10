@@ -628,11 +628,28 @@ function formatLastSeen(last_seen, is_online) {
   return '<span class="online-dot gray"></span>Vor ' + days + ' Tag' + (days > 1 ? 'en' : '');
 }
 
+/* ---- CHAT: DATUMS-TRENNLINIEN ---- */
+function chatDateLabel(d) {
+  var now = new Date();
+  var date = new Date(d);
+  var startOfDay = function(x) { return new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(); };
+  var diffDays = Math.round((startOfDay(now) - startOfDay(date)) / 86400000);
+  if (diffDays === 0) return 'Heute';
+  if (diffDays === 1) return 'Gestern';
+  if (date.getFullYear() === now.getFullYear()) {
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+  }
+  return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 /* ---- GLOBAL CHAT ---- */
 async function loadGlobalChat() {
   if (!user) return;
   try {
-    var res = await fetch(API_URL + '/api/chat/global?limit=50');
+    var url = API_URL + '/api/chat/global?limit=50&user_id=' + user.id +
+      '&user_name=' + encodeURIComponent(user.name) +
+      '&avatar_seed=' + encodeURIComponent(user.avatar_seed || user.name);
+    var res = await fetch(url);
     if (!res.ok) return;
     var msgs = await res.json();
     if (!Array.isArray(msgs)) return;
@@ -641,23 +658,108 @@ async function loadGlobalChat() {
     var wasAtBottom = win.scrollHeight - win.scrollTop - win.clientHeight < 40;
     var html = '';
     var reversed = msgs.slice().reverse();
+    var lastDateKey = null;
     reversed.forEach(function(m) {
+      var d = new Date(m.created_at);
+      var dateKey = d.toDateString();
+      if (dateKey !== lastDateKey) {
+        html += '<div class="chat-date-sep"><span>' + chatDateLabel(d) + '</span></div>';
+        lastDateKey = dateKey;
+      }
       var isOwn = m.user_id === user.id;
       var seed = m.avatar_seed || m.user_name || 'unknown';
       var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
-      var time = new Date(m.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      var time = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      var receipt = isOwn ? '<span class="chat-receipt" data-msg-id="' + m.id + '" title="Wer hat gelesen?">ℹ️</span>' : '';
       html +=
         '<div class="chat-msg' + (isOwn ? ' own' : '') + '">' +
         '<img class="chat-avatar" src="' + av + '" alt="">' +
         '<div class="chat-bubble">' +
-        '<div class="chat-meta"><span class="chat-name">' + escHtml(m.user_name) + '</span><span class="chat-time">' + time + '</span></div>' +
+        '<div class="chat-meta"><span class="chat-name">' + escHtml(m.user_name) + '</span><span class="chat-time">' + time + receipt + '</span></div>' +
         '<div class="chat-text">' + escHtml(m.message) + '</div>' +
         '</div>' +
         '</div>';
     });
     win.innerHTML = html;
+    win.querySelectorAll('.chat-receipt').forEach(function(el) {
+      el.addEventListener('click', function(e) {
+        e.stopPropagation();
+        showGlobalReadInfo(el.getAttribute('data-msg-id'), el);
+      });
+    });
     if (wasAtBottom || lastChatCount === 0) win.scrollTop = win.scrollHeight;
     lastChatCount = msgs.length;
+    loadGlobalTyping();
+  } catch (e) {}
+}
+
+async function showGlobalReadInfo(msgId, anchorEl) {
+  var existing = document.querySelector('.chat-read-info');
+  if (existing) existing.remove();
+  if (!user) return;
+  try {
+    var res = await fetch(API_URL + '/api/chat/global/info/' + msgId + '?user_id=' + user.id);
+    if (!res.ok) return;
+    var data = await res.json();
+    var box = document.createElement('div');
+    box.className = 'chat-read-info';
+    function renderList(arr, emptyText) {
+      if (!arr || !arr.length) return '<li class="cri-empty">' + emptyText + '</li>';
+      return arr.map(function(u) {
+        var seed = u.avatar_seed || u.name || 'unknown';
+        return '<li><img src="https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(seed) + '" alt="">' + escHtml(u.name || '?') + '</li>';
+      }).join('');
+    }
+    box.innerHTML =
+      '<button class="cri-close">✕</button>' +
+      '<h5>✓✓ Gelesen</h5><ul>' + renderList(data.read, 'Noch niemand') + '</ul>' +
+      '<h5>Ungelesen</h5><ul>' + renderList(data.unread, 'Niemand') + '</ul>';
+    document.body.appendChild(box);
+    var rect = anchorEl.getBoundingClientRect();
+    var top = rect.bottom + window.scrollY + 4;
+    var left = rect.left + window.scrollX - 200;
+    if (left < 8) left = 8;
+    box.style.top = top + 'px';
+    box.style.left = left + 'px';
+    box.querySelector('.cri-close').addEventListener('click', function() { box.remove(); });
+    setTimeout(function() {
+      document.addEventListener('click', function handler(e) {
+        if (!box.contains(e.target)) { box.remove(); document.removeEventListener('click', handler); }
+      }, { once: true });
+    }, 0);
+  } catch (e) {}
+}
+
+/* ---- TIPP-INDIKATOR: GLOBALER CHAT ---- */
+var lastGlobalTypingSent = 0;
+function notifyGlobalTyping() {
+  if (!user) return;
+  var now = Date.now();
+  if (now - lastGlobalTypingSent < 1500) return;
+  lastGlobalTypingSent = now;
+  fetch(API_URL + '/api/chat/typing', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: user.id, name: user.name, avatar_seed: user.avatar_seed || user.name, scope: 'global' })
+  }).catch(function() {});
+}
+
+async function loadGlobalTyping() {
+  if (!user) return;
+  try {
+    var res = await fetch(API_URL + '/api/chat/typing/global?user_id=' + user.id);
+    if (!res.ok) return;
+    var typers = await res.json();
+    var el = document.getElementById('gc-typing');
+    if (!el) return;
+    if (!Array.isArray(typers) || !typers.length) { el.classList.remove('active'); el.innerHTML = ''; return; }
+    var avatars = typers.slice(0, 4).map(function(t) {
+      var seed = t.avatar_seed || t.name || 'unknown';
+      return '<img src="https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(seed) + '" alt="">';
+    }).join('');
+    var names = typers.map(function(t) { return t.name; }).join(', ');
+    el.innerHTML = '<span class="typing-avatars">' + avatars + '</span><span>' + escHtml(names) + (typers.length > 1 ? ' tippen gerade' : ' tippt gerade') + '</span><span class="typing-dots"><span></span><span></span><span></span></span>';
+    el.classList.add('active');
   } catch (e) {}
 }
 
@@ -1244,24 +1346,39 @@ async function loadPrivateMessages() {
   try {
     var res = await fetch(API_URL + '/api/chat/private/' + user.id + '/' + activeChatFriend.id + '?limit=50');
     if (!res.ok) return;
-    var msgs = await res.json();
+    var data = await res.json();
+    var msgs = Array.isArray(data) ? data : (data.messages || []);
+    var friendOnline = Array.isArray(data) ? false : !!data.friend_online;
     if (!Array.isArray(msgs)) return;
     var container = document.getElementById('pc-messages');
     if (!container) return;
     var wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 40;
     var html = '';
+    var lastDateKey = null;
     msgs.slice().reverse().forEach(function(m) {
+      var d = new Date(m.created_at);
+      var dateKey = d.toDateString();
+      if (dateKey !== lastDateKey) {
+        html += '<div class="chat-date-sep"><span>' + chatDateLabel(d) + '</span></div>';
+        lastDateKey = dateKey;
+      }
       var isOwn = m.sender_id === user.id;
       var av = isOwn
         ? 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + (user.avatar_seed || user.name)
         : 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + (activeChatFriend.avatar_seed || activeChatFriend.name);
       var name = isOwn ? user.name : activeChatFriend.name;
-      var time = new Date(m.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      var time = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      var receipt = '';
+      if (isOwn) {
+        if (!friendOnline) receipt = '<span class="chat-receipt tick-1" title="Gesendet">✓</span>';
+        else if (m.is_read) receipt = '<span class="chat-receipt tick-blue" title="Gelesen">✓✓</span>';
+        else receipt = '<span class="chat-receipt tick-gray" title="Zugestellt, ungelesen">✓✓</span>';
+      }
       html +=
         '<div class="chat-msg' + (isOwn ? ' own' : '') + '">' +
         '<img class="chat-avatar" src="' + av + '" alt="">' +
         '<div class="chat-bubble">' +
-        '<div class="chat-meta"><span class="chat-name">' + escHtml(name) + '</span><span class="chat-time">' + time + '</span></div>' +
+        '<div class="chat-meta"><span class="chat-name">' + escHtml(name) + '</span><span class="chat-time">' + time + receipt + '</span></div>' +
         '<div class="chat-text">' + escHtml(m.message) + '</div>' +
         '</div>' +
         '</div>';
@@ -1269,6 +1386,41 @@ async function loadPrivateMessages() {
     container.innerHTML = html;
     if (wasAtBottom || container.scrollTop === 0) container.scrollTop = container.scrollHeight;
     if (unreadCounts[activeChatFriend.id]) { unreadCounts[activeChatFriend.id] = 0; updateSidebarBadges(); }
+    loadPrivateTyping();
+  } catch (e) {}
+}
+
+/* ---- TIPP-INDIKATOR: PRIVATER CHAT ---- */
+var lastPrivateTypingSent = 0;
+function notifyPrivateTyping() {
+  if (!user || !activeChatFriend) return;
+  var now = Date.now();
+  if (now - lastPrivateTypingSent < 1500) return;
+  lastPrivateTypingSent = now;
+  fetch(API_URL + '/api/chat/typing', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: user.id, name: user.name, avatar_seed: user.avatar_seed || user.name, scope: 'private', target_id: activeChatFriend.id })
+  }).catch(function() {});
+}
+
+async function loadPrivateTyping() {
+  if (!user || !activeChatFriend) return;
+  try {
+    var res = await fetch(API_URL + '/api/chat/typing/private/' + activeChatFriend.id + '?user_id=' + user.id);
+    if (!res.ok) return;
+    var data = await res.json();
+    var el = document.getElementById('pc-typing');
+    if (!el) return;
+    if (data && data.typing) {
+      var seed = activeChatFriend.avatar_seed || activeChatFriend.name || 'unknown';
+      el.innerHTML = '<span class="typing-avatars"><img src="https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(seed) + '" alt=""></span>' +
+        '<span>' + escHtml(activeChatFriend.name) + ' tippt</span><span class="typing-dots"><span></span><span></span><span></span></span>';
+      el.classList.add('active');
+    } else {
+      el.classList.remove('active');
+      el.innerHTML = '';
+    }
   } catch (e) {}
 }
 
@@ -2759,6 +2911,7 @@ document.getElementById('btn-again').addEventListener('click', resetG);
 document.getElementById('popup').addEventListener('click', function(e) { if (e.target === this) closeG(); });
 document.getElementById('chat-send').addEventListener('click', sendChatMessage);
 document.getElementById('chat-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') sendChatMessage(); });
+document.getElementById('chat-input').addEventListener('input', notifyGlobalTyping);
 document.getElementById('sidebar-toggle').addEventListener('click', function() {
   document.getElementById('sidebar').classList.toggle('expanded');
 });
@@ -3010,6 +3163,7 @@ document.addEventListener('keydown', function(e) {
 document.getElementById('pc-close').addEventListener('click', closePrivateChat);
 document.getElementById('pc-send').addEventListener('click', sendPrivateMessage);
 document.getElementById('pc-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') sendPrivateMessage(); });
+document.getElementById('pc-input').addEventListener('input', notifyPrivateTyping);
 
 function openG(id) {
   which = id;

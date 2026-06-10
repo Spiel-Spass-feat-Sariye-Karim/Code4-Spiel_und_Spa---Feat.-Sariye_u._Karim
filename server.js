@@ -969,7 +969,66 @@ app.get('/api/chat/private/:user_id/:friend_id', async (req, res) => {
       .eq('receiver_id', userId)
       .eq('sender_id', friendId)
       .eq('is_read', false);
-    res.json(data);
+    // Online-Status des Freundes ermitteln
+    let friendOnline = false;
+    try {
+      const { data: friendUser } = await db.from('users').select('last_seen').eq('id', friendId).single();
+      if (friendUser && friendUser.last_seen) {
+        friendOnline = (Date.now() - new Date(friendUser.last_seen).getTime()) < 3 * 60 * 1000;
+      }
+    } catch (e) {}
+    res.json({ messages: data, friend_online: friendOnline });
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+// ============= TYPING-INDIKATOREN (in-memory) =============
+const typingState = {
+  global: {},   // user_id -> { name, avatar_seed, ts }
+  private: {}   // "senderId_receiverId" -> { name, avatar_seed, ts }
+};
+const TYPING_TTL = 4000; // ms
+
+app.post('/api/chat/typing', (req, res) => {
+  try {
+    const { user_id, name, avatar_seed, scope, target_id } = req.body;
+    if (!user_id || !scope) return res.status(400).json({ error: 'Fehlende Felder' });
+    const now = Date.now();
+    if (scope === 'global') {
+      typingState.global[user_id] = { name: name || '', avatar_seed: avatar_seed || '', ts: now };
+    } else if (scope === 'private' && target_id) {
+      typingState.private[user_id + '_' + target_id] = { name: name || '', avatar_seed: avatar_seed || '', ts: now };
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+app.get('/api/chat/typing/global', (req, res) => {
+  try {
+    const userId = parseInt(req.query.user_id);
+    const now = Date.now();
+    const result = [];
+    for (const [uid, info] of Object.entries(typingState.global)) {
+      if (parseInt(uid) === userId) continue;
+      if (now - info.ts <= TYPING_TTL) result.push({ name: info.name, avatar_seed: info.avatar_seed });
+    }
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+app.get('/api/chat/typing/private/:friend_id', (req, res) => {
+  try {
+    const friendId = parseInt(req.params.friend_id);
+    const userId = parseInt(req.query.user_id);
+    const key = friendId + '_' + userId;
+    const info = typingState.private[key];
+    const typing = !!(info && (Date.now() - info.ts <= TYPING_TTL));
+    res.json({ typing });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }
@@ -1022,6 +1081,9 @@ app.get('/api/chat/unread/:user_id', async (req, res) => {
 
 // ============= GLOBAL CHAT =============
 
+// In-memory: letzte gelesene global_chat Nachricht pro User
+const globalReadState = {}; // user_id -> { lastReadId, name, avatar_seed, ts }
+
 app.get('/api/chat/global', async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
@@ -1031,7 +1093,42 @@ app.get('/api/chat/global', async (req, res) => {
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error) throw error;
+    // Lese-Status des anfragenden Users aktualisieren
+    const userId = parseInt(req.query.user_id);
+    if (userId && data && data.length) {
+      const maxId = Math.max(...data.map(m => m.id));
+      const requester = data.find(m => m.user_id === userId) || {};
+      const prev = globalReadState[userId];
+      globalReadState[userId] = {
+        lastReadId: Math.max(maxId, prev ? prev.lastReadId : 0),
+        name: req.query.user_name || requester.user_name || (prev && prev.name) || '',
+        avatar_seed: req.query.avatar_seed || requester.avatar_seed || (prev && prev.avatar_seed) || '',
+        ts: Date.now()
+      };
+    }
     res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+// Wer hat eine bestimmte globale Nachricht gelesen?
+app.get('/api/chat/global/info/:message_id', async (req, res) => {
+  try {
+    const messageId = parseInt(req.params.message_id);
+    const userId = parseInt(req.query.user_id);
+    const now = Date.now();
+    const ACTIVE_WINDOW = 24 * 60 * 60 * 1000; // nur Nutzer, die in den letzten 24h aktiv waren
+    const read = [];
+    const unread = [];
+    for (const [uid, info] of Object.entries(globalReadState)) {
+      if (parseInt(uid) === userId) continue;
+      if (now - info.ts > ACTIVE_WINDOW) continue;
+      const entry = { name: info.name, avatar_seed: info.avatar_seed };
+      if (info.lastReadId >= messageId) read.push(entry);
+      else unread.push(entry);
+    }
+    res.json({ read, unread });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }
