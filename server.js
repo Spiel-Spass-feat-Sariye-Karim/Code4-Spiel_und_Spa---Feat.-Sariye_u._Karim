@@ -528,7 +528,7 @@ app.get('/api/users/search', async (req, res) => {
   const q = (req.query.q || '').trim();
   const me = parseInt(req.query.me);
   try {
-    let query = db.from('users').select('id, name, avatar_seed, is_online, last_seen').limit(100);
+    let query = db.from('users').select('id, name, avatar_seed, is_online, last_seen, status').limit(100);
     if (q) query = query.ilike('name', '%' + q + '%');
     else query = query.order('name');
     const { data: users, error } = await query;
@@ -724,20 +724,31 @@ app.get('/api/friends/:user_id', async (req, res) => {
   try {
     const { data: friendships, error } = await db
       .from('friendships')
-      .select('receiver_id, users!receiver_id(id, name, avatar_seed, memory, stack, reaction, is_online, last_seen)')
+      .select('receiver_id, users!receiver_id(id, name, avatar_seed, memory, stack, reaction, is_online, last_seen, status)')
       .eq('sender_id', req.params.user_id)
       .eq('status', 'accepted');
     if (error) return res.status(400).json({ error: 'Fehler beim Laden' });
-    const result = (friendships || []).map(f => ({
-      id: f.users?.id,
-      name: f.users?.name,
-      avatar_seed: f.users?.avatar_seed,
-      memory: f.users?.memory || 0,
-      stack: f.users?.stack || 0,
-      reaction_ms: f.users?.reaction || 0,
-      is_online: f.users?.is_online,
-      last_seen: f.users?.last_seen
-    }));
+    const now = Date.now();
+    const result = (friendships || []).map(f => {
+      const lastSeen = f.users?.last_seen;
+      const isOnline = lastSeen ? (now - new Date(lastSeen).getTime()) < 3 * 60 * 1000 : false;
+      const userStatus = f.users?.status || 'online';
+      let presence = 'offline';
+      if (userStatus === 'dnd') presence = 'dnd';
+      else if (isOnline) presence = (userStatus === 'away') ? 'away' : 'online';
+      return {
+        id: f.users?.id,
+        name: f.users?.name,
+        avatar_seed: f.users?.avatar_seed,
+        memory: f.users?.memory || 0,
+        stack: f.users?.stack || 0,
+        reaction_ms: f.users?.reaction || 0,
+        is_online: isOnline,
+        last_seen: lastSeen,
+        status: userStatus,
+        presence: presence
+      };
+    });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
@@ -892,6 +903,11 @@ app.post('/api/lobby/invite', async (req, res) => {
   const { lobby_id, from_id, to_id } = req.body;
   if (!lobby_id || !from_id || !to_id) return res.status(400).json({ error: 'Fehlende Daten' });
   try {
+    // Prüfen ob Empfänger Einladungen erlaubt (nicht im "Nicht stören"-Modus oder deaktiviert)
+    const { data: toUser } = await db.from('users').select('accept_invites, status').eq('id', to_id).single();
+    if (toUser && (toUser.accept_invites === false || toUser.status === 'dnd')) {
+      return res.status(403).json({ error: 'Nutzer nimmt aktuell keine Einladungen an' });
+    }
     const { data, error } = await db.from('game_invites')
       .insert({ lobby_id, from_id, to_id, status: 'pending' })
       .select().single();
@@ -905,6 +921,38 @@ app.post('/api/lobby/invite', async (req, res) => {
     sendPushToUser(to_id, '⚔️ Spieleinladung', invMsg);
     saveNotification(to_id, 'invite', '⚔️', 'Spieleinladung', invMsg);
     res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+// ============= USER-STATUS & EINSTELLUNGEN =============
+
+app.post('/api/users/status', async (req, res) => {
+  try {
+    const { user_id, status } = req.body;
+    if (!user_id || !['online', 'away', 'dnd'].includes(status)) {
+      return res.status(400).json({ error: 'Ungültiger Status' });
+    }
+    const { error } = await db.from('users').update({ status }).eq('id', user_id);
+    if (error) throw error;
+    res.json({ ok: true, status });
+  } catch (err) {
+    res.status(500).json({ error: 'Server-Fehler' });
+  }
+});
+
+app.post('/api/users/settings', async (req, res) => {
+  try {
+    const { user_id, hide_chat_icons, accept_invites } = req.body;
+    if (!user_id) return res.status(400).json({ error: 'Fehlende Felder' });
+    const update = {};
+    if (typeof hide_chat_icons === 'boolean') update.hide_chat_icons = hide_chat_icons;
+    if (typeof accept_invites === 'boolean') update.accept_invites = accept_invites;
+    if (!Object.keys(update).length) return res.status(400).json({ error: 'Keine Änderungen' });
+    const { error } = await db.from('users').update(update).eq('id', user_id);
+    if (error) throw error;
+    res.json({ ok: true, ...update });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }
@@ -969,15 +1017,23 @@ app.get('/api/chat/private/:user_id/:friend_id', async (req, res) => {
       .eq('receiver_id', userId)
       .eq('sender_id', friendId)
       .eq('is_read', false);
-    // Online-Status des Freundes ermitteln
+    // Online-Status & Präsenz des Freundes ermitteln
     let friendOnline = false;
+    let friendPresence = 'offline';
+    let friendLastSeen = null;
     try {
-      const { data: friendUser } = await db.from('users').select('last_seen').eq('id', friendId).single();
-      if (friendUser && friendUser.last_seen) {
-        friendOnline = (Date.now() - new Date(friendUser.last_seen).getTime()) < 3 * 60 * 1000;
+      const { data: friendUser } = await db.from('users').select('last_seen, status').eq('id', friendId).single();
+      if (friendUser) {
+        friendLastSeen = friendUser.last_seen;
+        friendOnline = friendUser.last_seen
+          ? (Date.now() - new Date(friendUser.last_seen).getTime()) < 3 * 60 * 1000
+          : false;
+        const st = friendUser.status || 'online';
+        if (st === 'dnd') friendPresence = 'dnd';
+        else if (friendOnline) friendPresence = (st === 'away') ? 'away' : 'online';
       }
     } catch (e) {}
-    res.json({ messages: data, friend_online: friendOnline });
+    res.json({ messages: data, friend_online: friendOnline, friend_presence: friendPresence, friend_last_seen: friendLastSeen });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
   }
@@ -1118,16 +1174,28 @@ app.get('/api/chat/global/info/:message_id', async (req, res) => {
     const messageId = parseInt(req.params.message_id);
     const userId = parseInt(req.query.user_id);
     const now = Date.now();
-    const ACTIVE_WINDOW = 24 * 60 * 60 * 1000; // nur Nutzer, die in den letzten 24h aktiv waren
+    const { data: allUsers, error } = await db.from('users')
+      .select('id, name, avatar_seed, status, last_seen')
+      .limit(2000);
+    if (error) throw error;
     const read = [];
     const unread = [];
-    for (const [uid, info] of Object.entries(globalReadState)) {
-      if (parseInt(uid) === userId) continue;
-      if (now - info.ts > ACTIVE_WINDOW) continue;
-      const entry = { name: info.name, avatar_seed: info.avatar_seed };
-      if (info.lastReadId >= messageId) read.push(entry);
+    (allUsers || []).forEach(u => {
+      if (u.id === userId) return;
+      const info = globalReadState[u.id];
+      const isOnline = u.last_seen ? (now - new Date(u.last_seen).getTime()) < 3 * 60 * 1000 : false;
+      let presence = 'offline';
+      if (u.status === 'dnd') presence = 'dnd';
+      else if (isOnline) presence = (u.status === 'away') ? 'away' : 'online';
+      const entry = {
+        name: u.name,
+        avatar_seed: u.avatar_seed,
+        presence,
+        last_seen: u.last_seen
+      };
+      if (info && info.lastReadId >= messageId) read.push(entry);
       else unread.push(entry);
-    }
+    });
     res.json({ read, unread });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
@@ -1244,6 +1312,9 @@ app.post('/api/push/subscribe', async (req, res) => {
 async function sendPushToUser(userId, title, body, extra = {}) {
   if (!webpush) return;
   try {
+    // "Nicht stören" -> keine Push-Benachrichtigungen
+    const { data: u } = await db.from('users').select('status').eq('id', userId).single();
+    if (u && u.status === 'dnd') return;
     const { data: subs } = await db.from('push_subscriptions')
       .select('subscription').eq('user_id', userId);
     if (!subs || !subs.length) return;

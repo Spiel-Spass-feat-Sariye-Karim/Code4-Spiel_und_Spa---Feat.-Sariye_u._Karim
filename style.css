@@ -2043,6 +2043,40 @@ body.light .notif-setting-row { background: #f0f0f6; border-color: rgba(0,0,0,0.
 .notif-toggle-btn.on .notif-toggle-text { color: var(--c1); }
 .notif-setting-hint { font-size: 0.72rem; color: var(--dim); margin-top: 0.35rem; min-height: 1.1em; text-align: center; }
 
+/* ---- Status-Auswahl im Profil ---- */
+.status-setting-row {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--s2);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+body.light .status-setting-row { background: #f0f0f6; border-color: rgba(0,0,0,0.08); }
+.status-setting-label { font-size: 0.85rem; font-weight: 700; color: var(--tx); margin-bottom: 0.55rem; display: block; }
+.status-options { display: flex; gap: 0.4rem; }
+.status-option {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.3rem;
+  border-radius: 10px;
+  border: 1.5px solid rgba(255,255,255,0.08);
+  background: transparent;
+  color: var(--tx);
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.status-option .online-dot { width: 12px; height: 12px; margin: 0; }
+.status-option:hover { border-color: rgba(255,255,255,0.25); }
+.status-option.active { border-color: var(--c1); background: rgba(255,87,51,0.08); }
+body.light .status-option { border-color: rgba(0,0,0,0.1); }
+body.light .status-option:hover { border-color: rgba(0,0,0,0.25); }
+
 @keyframes fadeInUp {
 from { opacity: 0; transform: translateY(20px); }
 to { opacity: 1; transform: translateY(0); }
@@ -2799,6 +2833,8 @@ body.light .notif-dialog-box { background: #fff; border-color: rgba(0,0,0,0.08);
 }
 .online-dot.green  { background: #4caf50; box-shadow: 0 0 4px #4caf50; }
 .online-dot.yellow { background: #ffc107; }
+.online-dot.orange { background: #ff9800; box-shadow: 0 0 4px #ff9800; }
+.online-dot.red    { background: #ef4444; box-shadow: 0 0 4px #ef4444; }
 .online-dot.gray   { background: #555; }
 
 /* Freunde-Zeilen */
@@ -3532,6 +3568,21 @@ body.light .chat-receipt.tick-1 { color: rgba(0,0,0,0.4); }
 .pc-header-info { display: flex; align-items: center; gap: 0.6rem; }
 .pc-avatar { width: 32px; height: 32px; border-radius: 50%; background: #333; }
 #pc-name { font-weight: 700; font-size: 0.9rem; }
+.pc-name-col { display: flex; flex-direction: column; gap: 1px; }
+#pc-presence { font-size: 0.66rem; color: var(--dim); display: flex; align-items: center; }
+.pc-dnd-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.4rem 0.7rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.25);
+  color: #f87171;
+  font-size: 0.72rem;
+  font-style: italic;
+}
 #pc-close {
   background: none;
   border: none;
@@ -3635,6 +3686,25 @@ body.is-dragging * { cursor: grabbing !important; }
   width: 52px;
   box-shadow: -6px 0 24px rgba(0,180,219,0.55);
 }
+.gc-unread-badge {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px var(--bg, #14141e);
+  z-index: 1;
+}
+.gc-unread-badge.show { display: flex; }
 
 .global-chat-panel {
   position: fixed;

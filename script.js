@@ -642,6 +642,48 @@ function chatDateLabel(d) {
   return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+/* ---- PRÄSENZ-STATUS (online/abwesend/nicht stören/offline) ---- */
+function presenceDot(presence) {
+  switch (presence) {
+    case 'online': return '<span class="online-dot green"></span>';
+    case 'away': return '<span class="online-dot orange"></span>';
+    case 'dnd': return '<span class="online-dot red"></span>';
+    default: return '<span class="online-dot gray"></span>';
+  }
+}
+function presenceLabel(presence, lastSeen) {
+  if (presence === 'online') return presenceDot(presence) + 'Online';
+  if (presence === 'away') return presenceDot(presence) + 'Abwesend';
+  if (presence === 'dnd') return presenceDot(presence) + 'Nicht stören';
+  if (!lastSeen) return presenceDot('offline') + 'Offline';
+  var mins = Math.floor((Date.now() - new Date(lastSeen).getTime()) / 60000);
+  var txt;
+  if (mins < 1) txt = 'Gerade eben online';
+  else if (mins < 60) txt = 'Vor ' + mins + ' Min. online';
+  else {
+    var hrs = Math.floor(mins / 60);
+    if (hrs < 24) txt = 'Vor ' + hrs + ' Std. online';
+    else { var days = Math.floor(hrs / 24); txt = 'Vor ' + days + ' Tag' + (days > 1 ? 'en' : '') + ' online'; }
+  }
+  return presenceDot('offline') + txt;
+}
+
+/* ---- GLOBAL CHAT: UNGELESEN-BADGE ---- */
+var gcPanelOpen = false;
+function gcLastSeenKey() { return 'gcLastSeen_' + (user ? user.id : 'anon'); }
+function getGcLastSeen() { return parseInt(localStorage.getItem(gcLastSeenKey())) || 0; }
+function setGcLastSeen(id) { localStorage.setItem(gcLastSeenKey(), String(id)); }
+function updateGcBadge(count) {
+  var badge = document.getElementById('gc-unread-badge');
+  if (!badge) return;
+  if (count > 0 && !gcPanelOpen) {
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.classList.add('show');
+  } else {
+    badge.classList.remove('show');
+  }
+}
+
 /* ---- GLOBAL CHAT ---- */
 async function loadGlobalChat() {
   if (!user) return;
@@ -690,6 +732,22 @@ async function loadGlobalChat() {
     if (wasAtBottom || lastChatCount === 0) win.scrollTop = win.scrollHeight;
     lastChatCount = msgs.length;
     loadGlobalTyping();
+    // Ungelesen-Badge aktualisieren
+    if (msgs.length) {
+      var maxId = Math.max.apply(null, msgs.map(function(m) { return m.id; }));
+      if (gcPanelOpen) {
+        setGcLastSeen(maxId);
+        updateGcBadge(0);
+      } else {
+        var lastSeenId = getGcLastSeen();
+        if (lastSeenId === 0) {
+          setGcLastSeen(maxId);
+        } else {
+          var unreadCount = msgs.filter(function(m) { return m.id > lastSeenId && m.user_id !== user.id; }).length;
+          updateGcBadge(unreadCount);
+        }
+      }
+    }
   } catch (e) {}
 }
 
@@ -707,7 +765,10 @@ async function showGlobalReadInfo(msgId, anchorEl) {
       if (!arr || !arr.length) return '<li class="cri-empty">' + emptyText + '</li>';
       return arr.map(function(u) {
         var seed = u.avatar_seed || u.name || 'unknown';
-        return '<li><img src="https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(seed) + '" alt="">' + escHtml(u.name || '?') + '</li>';
+        return '<li><img src="https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(seed) + '" alt="">' +
+          '<span>' + escHtml(u.name || '?') + '</span>' +
+          '<span style="margin-left:auto;font-size:0.65rem;white-space:nowrap;">' + presenceLabel(u.presence, u.last_seen) + '</span>' +
+          '</li>';
       }).join('');
     }
     box.innerHTML =
@@ -832,10 +893,16 @@ async function sendGameInvite(toId, btn, gameType) {
     });
     var lobby = await lobRes.json();
     if (!lobRes.ok || !lobby.id) { if (btn) { btn.disabled = false; btn.textContent = 'Einladen'; } return; }
-    await fetch(API_URL + '/api/lobby/invite', {
+    var invRes = await fetch(API_URL + '/api/lobby/invite', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lobby_id: lobby.id, from_id: user.id, to_id: toId })
     });
+    if (!invRes.ok) {
+      var errData = await invRes.json().catch(function() { return {}; });
+      if (btn) { btn.disabled = false; btn.textContent = 'Einladen'; }
+      showToast('🔕 ' + (errData.error || 'Nutzer nimmt aktuell keine Einladungen an'));
+      return;
+    }
     if (btn) { btn.textContent = '✓ Gesendet'; }
     var gameNames = { tictactoe:'TicTacToe', connect4:'4 Gewinnt', elfmeter:'Schiffe versenken', rps:'Schere Stein Papier', chess:'Schach', math:'Rechen-Duell' };
     showToast('⚔️ Einladung zu ' + (gameNames[gameType]||gameType) + ' gesendet!');
@@ -1305,7 +1372,7 @@ function renderSidebar(friends) {
       '</div>' +
       '<div class="sidebar-friend-info">' +
       '<div class="sidebar-friend-name">' + escHtml(f.name) + '</div>' +
-      '<div class="sidebar-friend-status">' + (f.is_online ? '<span class="online-dot green"></span>Online' : '<span class="online-dot gray"></span>Offline') + '</div>' +
+      '<div class="sidebar-friend-status">' + presenceLabel(f.presence || (f.is_online ? 'online' : 'offline'), f.last_seen) + '</div>' +
       '</div>' +
       '</div>';
   });
@@ -1324,6 +1391,9 @@ function openPrivateChat(friend) {
   var seed = friend.avatar_seed || friend.name || 'unknown';
   document.getElementById('pc-avatar').src = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
   document.getElementById('pc-name').textContent = friend.name;
+  document.getElementById('pc-presence').innerHTML = '';
+  var dndBanner = document.getElementById('pc-dnd-banner');
+  if (dndBanner) { dndBanner.style.display = 'none'; dndBanner.innerHTML = ''; }
   document.getElementById('pc-input').value = '';
   document.getElementById('private-chat-modal').classList.add('open');
   loadPrivateMessages();
@@ -1349,6 +1419,21 @@ async function loadPrivateMessages() {
     var data = await res.json();
     var msgs = Array.isArray(data) ? data : (data.messages || []);
     var friendOnline = Array.isArray(data) ? false : !!data.friend_online;
+    var friendPresence = Array.isArray(data) ? 'offline' : (data.friend_presence || 'offline');
+    var friendLastSeen = Array.isArray(data) ? null : data.friend_last_seen;
+    // Präsenz-Anzeige & "Nicht stören"-Hinweis im Header aktualisieren
+    var presenceEl = document.getElementById('pc-presence');
+    if (presenceEl) presenceEl.innerHTML = presenceLabel(friendPresence, friendLastSeen);
+    var dndBanner = document.getElementById('pc-dnd-banner');
+    if (dndBanner) {
+      if (friendPresence === 'dnd') {
+        dndBanner.style.display = 'flex';
+        dndBanner.innerHTML = '🔕 ' + escHtml(activeChatFriend.name) + ' ist gerade auf "Nicht stören" und erhält aktuell keine Benachrichtigungen.';
+      } else {
+        dndBanner.style.display = 'none';
+        dndBanner.innerHTML = '';
+      }
+    }
     if (!Array.isArray(msgs)) return;
     var container = document.getElementById('pc-messages');
     if (!container) return;
@@ -2070,6 +2155,7 @@ document.getElementById("avatar").src =
   document.getElementById('sidebar').classList.add('visible');
   document.getElementById('sidebar-mobile-btn').classList.add('visible');
   document.getElementById('global-chat-btn').classList.add('visible');
+  applyChatIconsVisibility();
   unreadCounts = {};
   loadUnreadCounts._initialized = false; // reset so first load doesn't trigger notifs for old messages
   loadUnreadCounts();
@@ -2924,10 +3010,13 @@ document.getElementById('global-chat-btn').addEventListener('click', function() 
   var opening = !panel.classList.contains('open');
   if (!opening) {
     panel.classList.remove('open');
+    gcPanelOpen = false;
     if (panel._resetDragPosition) panel._resetDragPosition();
     return;
   }
   panel.classList.add('open');
+  gcPanelOpen = true;
+  updateGcBadge(0);
   loadGlobalChat();
   setTimeout(function() {
     var w = document.getElementById('chat-window');
@@ -2937,6 +3026,7 @@ document.getElementById('global-chat-btn').addEventListener('click', function() 
 document.getElementById('gc-close').addEventListener('click', function() {
   var panel = document.getElementById('global-chat-panel');
   panel.classList.remove('open');
+  gcPanelOpen = false;
   if (panel._resetDragPosition) panel._resetDragPosition();
 });
 // Rang-Legende Modal
@@ -4348,6 +4438,7 @@ document.getElementById("avatar").addEventListener("click", function() {
     "Spiele gespielt: " + (user.games_played || 0);
   document.getElementById("profile-overlay").classList.add("on");
   refreshNotifToggle();
+  refreshStatusMenu();
   renderProfileEmail();
   // Spotlight auf E-Mail Row wenn keine E-Mail
   if (!user.email) {
@@ -4360,6 +4451,71 @@ document.getElementById("avatar").addEventListener("click", function() {
       }
     }, 300);
   }
+});
+
+/* ---- STATUS-MENÜ (Aktiv / Abwesend / Nicht stören + Einstellungen) ---- */
+function refreshStatusMenu() {
+  if (!user) return;
+  var status = user.status || 'online';
+  document.querySelectorAll('.status-option').forEach(function(btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-status') === status);
+  });
+  setToggleUI('hide-chat-toggle-btn', 'hide-chat-toggle-text', !user.hide_chat_icons);
+  setToggleUI('accept-invites-toggle-btn', 'accept-invites-toggle-text', user.accept_invites !== false);
+}
+
+function setToggleUI(btnId, textId, on) {
+  var btn = document.getElementById(btnId);
+  var txt = document.getElementById(textId);
+  if (!btn) return;
+  if (on) { btn.classList.add('on'); if (txt) txt.textContent = 'An'; }
+  else { btn.classList.remove('on'); if (txt) txt.textContent = 'Aus'; }
+}
+
+function applyChatIconsVisibility() {
+  var hide = !!(user && user.hide_chat_icons);
+  ['global-chat-btn', 'sidebar-mobile-btn', 'sidebar-toggle'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = hide ? 'none' : '';
+  });
+}
+
+document.querySelectorAll('.status-option').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    if (!user) return;
+    var status = btn.getAttribute('data-status');
+    if (user.status === status) return;
+    user.status = status;
+    refreshStatusMenu();
+    fetch(API_URL + '/api/users/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.id, status: status })
+    }).catch(function() {});
+  });
+});
+
+document.getElementById('hide-chat-toggle-btn').addEventListener('click', function() {
+  if (!user) return;
+  user.hide_chat_icons = !user.hide_chat_icons;
+  refreshStatusMenu();
+  applyChatIconsVisibility();
+  fetch(API_URL + '/api/users/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: user.id, hide_chat_icons: user.hide_chat_icons })
+  }).catch(function() {});
+});
+
+document.getElementById('accept-invites-toggle-btn').addEventListener('click', function() {
+  if (!user) return;
+  user.accept_invites = (user.accept_invites === false) ? true : false;
+  refreshStatusMenu();
+  fetch(API_URL + '/api/users/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: user.id, accept_invites: user.accept_invites })
+  }).catch(function() {});
 });
 
 document.getElementById("btn-close-profile").addEventListener("click", function() {

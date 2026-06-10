@@ -501,7 +501,7 @@
 <button id="sidebar-mobile-btn" class="sidebar-mobile-btn" title="Freunde-Chat">💬</button>
 
 <!-- GLOBAL CHAT BUTTON + PANEL -->
-<button id="global-chat-btn" class="global-chat-btn" title="Globaler Chat">🌍</button>
+<button id="global-chat-btn" class="global-chat-btn" title="Globaler Chat">🌍<span id="gc-unread-badge" class="gc-unread-badge">0</span></button>
 <div id="global-chat-panel" class="global-chat-panel">
   <div class="gc-header">
     <span>🌍 Globaler Chat</span>
@@ -520,10 +520,14 @@
   <div class="pc-header">
     <div class="pc-header-info">
       <img id="pc-avatar" class="pc-avatar" src="" alt="">
-      <span id="pc-name"></span>
+      <div class="pc-name-col">
+        <span id="pc-name"></span>
+        <span id="pc-presence"></span>
+      </div>
     </div>
     <button id="pc-close">✕</button>
   </div>
+  <div id="pc-dnd-banner" class="pc-dnd-banner" style="display:none"></div>
   <div id="pc-messages" class="pc-messages"></div>
   <div id="pc-typing" class="pc-typing"></div>
   <div class="pc-input-row">
@@ -910,6 +914,34 @@
       </div>
     </div>
     <div id="pe-msg" class="pe-msg"></div>
+  </div>
+
+  <!-- Status-Auswahl -->
+  <div class="status-setting-row" id="status-setting-row">
+    <span class="status-setting-label">📶 Dein Status</span>
+    <div class="status-options">
+      <button class="status-option" id="status-opt-online" data-status="online"><span class="online-dot green"></span>Aktiv</button>
+      <button class="status-option" id="status-opt-away" data-status="away"><span class="online-dot orange"></span>Abwesend</button>
+      <button class="status-option" id="status-opt-dnd" data-status="dnd"><span class="online-dot red"></span>Nicht stören</button>
+    </div>
+  </div>
+
+  <!-- Chat-Icons anzeigen/ausblenden -->
+  <div class="notif-setting-row" id="hide-chat-setting-row">
+    <span class="notif-setting-label">💬 Chat-Icons anzeigen</span>
+    <button class="notif-toggle-btn on" id="hide-chat-toggle-btn" title="Chat-Icons ein/aus">
+      <span class="notif-toggle-track"><span class="notif-toggle-thumb"></span></span>
+      <span class="notif-toggle-text" id="hide-chat-toggle-text">An</span>
+    </button>
+  </div>
+
+  <!-- Multiplayer-Einladungen -->
+  <div class="notif-setting-row" id="accept-invites-setting-row">
+    <span class="notif-setting-label">⚔️ Multiplayer-Einladungen</span>
+    <button class="notif-toggle-btn on" id="accept-invites-toggle-btn" title="Einladungen ein/aus">
+      <span class="notif-toggle-track"><span class="notif-toggle-thumb"></span></span>
+      <span class="notif-toggle-text" id="accept-invites-toggle-text">An</span>
+    </button>
   </div>
 
   <!-- Notification toggle -->
