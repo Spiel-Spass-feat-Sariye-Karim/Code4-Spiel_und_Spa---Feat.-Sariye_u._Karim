@@ -109,6 +109,9 @@ app.post('/api/login', async (req, res) => {
     await db.from('users').update({ is_online: true, last_seen: new Date().toISOString() }).eq('id', user.id);
     user.is_online = true;
     user.last_seen = new Date().toISOString();
+    // Präsenz-Status & Einstellungen (in-memory, falls DB-Spalten fehlen) ergänzen
+    user.status = userPresence[user.id] || user.status || 'online';
+    if (userSettingsMem[user.id]) Object.assign(user, userSettingsMem[user.id]);
 
     // Passwort aus Antwort entfernen (Sicherheit!)
     delete user.pass;
@@ -528,7 +531,7 @@ app.get('/api/users/search', async (req, res) => {
   const q = (req.query.q || '').trim();
   const me = parseInt(req.query.me);
   try {
-    let query = db.from('users').select('id, name, avatar_seed, is_online, last_seen, status').limit(100);
+    let query = db.from('users').select('id, name, avatar_seed, is_online, last_seen').limit(100);
     if (q) query = query.ilike('name', '%' + q + '%');
     else query = query.order('name');
     const { data: users, error } = await query;
@@ -541,7 +544,8 @@ app.get('/api/users/search', async (req, res) => {
         ...u,
         is_online: u.last_seen
           ? (now - new Date(u.last_seen).getTime()) < 3 * 60 * 1000
-          : false
+          : false,
+        status: getUserStatus(u.id)
       }));
     res.json(result);
   } catch (err) {
@@ -724,7 +728,7 @@ app.get('/api/friends/:user_id', async (req, res) => {
   try {
     const { data: friendships, error } = await db
       .from('friendships')
-      .select('receiver_id, users!receiver_id(id, name, avatar_seed, memory, stack, reaction, is_online, last_seen, status)')
+      .select('receiver_id, users!receiver_id(id, name, avatar_seed, memory, stack, reaction, is_online, last_seen)')
       .eq('sender_id', req.params.user_id)
       .eq('status', 'accepted');
     if (error) return res.status(400).json({ error: 'Fehler beim Laden' });
@@ -732,7 +736,7 @@ app.get('/api/friends/:user_id', async (req, res) => {
     const result = (friendships || []).map(f => {
       const lastSeen = f.users?.last_seen;
       const isOnline = lastSeen ? (now - new Date(lastSeen).getTime()) < 3 * 60 * 1000 : false;
-      const userStatus = f.users?.status || 'online';
+      const userStatus = f.users ? getUserStatus(f.users.id) : 'online';
       let presence = 'offline';
       if (userStatus === 'dnd') presence = 'dnd';
       else if (isOnline) presence = (userStatus === 'away') ? 'away' : 'online';
@@ -904,8 +908,8 @@ app.post('/api/lobby/invite', async (req, res) => {
   if (!lobby_id || !from_id || !to_id) return res.status(400).json({ error: 'Fehlende Daten' });
   try {
     // Prüfen ob Empfänger Einladungen erlaubt (nicht im "Nicht stören"-Modus oder deaktiviert)
-    const { data: toUser } = await db.from('users').select('accept_invites, status').eq('id', to_id).single();
-    if (toUser && (toUser.accept_invites === false || toUser.status === 'dnd')) {
+    const toSettings = getUserSettings(to_id);
+    if (toSettings.accept_invites === false || getUserStatus(to_id) === 'dnd') {
       return res.status(403).json({ error: 'Nutzer nimmt aktuell keine Einladungen an' });
     }
     const { data, error } = await db.from('game_invites')
@@ -934,8 +938,9 @@ app.post('/api/users/status', async (req, res) => {
     if (!user_id || !['online', 'away', 'dnd'].includes(status)) {
       return res.status(400).json({ error: 'Ungültiger Status' });
     }
-    const { error } = await db.from('users').update({ status }).eq('id', user_id);
-    if (error) throw error;
+    userPresence[user_id] = status;
+    // Best-effort: in DB persistieren, falls die optionale Spalte existiert (sonst stillschweigend ignorieren)
+    db.from('users').update({ status }).eq('id', user_id).then(() => {}, () => {});
     res.json({ ok: true, status });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
@@ -950,8 +955,9 @@ app.post('/api/users/settings', async (req, res) => {
     if (typeof hide_chat_icons === 'boolean') update.hide_chat_icons = hide_chat_icons;
     if (typeof accept_invites === 'boolean') update.accept_invites = accept_invites;
     if (!Object.keys(update).length) return res.status(400).json({ error: 'Keine Änderungen' });
-    const { error } = await db.from('users').update(update).eq('id', user_id);
-    if (error) throw error;
+    userSettingsMem[user_id] = Object.assign({}, getUserSettings(user_id), update);
+    // Best-effort: in DB persistieren, falls die optionalen Spalten existieren (sonst stillschweigend ignorieren)
+    db.from('users').update(update).eq('id', user_id).then(() => {}, () => {});
     res.json({ ok: true, ...update });
   } catch (err) {
     res.status(500).json({ error: 'Server-Fehler' });
@@ -1022,13 +1028,13 @@ app.get('/api/chat/private/:user_id/:friend_id', async (req, res) => {
     let friendPresence = 'offline';
     let friendLastSeen = null;
     try {
-      const { data: friendUser } = await db.from('users').select('last_seen, status').eq('id', friendId).single();
+      const { data: friendUser } = await db.from('users').select('last_seen').eq('id', friendId).single();
       if (friendUser) {
         friendLastSeen = friendUser.last_seen;
         friendOnline = friendUser.last_seen
           ? (Date.now() - new Date(friendUser.last_seen).getTime()) < 3 * 60 * 1000
           : false;
-        const st = friendUser.status || 'online';
+        const st = getUserStatus(friendId);
         if (st === 'dnd') friendPresence = 'dnd';
         else if (friendOnline) friendPresence = (st === 'away') ? 'away' : 'online';
       }
@@ -1038,6 +1044,15 @@ app.get('/api/chat/private/:user_id/:friend_id', async (req, res) => {
     res.status(500).json({ error: 'Server-Fehler' });
   }
 });
+
+// ============= USER-PRÄSENZ & EINSTELLUNGEN (in-memory, DB optional) =============
+// Funktioniert auch ohne die optionalen Spalten status/hide_chat_icons/accept_invites in der users-Tabelle.
+const userPresence = {};  // user_id -> 'online' | 'away' | 'dnd'
+const userSettingsMem = {}; // user_id -> { hide_chat_icons, accept_invites }
+function getUserStatus(userId) { return userPresence[userId] || 'online'; }
+function getUserSettings(userId) {
+  return userSettingsMem[userId] || { hide_chat_icons: false, accept_invites: true };
+}
 
 // ============= TYPING-INDIKATOREN (in-memory) =============
 const typingState = {
@@ -1145,7 +1160,7 @@ app.get('/api/chat/global', async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
     const { data, error } = await db
       .from('global_chat')
-      .select('id, user_id, user_name, avatar_seed, message, created_at, users!user_id(status, last_seen)')
+      .select('id, user_id, user_name, avatar_seed, message, created_at, users!user_id(last_seen)')
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error) throw error;
@@ -1155,7 +1170,7 @@ app.get('/api/chat/global', async (req, res) => {
       const u = m.users;
       const lastSeen = u && u.last_seen;
       const isOnline = lastSeen ? (now - new Date(lastSeen).getTime()) < 3 * 60 * 1000 : false;
-      const st = (u && u.status) || 'online';
+      const st = getUserStatus(m.user_id);
       let presence = 'offline';
       if (st === 'dnd') presence = 'dnd';
       else if (isOnline) presence = (st === 'away') ? 'away' : 'online';
@@ -1189,7 +1204,7 @@ app.get('/api/chat/global/info/:message_id', async (req, res) => {
     const userId = parseInt(req.query.user_id);
     const now = Date.now();
     const { data: allUsers, error } = await db.from('users')
-      .select('id, name, avatar_seed, status, last_seen')
+      .select('id, name, avatar_seed, last_seen')
       .limit(2000);
     if (error) throw error;
     const read = [];
@@ -1198,9 +1213,10 @@ app.get('/api/chat/global/info/:message_id', async (req, res) => {
       if (u.id === userId) return;
       const info = globalReadState[u.id];
       const isOnline = u.last_seen ? (now - new Date(u.last_seen).getTime()) < 3 * 60 * 1000 : false;
+      const uStatus = getUserStatus(u.id);
       let presence = 'offline';
-      if (u.status === 'dnd') presence = 'dnd';
-      else if (isOnline) presence = (u.status === 'away') ? 'away' : 'online';
+      if (uStatus === 'dnd') presence = 'dnd';
+      else if (isOnline) presence = (uStatus === 'away') ? 'away' : 'online';
       const entry = {
         name: u.name,
         avatar_seed: u.avatar_seed,
@@ -1327,8 +1343,7 @@ async function sendPushToUser(userId, title, body, extra = {}) {
   if (!webpush) return;
   try {
     // "Nicht stören" -> keine Push-Benachrichtigungen
-    const { data: u } = await db.from('users').select('status').eq('id', userId).single();
-    if (u && u.status === 'dnd') return;
+    if (getUserStatus(userId) === 'dnd') return;
     const { data: subs } = await db.from('push_subscriptions')
       .select('subscription').eq('user_id', userId);
     if (!subs || !subs.length) return;
