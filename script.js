@@ -322,6 +322,12 @@ function updateNotifBadge() {
 }
 
 var PATCHNOTES = [
+  { version: 'v2.8', date: '10. Jun 2026', title: '🎨 Zahlen-Raten: Bunter Verlaufsbalken',
+    items: ['Verlaufsbalken (1–100) jetzt in lebendigem Rot → Orange → Gelb → Grün', 'Harmonischer Farbverlauf passend zum dunklen Arcade-Design'],
+    tags: ['improve','improve'] },
+  { version: 'v2.7', date: '10. Jun 2026', title: '🐍 Schlange: Start-Countdown',
+    items: ['Neue Startsequenz: "Bereit?" gefolgt von Countdown 3-2-1-Los!', 'Schlange steht still & ignoriert Eingaben bis der Countdown endet'],
+    tags: ['new','improve'] },
   { version: 'v2.6', date: '10. Jun 2026', title: '✨ UI-Politur: Einstellungen & Sidebar',
     items: ['"Verifiziert"-Badge in den Einstellungen: Layout-Fix für alle Betriebssysteme', 'Schließen-Button im Einstellungen-Modal neu gestaltet (rund, mit Hover-Effekt)', 'Freunde-Sidebar: Zeilenabstand springt beim Hovern nicht mehr', 'Startseite: Spiele-Anzahl auf 15 aktualisiert'],
     tags: ['fix','improve','fix','fix'] },
