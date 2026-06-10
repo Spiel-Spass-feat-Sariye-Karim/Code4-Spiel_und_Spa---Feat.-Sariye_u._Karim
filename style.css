@@ -6413,6 +6413,42 @@ body.light .avatar-status-menu-link:hover { background: #f0f0f6; }
   opacity: 0;
 }
 
+/* ── Highscore-Tabelle auf Mobile: sichtbare Trennlinien, engere
+   Spalten & kleinere Schrift, Einheiten (RP, ms, Et.) über statt
+   neben dem Wert ───────────────────────────────────────────── */
+@media (max-width: 500px) {
+  .sb-table { font-size: 0.72rem; min-width: 480px; }
+  .sb-table thead th { padding: 6px 4px 5px; font-size: 0.6rem; }
+  .sb-table thead th.sbt-th-player { padding-left: 8px; }
+  .sb-table thead th .sbt-th-label { font-size: 0.5rem; }
+  .sb-table thead th.sbt-rp-col { min-width: 38px !important; }
+  .sb-table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.15); }
+  .sb-table tbody td { padding: 6px 4px; }
+  .sb-table tbody td.sbt-td-rank { font-size: 0.95rem; width: 28px; padding: 6px 2px; }
+  .sb-table tbody td.sbt-td-player { padding-left: 6px; min-width: 90px; max-width: 125px; }
+  .sbt-player-inner { gap: 4px; }
+  .sbt-player-inner .sb-av { width: 20px; height: 20px; }
+  .sbt-player-name { font-size: 0.72rem; }
+  .sbt-rank-badge { font-size: 0.48rem; }
+  .sb-table tbody td.sbt-td-rp,
+  .sb-table tbody td.sbt-td-val {
+    position: relative;
+    padding-top: 17px;
+  }
+  .sb-table tbody td.sbt-td-rp { min-width: 36px; }
+  .sb-table tbody td.sbt-td-val { font-size: 0.62rem; min-width: 32px; }
+  .sbt-rp-unit, .sbt-val-unit {
+    position: absolute;
+    top: 4px; left: 0; right: 0;
+    text-align: center;
+    margin-left: 0;
+    display: block;
+  }
+  .sbt-rp-unit { font-size: 0.5rem; }
+  .sbt-val-unit { font-size: 0.45rem; }
+  .sbt-val-num { font-size: 0.7rem; }
+}
+
 /* ── Blinking "WEITER" arrow — shown on step 1 (first-step class) ── */
 .guide-overlay.first-step .guide-btn-next::after {
   content: '▲';
