@@ -536,6 +536,7 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.8rem;
   padding: 0.8rem 1.5rem;
   border-bottom: 1px solid #222;
   position: relative;
@@ -611,6 +612,9 @@ body.light .logo { animation: logoGlowLight 3.5s ease-in-out infinite alternate;
 
 .user-info{display:flex;align-items:center;gap:0.8rem;font-size:0.85rem;color:var(--dim)}
 .user-info strong{color:var(--tx)}
+/* Avatar + Username group — sits at the right edge, right before the action buttons (desktop) */
+.header-profile{display:flex;align-items:center;gap:0.8rem;font-size:0.85rem;color:var(--dim);margin-left:auto}
+.header-profile strong{color:var(--tx)}
 .avatar {
   width: 32px;
   height: 32px;
@@ -2131,11 +2135,33 @@ animation: popIn 0.25s ease-out;
 }
 /* Handy */
 @media (max-width: 500px) {
-header { padding: 0.6rem 1rem; }
-/* Header: airy, evenly spaced, never squished on mobile */
+/* Header: 2-column layout — left = Logo (top) + Avatar/Username (below),
+   right = action buttons, vertically centered & spread across both rows */
+header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    "logo    buttons"
+    "profile buttons";
+  align-items: center;
+  row-gap: 0.9rem;
+  column-gap: 0.7rem;
+  padding: 0.7rem 1rem;
+}
+.logo { grid-area: logo; }
+/* Avatar + Username — small gap, vertically centered to each other,
+   with a generous gap below the logo (row-gap above) */
+.header-profile {
+  grid-area: profile;
+  margin-left: 0;
+  gap: 0.5rem;
+}
+/* Action buttons — evenly spaced, wrap neatly, centered next to the left column */
 .user-info {
+  grid-area: buttons;
   flex-wrap: wrap;
   justify-content: flex-end;
+  align-content: center;
   gap: 0.4rem;
   row-gap: 0.5rem;
   font-size: 0.78rem;
