@@ -4566,6 +4566,9 @@ function openSettingsOverlay() {
 
 /* ---- AVATAR-DROPDOWN (Status-Menü direkt unter dem Avatar) ---- */
 document.getElementById("avatar-spotlight-wrap").style.cursor = "pointer";
+// Ans Ende von <body> verschieben, damit es nicht in der Stacking-Context des
+// Headers (z-index:1) gefangen ist und immer im Vordergrund liegt.
+document.body.appendChild(document.getElementById("avatar-status-menu"));
 document.getElementById("avatar").addEventListener("click", function(e) {
   e.stopPropagation();
   refreshStatusMenu();
