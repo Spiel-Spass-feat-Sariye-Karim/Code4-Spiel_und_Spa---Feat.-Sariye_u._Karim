@@ -2837,6 +2837,28 @@ body.light .notif-dialog-box { background: #fff; border-color: rgba(0,0,0,0.08);
 .online-dot.red    { background: #ef4444; box-shadow: 0 0 4px #ef4444; }
 .online-dot.gray   { background: #555; }
 
+/* ---- Status-Lämpchen auf Avatar-Bildern (Header, Chats) ---- */
+.av-status-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--bg, #14141e);
+  background: #555;
+  z-index: 2;
+  pointer-events: none;
+}
+.av-status-dot.online  { background: #4caf50; }
+.av-status-dot.away    { background: #ff9800; }
+.av-status-dot.dnd     { background: #ef4444; }
+.av-status-dot.offline { background: #555; }
+/* Kleinere Variante für Chat-Avatare */
+.chat-avatar-wrap { position: relative; display: inline-block; flex-shrink: 0; cursor: pointer; }
+.chat-avatar-wrap .chat-avatar { display: block; }
+.chat-avatar-wrap .av-status-dot { width: 8px; height: 8px; border-width: 1.5px; }
+
 /* Freunde-Zeilen */
 .friend-row {
   display: flex;

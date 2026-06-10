@@ -668,6 +668,60 @@ function presenceLabel(presence, lastSeen) {
   return presenceDot('offline') + txt;
 }
 
+// Eigener (Live-)Präsenzstatus, basierend auf der gewählten Einstellung
+function ownPresence() {
+  if (!user) return 'online';
+  if (user.status === 'dnd') return 'dnd';
+  if (user.status === 'away') return 'away';
+  return 'online';
+}
+
+function updateHeaderStatusDot() {
+  var dot = document.getElementById('avatar-status-dot');
+  if (!dot) return;
+  dot.className = 'av-status-dot ' + ownPresence();
+}
+
+// Avatar mit kleinem Status-Lämpchen (für Chats), Klick zeigt Profil-Popup
+function chatAvatarHtml(seed, presence, lastSeen, name) {
+  var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(seed);
+  return '<span class="chat-avatar-wrap" data-name="' + escHtml(name || '') + '" data-seed="' + encodeURIComponent(seed) + '" data-presence="' + (presence || 'offline') + '" data-last-seen="' + (lastSeen || '') + '">' +
+    '<img class="chat-avatar" src="' + av + '" alt="">' +
+    '<span class="av-status-dot ' + (presence || 'offline') + '"></span>' +
+    '</span>';
+}
+
+function showUserStatusPopup(el) {
+  var existing = document.querySelector('.chat-read-info');
+  if (existing) existing.remove();
+  var name = el.getAttribute('data-name');
+  var seed = decodeURIComponent(el.getAttribute('data-seed') || '');
+  var presence = el.getAttribute('data-presence');
+  var lastSeen = el.getAttribute('data-last-seen');
+  var box = document.createElement('div');
+  box.className = 'chat-read-info';
+  box.innerHTML =
+    '<button class="cri-close">✕</button>' +
+    '<h5>' + escHtml(name) + '</h5>' +
+    '<div style="display:flex;align-items:center;gap:0.6rem;padding:0.2rem 0;">' +
+    '<img src="https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(seed) + '" alt="" style="width:32px;height:32px;border-radius:50%;">' +
+    '<span style="font-size:0.75rem;">' + presenceLabel(presence, lastSeen) + '</span>' +
+    '</div>';
+  document.body.appendChild(box);
+  var rect = el.getBoundingClientRect();
+  box.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+  var left = rect.left + window.scrollX;
+  if (left + 220 > window.innerWidth) left = window.innerWidth - 230;
+  if (left < 8) left = 8;
+  box.style.left = left + 'px';
+  box.querySelector('.cri-close').addEventListener('click', function() { box.remove(); });
+  setTimeout(function() {
+    document.addEventListener('click', function handler(e) {
+      if (!box.contains(e.target)) { box.remove(); document.removeEventListener('click', handler); }
+    }, { once: true });
+  }, 0);
+}
+
 /* ---- GLOBAL CHAT: UNGELESEN-BADGE ---- */
 var gcPanelOpen = false;
 function gcLastSeenKey() { return 'gcLastSeen_' + (user ? user.id : 'anon'); }
@@ -710,12 +764,13 @@ async function loadGlobalChat() {
       }
       var isOwn = m.user_id === user.id;
       var seed = m.avatar_seed || m.user_name || 'unknown';
-      var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
+      var presence = isOwn ? ownPresence() : (m.presence || 'offline');
+      var lastSeen = isOwn ? null : m.last_seen;
       var time = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
       var receipt = isOwn ? '<span class="chat-receipt" data-msg-id="' + m.id + '" title="Wer hat gelesen?">ℹ️</span>' : '';
       html +=
         '<div class="chat-msg' + (isOwn ? ' own' : '') + '">' +
-        '<img class="chat-avatar" src="' + av + '" alt="">' +
+        chatAvatarHtml(seed, presence, lastSeen, m.user_name) +
         '<div class="chat-bubble">' +
         '<div class="chat-meta"><span class="chat-name">' + escHtml(m.user_name) + '</span><span class="chat-time">' + time + receipt + '</span></div>' +
         '<div class="chat-text">' + escHtml(m.message) + '</div>' +
@@ -1448,9 +1503,9 @@ async function loadPrivateMessages() {
         lastDateKey = dateKey;
       }
       var isOwn = m.sender_id === user.id;
-      var av = isOwn
-        ? 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + (user.avatar_seed || user.name)
-        : 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + (activeChatFriend.avatar_seed || activeChatFriend.name);
+      var seed = isOwn ? (user.avatar_seed || user.name) : (activeChatFriend.avatar_seed || activeChatFriend.name);
+      var presence = isOwn ? ownPresence() : friendPresence;
+      var lastSeen = isOwn ? null : friendLastSeen;
       var name = isOwn ? user.name : activeChatFriend.name;
       var time = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
       var receipt = '';
@@ -1461,7 +1516,7 @@ async function loadPrivateMessages() {
       }
       html +=
         '<div class="chat-msg' + (isOwn ? ' own' : '') + '">' +
-        '<img class="chat-avatar" src="' + av + '" alt="">' +
+        chatAvatarHtml(seed, presence, lastSeen, name) +
         '<div class="chat-bubble">' +
         '<div class="chat-meta"><span class="chat-name">' + escHtml(name) + '</span><span class="chat-time">' + time + receipt + '</span></div>' +
         '<div class="chat-text">' + escHtml(m.message) + '</div>' +
@@ -2156,6 +2211,7 @@ document.getElementById("avatar").src =
   document.getElementById('sidebar-mobile-btn').classList.add('visible');
   document.getElementById('global-chat-btn').classList.add('visible');
   applyChatIconsVisibility();
+  updateHeaderStatusDot();
   unreadCounts = {};
   loadUnreadCounts._initialized = false; // reset so first load doesn't trigger notifs for old messages
   loadUnreadCounts();
@@ -2998,6 +3054,10 @@ document.getElementById('popup').addEventListener('click', function(e) { if (e.t
 document.getElementById('chat-send').addEventListener('click', sendChatMessage);
 document.getElementById('chat-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') sendChatMessage(); });
 document.getElementById('chat-input').addEventListener('input', notifyGlobalTyping);
+document.getElementById('chat-window').addEventListener('click', function(e) {
+  var wrap = e.target.closest('.chat-avatar-wrap');
+  if (wrap) { e.stopPropagation(); showUserStatusPopup(wrap); }
+});
 document.getElementById('sidebar-toggle').addEventListener('click', function() {
   document.getElementById('sidebar').classList.toggle('expanded');
 });
@@ -3254,6 +3314,10 @@ document.getElementById('pc-close').addEventListener('click', closePrivateChat);
 document.getElementById('pc-send').addEventListener('click', sendPrivateMessage);
 document.getElementById('pc-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') sendPrivateMessage(); });
 document.getElementById('pc-input').addEventListener('input', notifyPrivateTyping);
+document.getElementById('pc-messages').addEventListener('click', function(e) {
+  var wrap = e.target.closest('.chat-avatar-wrap');
+  if (wrap) { e.stopPropagation(); showUserStatusPopup(wrap); }
+});
 
 function openG(id) {
   which = id;
@@ -4462,6 +4526,7 @@ function refreshStatusMenu() {
   });
   setToggleUI('hide-chat-toggle-btn', 'hide-chat-toggle-text', !user.hide_chat_icons);
   setToggleUI('accept-invites-toggle-btn', 'accept-invites-toggle-text', user.accept_invites !== false);
+  updateHeaderStatusDot();
 }
 
 function setToggleUI(btnId, textId, on) {

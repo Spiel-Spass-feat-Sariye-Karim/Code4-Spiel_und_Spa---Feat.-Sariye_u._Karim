@@ -1145,10 +1145,24 @@ app.get('/api/chat/global', async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
     const { data, error } = await db
       .from('global_chat')
-      .select('id, user_id, user_name, avatar_seed, message, created_at')
+      .select('id, user_id, user_name, avatar_seed, message, created_at, users!user_id(status, last_seen)')
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error) throw error;
+    // Präsenz pro Nachricht berechnen
+    const now = Date.now();
+    (data || []).forEach(m => {
+      const u = m.users;
+      const lastSeen = u && u.last_seen;
+      const isOnline = lastSeen ? (now - new Date(lastSeen).getTime()) < 3 * 60 * 1000 : false;
+      const st = (u && u.status) || 'online';
+      let presence = 'offline';
+      if (st === 'dnd') presence = 'dnd';
+      else if (isOnline) presence = (st === 'away') ? 'away' : 'online';
+      m.presence = presence;
+      m.last_seen = lastSeen || null;
+      delete m.users;
+    });
     // Lese-Status des anfragenden Users aktualisieren
     const userId = parseInt(req.query.user_id);
     if (userId && data && data.length) {
