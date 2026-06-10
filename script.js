@@ -6989,6 +6989,9 @@ function snakeStart() {
 
   var snake, dir, nextDir, apples, score, interval, speed;
   var appleAnim = 0;
+  var canMove = false;       // locked during the "Bereit?"/Countdown start sequence
+  var overlayText = null;    // text shown over the canvas during the start sequence
+  var startTimers = [];      // pending setTimeout ids for the start sequence
 
   function init() {
     snake = [{x:9,y:9},{x:8,y:9},{x:7,y:9}];
@@ -6997,9 +7000,10 @@ function snakeStart() {
     apples = [randomApple()];
     score = 0;
     speed = 150;
+    canMove = false;
     document.getElementById('pts').textContent = 0;
     if (interval) clearInterval(interval);
-    interval = setInterval(tick, speed);
+    interval = null;
     render();
   }
 
@@ -7053,6 +7057,44 @@ function snakeStart() {
     ctx.font = '14px monospace';
     ctx.fillStyle = '#aaa';
     ctx.fillText('Nochmal → Klick "Nochmal"', W/2, H/2 + 40);
+  }
+
+  // "Bereit?" → 3 → 2 → 1 → "Los!" — snake stands still & ignores input until done
+  function startSequence() {
+    var steps = ['Bereit?', '3', '2', '1', 'Los!'];
+    var delays = [900, 700, 700, 700, 500];
+    overlayText = steps[0];
+    var t = delays[0];
+    for (var i = 1; i < steps.length; i++) {
+      (function(text, time) {
+        startTimers.push(setTimeout(function() { overlayText = text; }, time));
+      })(steps[i], t);
+      t += delays[i];
+    }
+    startTimers.push(setTimeout(function() {
+      overlayText = null;
+      canMove = true;
+      if (interval) clearInterval(interval);
+      interval = setInterval(tick, speed);
+    }, t));
+  }
+
+  // Draws the "Bereit?"/Countdown overlay on top of the board, matching the Game-Over style
+  function drawOverlay() {
+    if (!overlayText) return;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, W, H);
+    var pulse = 1 + 0.06 * Math.sin(appleAnim * 1.5);
+    ctx.save();
+    ctx.translate(W/2, H/2);
+    ctx.scale(pulse, pulse);
+    ctx.font = 'bold 40px monospace';
+    ctx.fillStyle = '#00ffcc';
+    ctx.shadowColor = '#00ffcc'; ctx.shadowBlur = 22;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(overlayText, 0, 0);
+    ctx.restore();
   }
 
   appleAnim = 0;
@@ -7133,11 +7175,14 @@ function snakeStart() {
       ctx.shadowBlur = 0;
     });
     // Score shown in #pts (outside canvas)
+
+    // "Bereit?"/Countdown overlay (drawn last, on top of everything)
+    drawOverlay();
   }
 
   // keyboard
   function onKey(e) {
-    if (!snakeOn) return;
+    if (!snakeOn || !canMove) return;
     var map = {ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0},
                w:{x:0,y:-1},s:{x:0,y:1},a:{x:-1,y:0},d:{x:1,y:0},
                W:{x:0,y:-1},S:{x:0,y:1},A:{x:-1,y:0},D:{x:1,y:0}};
@@ -7150,7 +7195,7 @@ function snakeStart() {
   var touchStart = null;
   cv.addEventListener('touchstart', function(e){ touchStart = {x:e.touches[0].clientX, y:e.touches[0].clientY}; e.preventDefault(); }, {passive:false});
   cv.addEventListener('touchend', function(e){
-    if (!touchStart || !snakeOn) return;
+    if (!touchStart || !snakeOn || !canMove) return;
     var dx = e.changedTouches[0].clientX - touchStart.x;
     var dy = e.changedTouches[0].clientY - touchStart.y;
     if (Math.abs(dx) > Math.abs(dy)) {
@@ -7169,14 +7214,17 @@ function snakeStart() {
     render();
     appleRaf = requestAnimationFrame(animLoop);
   }
-  init();       // initialize snake state first
-  animLoop();   // then start animation
+  init();          // initialize snake state first
+  animLoop();      // then start animation
+  startSequence(); // "Bereit?" + 3-2-1-Los! before the snake starts moving
 
   game = {
     stop: function() {
       snakeOn = false;
       if (interval) { clearInterval(interval); interval = null; }
       if (appleRaf) { cancelAnimationFrame(appleRaf); appleRaf = null; }
+      startTimers.forEach(function(t){ clearTimeout(t); });
+      startTimers = [];
       document.removeEventListener('keydown', onKey);
     }
   };
