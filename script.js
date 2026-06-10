@@ -4234,27 +4234,31 @@ function guessGame() {
 }
 
 /* ---- SPIEL 6: INFO-WORDLE ---- */
+// Alle Lösungswörter sind genau 5 Buchstaben, A-Z, OHNE Umlaute (Ä/Ö/Ü) –
+// das Spielfeld hat exakt 5 Spalten und die Tastatur (Bildschirm + physisch)
+// kennt nur A-Z, daher dürfen Lösungswörter weder eine andere Länge haben
+// noch Umlaute enthalten (sonst wäre das Wort nicht eingebbar/lösbar).
 var WORDLE_WORDS = [
-  // Digitale Grundbildung / einfache Informatik
-  'PIXEL','BYTES','CLICK','DATEN','VIRUS','CACHE','LOGIN','MAILS','CLOUD','CODES',
-  'INPUT','LINKS','MEDIA','SMART','HANDY','ALBUM','ARCHIV','AUDIO','BENUT','BINÄR',
-  'DATEI','DRUCKER','ENTER','FEHLER','GRAFIK','INTERNET','KABEL','MAUS',
-  // 5 Buchstaben, Informatik/Schule
-  'MUSIK','POWER','RESET','SCHUL','SEITE','SPELL','TASTE','TOUCH','WLANS',
-  'ALBUM','BRIEF','DRUCK','GERÄTS','ICONS','MODUL','NETZT','PAKET','PFEIL',
-  'PROBE','SCOUT','SHARE','SPALTE','TABELLE','VIREN','VOLLE','ZEILE',
-  // Einfache Informatik-Grundschule Begriffe (5 Buchstaben)
-  'MODUS','FENST','NETZE','DATEI','SCANS','BYTES','PIXEL','LAYER','QUEUE',
-  'STACK','ARRAY','LOOPS','TOKEN','ROUTE','SERVE','QUERY','INDEX','CLASS',
-  'BLOCK','BUILD','CRASH','DEBUG','FLOAT','FRAME','LOCAL','NODES','PARSE',
-  'PRINT','PROTO','SCOPE','STATE','STORE','TRACE','TYPES','VALID','VALUE',
-  'WATCH','WRITE','BREAK','AWAIT','CONST','SUPER','YIELD','SPAWN',
+  // Digitale Grundbildung / einfache Informatik (für Schüler)
+  'PIXEL','BYTES','CLICK','KLICK','DATEN','VIRUS','CACHE','LOGIN','MAILS','CLOUD',
+  'CODES','INPUT','LINKS','MEDIA','SMART','HANDY','ALBUM','AUDIO','DATEI','ENTER',
+  'KABEL','MUSIK','POWER','RESET','SEITE','SPELL','TASTE','TOUCH','BRIEF','DRUCK',
+  'ICONS','MODUL','PAKET','PFEIL','PROBE','SCOUT','SHARE','VIREN','VOLLE','ZEILE',
+  'MODUS','NETZE','SCANS','EMAIL','EMOJI','MODEM','DRIVE','FLASH','LASER','TONER',
+  'AKKUS','SUCHE','ZELLE','VIDEO','FOTOS','CHIPS','MAUSE','TEXTE','WORTE','DISKS',
+  'TABLE','TAFEL','GAMES','LEVEL','SCORE','SOUND','LADEN','TIPPS','ROBOT','BLITZ',
+  'STIFT',
+  // Programmierung / Technik (Englisch)
+  'LAYER','QUEUE','STACK','ARRAY','LOOPS','TOKEN','ROUTE','SERVE','QUERY','INDEX',
+  'CLASS','BLOCK','BUILD','CRASH','DEBUG','FLOAT','FRAME','LOCAL','NODES','PARSE',
+  'PRINT','PROTO','SCOPE','STATE','STORE','TRACE','TYPES','VALID','VALUE','WATCH',
+  'WRITE','BREAK','AWAIT','CONST','SUPER','YIELD','SPAWN',
   // Deutsche einfache Wörter
-  'ABEND','ALTER','AMPEL','APFEL','ATLAS','BITTE','BLATT','BLUME','BODEN',
-  'ESSEN','FEUER','FISCH','FLUSS','HILFE','KATZE','KREUZ','KRONE','LICHT',
-  'LIEBE','METER','MITTE','NACHT','PFEIL','PLATZ','REISE','RUNDE','SEITE',
-  'STADT','STERN','STROM','STUHL','TISCH','VOGEL','WOLKE','LEBEN','SPIEL',
-  'BREIT','STARK','OFFEN','WOCHE','KRAFT','FARBE','MARKT','WILLE','STUFE'
+  'ABEND','ALTER','AMPEL','APFEL','ATLAS','BITTE','BLATT','BLUME','BODEN','ESSEN',
+  'FEUER','FISCH','FLUSS','HILFE','KATZE','KREUZ','KRONE','LICHT','LIEBE','METER',
+  'MITTE','NACHT','PLATZ','REISE','RUNDE','STADT','STERN','STROM','STUHL','TISCH',
+  'VOGEL','WOLKE','LEBEN','SPIEL','BREIT','STARK','OFFEN','WOCHE','KRAFT','FARBE',
+  'MARKT','WILLE','STUFE'
 ];
 
 // Alle gültigen Ratewörter (Lösungen + erweitertes Vokabular)
