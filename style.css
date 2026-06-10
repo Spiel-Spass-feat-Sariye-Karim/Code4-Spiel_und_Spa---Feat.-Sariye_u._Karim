@@ -2862,7 +2862,18 @@ body.light .notif-dialog-box { background: #fff; border-color: rgba(0,0,0,0.08);
 .av-status-dot.online  { background: #4caf50; }
 .av-status-dot.away    { background: #ff9800; }
 .av-status-dot.dnd     { background: #ef4444; }
-.av-status-dot.offline { background: #555; }
+.av-status-dot.offline { background: #8b5cf6; }
+/* "Nicht stören": roter Kreis mit weißer Mittellinie (wie Discord/Slack/Teams) */
+.av-status-dot.dnd::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60%;
+  height: 22%;
+  background: #fff;
+  border-radius: 1px;
+}
 /* Kleinere Variante für Chat-Avatare */
 .chat-avatar-wrap { position: relative; display: inline-block; flex-shrink: 0; cursor: pointer; }
 .chat-avatar-wrap .chat-avatar { display: block; }
@@ -3535,6 +3546,13 @@ body.light .chat-receipt.tick-1 { color: rgba(0,0,0,0.4); }
 }
 #sidebar.expanded .sidebar-friend-info,
 #sidebar:hover .sidebar-friend-info { opacity: 1; }
+/* Im eingeklappten Zustand: Avatare kompakt & zentriert mit sichtbarer Status-Lampe */
+#sidebar:not(.expanded):not(:hover) .sidebar-friend {
+  justify-content: center;
+  gap: 0;
+  padding: 0.4rem 0;
+}
+#sidebar:not(.expanded):not(:hover) .sidebar-friend-info { display: none; }
 .sidebar-friend-name {
   font-size: 0.82rem;
   font-weight: 700;
@@ -3597,7 +3615,8 @@ body.light .chat-receipt.tick-1 { color: rgba(0,0,0,0.4); }
 }
 .pc-header:active { cursor: grabbing; }
 .pc-header-info { display: flex; align-items: center; gap: 0.6rem; }
-.pc-avatar { width: 32px; height: 32px; border-radius: 50%; background: #333; }
+.pc-avatar { width: 32px; height: 32px; border-radius: 50%; background: #333; display: block; }
+.pc-avatar-wrap.chat-avatar-wrap .av-status-dot { width: 10px; height: 10px; border-width: 1.5px; }
 #pc-name { font-weight: 700; font-size: 0.9rem; }
 .pc-name-col { display: flex; flex-direction: column; gap: 1px; }
 #pc-presence { font-size: 0.66rem; color: var(--dim); display: flex; align-items: center; }
@@ -5899,16 +5918,14 @@ body.light .arcade-input::placeholder { color: rgba(0,0,0,0.35); }
 /* ---- Avatar-Status-Dropdown (direkt unter dem Avatar) ---- */
 .avatar-status-menu {
   display: none;
-  position: absolute;
-  top: calc(100% + 12px);
-  left: 0;
+  position: fixed;
   min-width: 200px;
   background: var(--s1);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 14px;
   box-shadow: 0 12px 32px rgba(0,0,0,0.4);
   padding: 0.6rem;
-  z-index: 600;
+  z-index: 5000;
   animation: popIn 0.18s ease-out;
 }
 .avatar-status-menu.on { display: block; }

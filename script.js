@@ -1425,21 +1425,25 @@ function renderSidebar(friends) {
     var seed = f.avatar_seed || f.name || 'unknown';
     var av = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
     var count = unreadCounts[f.id] || 0;
+    var presence = f.presence || (f.is_online ? 'online' : 'offline');
     html +=
       '<div class="sidebar-friend" data-id="' + f.id + '">' +
-      '<div class="sidebar-friend-av-wrap">' +
-      '<img class="sidebar-friend-av" src="' + av + '" alt="">' +
+      '<div class="sidebar-friend-av-wrap chat-avatar-wrap" data-name="' + escHtml(f.name || '') + '" data-seed="' + encodeURIComponent(seed) + '" data-presence="' + presence + '" data-last-seen="' + (f.last_seen || '') + '">' +
+      '<img class="sidebar-friend-av chat-avatar" src="' + av + '" alt="">' +
+      '<span class="av-status-dot ' + presence + '"></span>' +
       '<span class="sidebar-unread-badge" style="display:' + (count > 0 ? 'flex' : 'none') + '">' + count + '</span>' +
       '</div>' +
       '<div class="sidebar-friend-info">' +
       '<div class="sidebar-friend-name">' + escHtml(f.name) + '</div>' +
-      '<div class="sidebar-friend-status">' + presenceLabel(f.presence || (f.is_online ? 'online' : 'offline'), f.last_seen) + '</div>' +
+      '<div class="sidebar-friend-status">' + presenceLabel(presence, f.last_seen) + '</div>' +
       '</div>' +
       '</div>';
   });
   container.innerHTML = html;
   container.querySelectorAll('.sidebar-friend').forEach(function(el) {
-    el.addEventListener('click', function() {
+    el.addEventListener('click', function(e) {
+      var avWrap = e.target.closest('.chat-avatar-wrap');
+      if (avWrap) { e.stopPropagation(); showUserStatusPopup(avWrap); return; }
       var fid = parseInt(this.dataset.id);
       var f = friendsList.find(function(fr) { return fr.id === fid; });
       if (f) openPrivateChat(f);
@@ -1453,6 +1457,16 @@ function openPrivateChat(friend) {
   document.getElementById('pc-avatar').src = 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + seed;
   document.getElementById('pc-name').textContent = friend.name;
   document.getElementById('pc-presence').innerHTML = '';
+  var pcWrap = document.getElementById('pc-avatar-wrap');
+  if (pcWrap) {
+    pcWrap.setAttribute('data-name', friend.name || '');
+    pcWrap.setAttribute('data-seed', encodeURIComponent(seed));
+    var initPresence = friend.presence || (friend.is_online ? 'online' : 'offline');
+    pcWrap.setAttribute('data-presence', initPresence);
+    pcWrap.setAttribute('data-last-seen', friend.last_seen || '');
+    var dot = document.getElementById('pc-avatar-status-dot');
+    if (dot) dot.className = 'av-status-dot ' + initPresence;
+  }
   var dndBanner = document.getElementById('pc-dnd-banner');
   if (dndBanner) { dndBanner.style.display = 'none'; dndBanner.innerHTML = ''; }
   document.getElementById('pc-input').value = '';
@@ -1485,6 +1499,13 @@ async function loadPrivateMessages() {
     // Präsenz-Anzeige & "Nicht stören"-Hinweis im Header aktualisieren
     var presenceEl = document.getElementById('pc-presence');
     if (presenceEl) presenceEl.innerHTML = presenceLabel(friendPresence, friendLastSeen);
+    var pcWrap2 = document.getElementById('pc-avatar-wrap');
+    if (pcWrap2) {
+      pcWrap2.setAttribute('data-presence', friendPresence);
+      pcWrap2.setAttribute('data-last-seen', friendLastSeen || '');
+      var pcDot = document.getElementById('pc-avatar-status-dot');
+      if (pcDot) pcDot.className = 'av-status-dot ' + friendPresence;
+    }
     var dndBanner = document.getElementById('pc-dnd-banner');
     if (dndBanner) {
       if (friendPresence === 'dnd') {
@@ -3337,6 +3358,10 @@ document.getElementById('pc-messages').addEventListener('click', function(e) {
   var wrap = e.target.closest('.chat-avatar-wrap');
   if (wrap) { e.stopPropagation(); showUserStatusPopup(wrap); }
 });
+document.getElementById('pc-avatar-wrap').addEventListener('click', function(e) {
+  e.stopPropagation();
+  showUserStatusPopup(this);
+});
 
 function openG(id) {
   which = id;
@@ -4544,7 +4569,17 @@ document.getElementById("avatar-spotlight-wrap").style.cursor = "pointer";
 document.getElementById("avatar").addEventListener("click", function(e) {
   e.stopPropagation();
   refreshStatusMenu();
-  document.getElementById("avatar-status-menu").classList.toggle("on");
+  var menu = document.getElementById("avatar-status-menu");
+  var willOpen = !menu.classList.contains("on");
+  if (willOpen) {
+    var rect = document.getElementById("avatar-spotlight-wrap").getBoundingClientRect();
+    menu.style.top = (rect.bottom + 8) + 'px';
+    var left = rect.left;
+    if (left + 200 > window.innerWidth) left = window.innerWidth - 210;
+    if (left < 8) left = 8;
+    menu.style.left = left + 'px';
+  }
+  menu.classList.toggle("on");
 });
 document.getElementById("avatar-status-menu").addEventListener("click", function(e) {
   e.stopPropagation();
@@ -4608,6 +4643,7 @@ document.querySelectorAll('.status-option').forEach(function(btn) {
   btn.addEventListener('click', function() {
     if (!user) return;
     var status = btn.getAttribute('data-status');
+    document.getElementById('avatar-status-menu').classList.remove('on');
     if (user.status === status) return;
     user.status = status;
     refreshStatusMenu();
