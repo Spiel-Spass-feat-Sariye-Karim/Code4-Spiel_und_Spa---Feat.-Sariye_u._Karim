@@ -3039,7 +3039,7 @@ body.light .search-user-row { background: #f5f5f5; }
 .guess-range-fill {
   position: absolute;
   top: 0; bottom: 0;
-  background: linear-gradient(90deg, var(--c1), var(--c2, var(--c1)));
+  background: linear-gradient(90deg, #ff3b3b, #ff9500, #ffd60a, #4ade80);
   opacity: 0.35;
   border-radius: 6px;
   transition: left 0.3s ease, right 0.3s ease;
