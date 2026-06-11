@@ -6927,3 +6927,11 @@ body.light .avatar-status-menu-link:hover { background: #f0f0f6; }
   border-radius: 8px; color: rgba(255,255,255,0.5);
   cursor: pointer;
 }
+
+/* ── Web-Layout: mehr letter-spacing für Kategorie-Beschriftungen
+   (SINGLEPLAYER/MULTIPLAYER, "9 Spiele"/"6 Spiele") gegen das
+   zusammengequetschte VT323-Schriftbild ─ nur Desktop/Tablet ── */
+@media (min-width: 501px) {
+  .cat-header .cat-title { letter-spacing: 0.1em; }
+  .cat-badge { letter-spacing: 0.06em; }
+}
