@@ -3043,6 +3043,23 @@ function renderSbTable() {
   document.getElementById('global-hs').innerHTML = '<div class="sb-unified"><div class="sb-unified-header">🏆 '+label+' — Gesamtranking</div><div class="sb-table-wrap"><table class="sb-table">'+thead+tbody+'</table></div>'+mobileList+'</div>';
 }
 
+function pdStatRow(icon, label, leftVal, rightVal, key) {
+  var leftHtml = key === 'rank_points' ? (leftVal||0)+'<span class="pd-stat-unit"> RP</span>' : fmtVal(leftVal, key);
+  var rightHtml = key === 'rank_points' ? (rightVal||0)+'<span class="pd-stat-unit"> RP</span>' : fmtVal(rightVal, key);
+  var leftCls = '', rightCls = '';
+  var lv = leftVal||0, rv = rightVal||0;
+  if (lv && rv && lv !== rv) {
+    var leftWins = key === 'reaction_ms' ? lv < rv : lv > rv;
+    leftCls = leftWins ? ' pd-better' : '';
+    rightCls = leftWins ? '' : ' pd-better';
+  }
+  return '<div class="pd-stat">'
+    + '<span class="pd-stat-value pd-stat-left'+leftCls+'">'+leftHtml+'</span>'
+    + '<span class="pd-stat-mid"><span class="pd-stat-icon">'+icon+'</span><span class="pd-stat-label">'+label+'</span></span>'
+    + '<span class="pd-stat-value pd-stat-right'+rightCls+'">'+rightHtml+'</span>'
+    + '</div>';
+}
+
 function openPlayerDetail(s) {
   var rp = s.rank_points || 0;
   document.getElementById('pd-avatar').src = avUrl(s);
@@ -3050,10 +3067,19 @@ function openPlayerDetail(s) {
   var badge = document.getElementById('pd-rank-badge');
   badge.textContent = getRank(rp);
   badge.style.color = getRankColor(rp);
-  var body = '<div class="pd-stat pd-stat-rp"><span class="pd-stat-icon">🏆</span><span class="pd-stat-label">Rang-Punkte</span><span class="pd-stat-value">'+rp+'<span class="pd-stat-unit"> RP</span></span></div>';
+
+  var me = (user && sbAllScores.find(function(r){ return r.name === user.name; })) || user || {};
+  var myRp = me.rank_points || 0;
+  document.getElementById('pd-my-avatar').src = avUrl(me);
+  document.getElementById('pd-my-name').textContent = me.name || 'Du';
+  var myBadge = document.getElementById('pd-my-rank-badge');
+  myBadge.textContent = getRank(myRp);
+  myBadge.style.color = getRankColor(myRp);
+
+  var body = pdStatRow('🏆', 'Rang-Punkte', rp, myRp, 'rank_points');
   for (var ci=0; ci<sbCols.length; ci++) {
     var c = sbCols[ci];
-    body += '<div class="pd-stat"><span class="pd-stat-icon">'+c.th+'</span><span class="pd-stat-label">'+c.label+'</span><span class="pd-stat-value">'+fmtVal(s[c.key], c.key)+'</span></div>';
+    body += pdStatRow(c.th, c.label, s[c.key], me[c.key], c.key);
   }
   document.getElementById('pd-body').innerHTML = body;
   document.getElementById('player-detail-overlay').classList.add('open');

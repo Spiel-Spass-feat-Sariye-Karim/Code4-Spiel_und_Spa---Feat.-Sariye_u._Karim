@@ -509,6 +509,10 @@
   <div class="player-detail-sheet">
     <div class="pd-handle"></div>
     <div class="pd-header">
+      <span class="pd-header-title">📊 Vergleich</span>
+      <button id="pd-close" title="Schließen">✕</button>
+    </div>
+    <div class="pd-compare-header">
       <div class="pd-player">
         <img id="pd-avatar" class="pd-avatar" src="" alt="">
         <div class="pd-player-text">
@@ -516,7 +520,14 @@
           <span id="pd-rank-badge" class="pd-rank-badge"></span>
         </div>
       </div>
-      <button id="pd-close" title="Schließen">✕</button>
+      <div class="pd-vs">VS</div>
+      <div class="pd-player pd-player-me">
+        <img id="pd-my-avatar" class="pd-avatar" src="" alt="">
+        <div class="pd-player-text">
+          <span id="pd-my-name" class="pd-name"></span>
+          <span id="pd-my-rank-badge" class="pd-rank-badge"></span>
+        </div>
+      </div>
     </div>
     <div class="pd-body" id="pd-body"></div>
   </div>
