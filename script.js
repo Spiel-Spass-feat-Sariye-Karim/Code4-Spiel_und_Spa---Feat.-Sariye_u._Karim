@@ -3043,6 +3043,16 @@ function renderSbTable() {
   document.getElementById('global-hs').innerHTML = '<div class="sb-unified"><div class="sb-unified-header">🏆 '+label+' — Gesamtranking</div><div class="sb-table-wrap"><table class="sb-table">'+thead+tbody+'</table></div>'+mobileList+'</div>';
 }
 
+function pdDiffBadge(leftVal, rightVal, key) {
+  var lv = leftVal||0, rv = rightVal||0;
+  if (!lv || !rv) return '';
+  var diff = key === 'reaction_ms' ? (lv - rv) : (rv - lv);
+  if (diff === 0) return '<span class="pd-diff pd-diff-neutral">±0</span>';
+  var cls = diff > 0 ? 'pd-diff-good' : 'pd-diff-bad';
+  var sign = diff > 0 ? '+' : '−';
+  return '<span class="pd-diff '+cls+'">'+sign+Math.abs(diff)+'</span>';
+}
+
 function pdStatRow(icon, label, leftVal, rightVal, key) {
   var leftHtml = key === 'rank_points' ? (leftVal||0)+'<span class="pd-stat-unit"> RP</span>' : fmtVal(leftVal, key);
   var rightHtml = key === 'rank_points' ? (rightVal||0)+'<span class="pd-stat-unit"> RP</span>' : fmtVal(rightVal, key);
@@ -3056,7 +3066,7 @@ function pdStatRow(icon, label, leftVal, rightVal, key) {
   return '<div class="pd-stat">'
     + '<span class="pd-stat-value pd-stat-left'+leftCls+'">'+leftHtml+'</span>'
     + '<span class="pd-stat-mid"><span class="pd-stat-icon">'+icon+'</span><span class="pd-stat-label">'+label+'</span></span>'
-    + '<span class="pd-stat-value pd-stat-right'+rightCls+'">'+rightHtml+'</span>'
+    + '<span class="pd-stat-value pd-stat-right'+rightCls+'">'+rightHtml+pdDiffBadge(leftVal, rightVal, key)+'</span>'
     + '</div>';
 }
 

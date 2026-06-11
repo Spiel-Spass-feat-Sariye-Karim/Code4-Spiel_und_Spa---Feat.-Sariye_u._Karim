@@ -6604,9 +6604,25 @@ body.light .avatar-status-menu-link:hover { background: #f0f0f6; }
 .pd-stat-label { font-size: 0.6rem; color: var(--dim); text-align: center; white-space: nowrap; }
 .pd-stat-value { font-weight: 700; color: var(--tx); font-size: 0.95rem; white-space: nowrap; }
 .pd-stat-left { text-align: right; }
-.pd-stat-right { text-align: left; }
+.pd-stat-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  text-align: left;
+}
 .pd-stat-unit { font-size: 0.65rem; font-weight: 400; color: var(--dim); }
 .pd-better { color: var(--c2); }
+.pd-diff {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.pd-diff-good { color: var(--c2); background: rgba(27,158,119,0.15); }
+.pd-diff-bad { color: #f44336; background: rgba(244,67,54,0.15); }
+.pd-diff-neutral { color: var(--dim); background: rgba(255,255,255,0.06); }
 
 /* ── Blinking "WEITER" arrow — shown on step 1 (first-step class) ── */
 .guide-overlay.first-step .guide-btn-next::after {
