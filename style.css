@@ -5514,10 +5514,10 @@ body.light .hero.hero-enhanced::before { opacity: 0.15; }
 
 .hero h1 {
   font-family: var(--retro-font) !important;
-  font-size: 3.6rem !important;
-  font-weight: 400 !important;
+  font-size: 4.2rem !important;
+  font-weight: 700 !important;
   line-height: 1.1;
-  margin-bottom: 0.8rem;
+  margin-bottom: 1.2rem;
   text-shadow:
     0 0 20px rgba(255,87,51,0.5),
     0 0 60px rgba(255,87,51,0.2);
