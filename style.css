@@ -564,32 +564,6 @@ header > * { position: relative; z-index: 1; }
    RETRO ARCADE HEADER — cabinet-style neon frame
    ════════════════════════════════════════════════ */
 
-/* Animated neon top-border on header — like cabinet marquee lighting */
-header::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    #ff5733 15%,
-    #fbbf24 30%,
-    #a78bfa 45%,
-    #38bdf8 60%,
-    #4ade80 75%,
-    #ff5733 90%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  animation: headerRainbow 3s linear infinite;
-  z-index: 0;
-}
-@keyframes headerRainbow {
-  0%   { background-position: 0% 0%; }
-  100% { background-position: 200% 0%; }
-}
-body.light header::before { opacity: 0.5; }
-
 /* ── Logo — pixel font + neon glow ─────────────────── */
 .logo {
   font-family: 'Press Start 2P', monospace;
@@ -1138,19 +1112,6 @@ body.light .card-featured { background: #fff5f5; border-color: #fca5a5; box-shad
 .card:nth-child(5) { animation-delay: 2.4s; }
 .card:nth-child(6) { animation-delay: 3.0s; }
 .card:nth-child(7) { animation-delay: 3.6s; }
-
-/* Retro "coin" decorative elements on hero */
-.hero::after {
-  content: '▶ CREDIT 00 ◀';
-  display: block;
-  font-family: 'Press Start 2P', monospace;
-  font-size: 0.45rem;
-  color: rgba(255,87,51,0.35);
-  letter-spacing: 0.15em;
-  margin-top: 0.5rem;
-  animation: blinkStart 1.8s step-end infinite;
-}
-body.light .hero::after { color: rgba(200,60,20,0.25); }
 
 /* Neon glow on .stat-box */
 .stat-box {
@@ -5258,9 +5219,6 @@ body.light .sb-table .sbt-wortblitz { color: #0284c7; }
    PERFORMANCE TRIM — remove CPU-heavy animations for 60fps
    ═══════════════════════════════════════════════════════════ */
 
-/* Kill headerRainbow (expensive animated gradient) */
-header::before { animation: none; background: linear-gradient(90deg, #ff5733 0%, #c026d3 50%, #ff8c00 100%); opacity: 0.7; }
-
 /* Simplify logo animation — one gentle pulse only */
 .logo { animation: logoGlow 4s ease-in-out infinite alternate !important; }
 body.light .logo { animation: logoGlowLight 4s ease-in-out infinite alternate !important; }
@@ -5536,15 +5494,6 @@ body.light .tr-input { background: #fff; border-color: #ccc; color: #111; }
 }
 body.light .hero.hero-enhanced::before { opacity: 0.15; }
 
-/* Horizontal neon lines */
-.hero.hero-enhanced::after {
-  content: '';
-  position: absolute; left: 0; right: 0;
-  bottom: 0; height: 3px;
-  background: linear-gradient(90deg, transparent, #ff5733 20%, #c026d3 50%, #ff5733 80%, transparent);
-  pointer-events: none; z-index: 0;
-}
-
 .hero-top-label {
   font-family: var(--pixel-font);
   font-size: 0.5rem;
@@ -5565,9 +5514,10 @@ body.light .hero.hero-enhanced::before { opacity: 0.15; }
 
 .hero h1 {
   font-family: var(--retro-font) !important;
-  font-size: 3rem !important;
+  font-size: 3.6rem !important;
   font-weight: 400 !important;
   line-height: 1.1;
+  margin-bottom: 0.8rem;
   text-shadow:
     0 0 20px rgba(255,87,51,0.5),
     0 0 60px rgba(255,87,51,0.2);
