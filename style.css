@@ -777,24 +777,6 @@ body.light .hero-grid {
 /* Ensure hero text is above grid */
 .hero > *:not(.hero-grid) { position: relative; z-index: 1; }
 
-/* ── Neon corner decorations ─────────────────────────────────── */
-.arcade-corner {
-  position: fixed;
-  width: 60px;
-  height: 60px;
-  pointer-events: none;
-  z-index: 9997;
-  opacity: 0.35;
-  animation: cornerPulse 3s ease-in-out infinite alternate;
-}
-.arcade-corner-tl { top: 70px; left: 12px; border-top: 2px solid var(--c1); border-left: 2px solid var(--c1); }
-.arcade-corner-tr { top: 70px; right: 12px; border-top: 2px solid #7c3aed; border-right: 2px solid #7c3aed; animation-delay: 1.5s; }
-@keyframes cornerPulse {
-  0%   { opacity: 0.2; }
-  100% { opacity: 0.6; filter: drop-shadow(0 0 4px currentColor); }
-}
-body.light .arcade-corner { opacity: 0.2; }
-
 /* ── Floating arcade particles (via JS) ──────────────────────── */
 #arcade-particles {
   position: fixed;
@@ -2134,9 +2116,6 @@ header {
   padding: 0.25rem 0.5rem;
   font-size: 0.68rem;
 }
-/* Neon corner decorations sit behind the (now taller) header,
-   so they no longer cut through the avatar or the logout button */
-.arcade-corner { z-index: 1; }
 .hero { padding: 2rem 1rem 1rem; }
 .hero h1 { font-size: 1.3rem; }
 .cards { flex-direction: column; align-items: center; }
