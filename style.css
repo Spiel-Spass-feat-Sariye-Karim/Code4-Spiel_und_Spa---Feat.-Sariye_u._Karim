@@ -5561,6 +5561,12 @@ body.light .hero.hero-enhanced::before { opacity: 0.15; }
   display: inline-block;
   animation: heroTicker 25s linear infinite;
 }
+/* Desktop gets custom game-specific ticker text; mobile keeps the original for now */
+.hero-ticker-mobile { display: none; }
+@media (max-width: 500px) {
+  .hero-ticker-desktop { display: none; }
+  .hero-ticker-mobile { display: block; }
+}
 
 /* ════════════════════════════════════════════════
    PASSWORT VERGESSEN — Modal + Reset Panel
