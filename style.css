@@ -6880,3 +6880,15 @@ body.light .avatar-status-menu-link:hover { background: #f0f0f6; }
   .hero.hero-enhanced { padding-top: 1.2rem; }
   .hero-ticker-desktop { margin-top: 1.2rem; }
 }
+
+/* ── Vertically center title/description in the top 3 multiplayer
+   cards ─ nur Desktop ── Tipp-Rennen's longer text stretches the row
+   (align-items: stretch), leaving icon/title/text top-aligned with a
+   large empty gap below in the other two cards of that row. */
+@media (min-width: 501px) {
+  #card-multiplayer, #card-connect4, #card-elfmeter {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+}
